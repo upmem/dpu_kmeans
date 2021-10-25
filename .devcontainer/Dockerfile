@@ -10,8 +10,8 @@ FROM mcr.microsoft.com/vscode/devcontainers/base:0-${VARIANT}
 
 
 RUN sudo apt update \
+    && sudo apt install -y pip cmake ninja-build python-is-python3\
     && wget http://sdk-releases.upmem.com/2021.2.0/ubuntu_20.04/upmem_2021.2.0_amd64.deb \
     && sudo apt install -y ./upmem_2021.2.0_amd64.deb \
-    && sudo apt install -y pip cmake ninja-build \
     && sudo apt full-upgrade -y \
-    && pip install --upgrade pip nox pre-commit scikit-build pybind11[global] importlib_resources twine setuptools_scm
+    && pip install --upgrade nox pre-commit scikit-build pybind11[global] twine setuptools_scm

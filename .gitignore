@@ -146,4 +146,4 @@ cython_debug/
 _skbuild/
 
 # built dpu binaries
-src/dpu_trees/dpu_program/
+src/dpu_kmeans/dpu_program/
