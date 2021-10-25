@@ -27,7 +27,7 @@
     // "postCreateCommand": "uname -a",
 
     // Comment out connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
-    // "remoteUser": "vscode",
+    "remoteUser": "vscode",
 
-    "postCreateCommand": "pre-commit install && python3 setup.py develop && python3 setup.py clean"
+    "postCreateCommand": "sudo pre-commit install && pip install -e . && python3 setup.py clean"
 }

@@ -1,1 +1,0 @@
-.. automodule:: dpu_trees
