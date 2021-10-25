@@ -6,7 +6,8 @@ requires = [
     "cmake>=3.21",
     "scikit-build>=0.12",
     "ninja",
-    "pkgconfig"
+    "pkgconfig",
+    "setuptools_scm>=6.2",
 ]
 
 build-backend = "setuptools.build_meta"

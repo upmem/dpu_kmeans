@@ -16,17 +16,19 @@ from setuptools import find_packages
 
 # compilation of the host library
 setup(
-    name="dpu_trees",
-    version="0.0.4-alpha",
-    description="a package for tree algorithms on DPU",
+    name="dpu_kmeans",
+    use_scm_version={
+        "root": ".",
+        "relative_to": __file__,
+    },
+    description="a package for the k-means algorithm on DPU",
     author="Sylvan Brocard",
     author_email="sylvan.brocard@gmail.com",
-    url="https://github.com/SylvanBrocard/dpu_trees",
-    download_url="https://github.com/SylvanBrocard/dpu_trees/archive/refs/tags/v0.0.2-alpha.tar.gz",
+    url="https://github.com/upmem/dpu_kmeans",
     license="MIT",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
-    cmake_install_dir="src/dpu_trees",
+    cmake_install_dir="src/dpu_kmeans",
     include_package_data=True,
     extras_require={
         "test": ["pytest"],

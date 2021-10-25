@@ -10,7 +10,7 @@ Welcome to dpu_trees's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   dpu_trees
+   dpu_kmeans
 
 
 

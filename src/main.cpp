@@ -19,10 +19,10 @@ namespace py = pybind11;
 
 PYBIND11_MODULE(_core, m) {
     m.doc() = R"pbdoc(
-        DPU trees plugin
-        ----------------
+        DPU kmeans plugin
+        -----------------
 
-        .. currentmodule:: dpu_trees
+        .. currentmodule:: dpu_kmeans
 
         .. autosummary::
            :toctree: _generate

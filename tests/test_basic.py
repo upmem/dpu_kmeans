@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import dpu_trees as m
+import dpu_kmeans as m
 
 
 def test_add():

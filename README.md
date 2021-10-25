@@ -3,9 +3,7 @@ dpu_trees
 
 |      CI              | status |
 |----------------------|--------|
-| conda.recipe         | [![Conda Actions Status][actions-conda-badge]][actions-conda-link] |
 | pip builds           | [![Pip Actions Status][actions-pip-badge]][actions-pip-link] |
-| wheel                | [![Wheels Actions Status][actions-wheels-badge]][actions-wheels-link] |
 
 A project built with [pybind11](https://github.com/pybind/pybind11) and scikit-build, running DPU programs with the UPMEM SDK.
 
@@ -20,6 +18,7 @@ A project built with [pybind11](https://github.com/pybind/pybind11) and scikit-b
 Installation
 ------------
 
+- install the [UPMEM SDK](https://sdk.upmem.com/)
 - `pip install dpu-trees`
 
 OR
@@ -69,5 +68,6 @@ Test call
 import dpu_trees
 dpu_trees.add(1, 2)
 ```
+Expected return: `0x007f8000`
 
 [`cibuildwheel`]:          https://cibuildwheel.readthedocs.io
