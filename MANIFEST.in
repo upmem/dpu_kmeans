@@ -1,0 +1,8 @@
+include pyproject.toml
+include README.md
+include LICENSE
+include CMakeLists.txt
+
+graft src
+
+prune src/dpu_trees/dpu_program

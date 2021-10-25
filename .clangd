@@ -1,0 +1,2 @@
+CompileFlags: # Tweak the parse settings
+  Add: [-I/usr/local/lib/python3.8/dist-packages/pybind11/include, -I/usr/include/python3.8, -I/usr/include/dpu, -I/usr/share/upmem/include/syslib/, -ldpu]
