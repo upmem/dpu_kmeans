@@ -15,22 +15,30 @@ int array_sum(){
 extern "C" char* call_home(char*);
 extern "C" int dpu_test(char*);
 extern "C" int checksum(char*);
-extern "C" int main(int, char**);
+extern "C" int kmeans_c(int, char**);
 
 // namespace py = pybind11;
 
-void kmeans(char *commandLine){
+void kmeans(char *commandLine2){
+    printf("parsing inputs\n");
+
+    char commandLine[] = "./kmeans -o -b -n 4 -m 4 -i /scratch/sbrocard/beach.dat";
     int argc = 0;
     char *argv[64];
+    printf("before strtok\n");
     char *p2 = strtok(commandLine, " ");
+    printf("before loop\n");
     while (p2 && argc < 63)
     {
         argv[argc++] = p2;
         p2 = strtok(0, " ");
+        printf("p2 = %s\n", p2);
     }
     argv[argc] = 0;
 
-    main(argc, argv);
+    printf("finished parsing\n");
+
+    kmeans_c(argc, argv);
 }
 
 PYBIND11_MODULE(_core, m) {

@@ -11,7 +11,7 @@ from ._core import (
 )
 
 # from .base_tree import printbin
-from .base_tree import test_dpu_bin, test_checksum, test_main
+from .base_tree import test_dpu_bin, test_checksum, test_kmeans
 
 
 def add2(x: int, y: int) -> int:

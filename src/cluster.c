@@ -21,7 +21,7 @@ struct timeval cluster_timing; /**< Total clustering time */
 float min_rmse_ref = FLT_MAX;  /**< reference min_rmse value */
 
 #ifndef DPU_BINARY
-#define DPU_BINARY "dpu_program/kmeans_dpu_kernel" /**< filename of the binary sent to the kernel */
+#define DPU_BINARY "src/dpu_kmeans/dpu_program/kmeans_dpu_kernel" /**< filename of the binary sent to the kernel */
 #endif
 extern struct dpu_set_t allset;
 
@@ -127,8 +127,10 @@ int cluster(
     fprintf(fp, "npoints : %lu, nfeatures : %d\n", npoints, nfeatures);
     fprintf(fp, "nclusters, iterations, time in seconds\n");
 
+    printf("Possible break point\n");
     /* load DPU binary */
     DPU_ASSERT(dpu_load(allset, DPU_BINARY, NULL));
+    printf("Wasn't load\n");
 
     /* allocate memory for membership */
     membership = (uint8_t *)malloc(npadded * sizeof(uint8_t));

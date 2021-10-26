@@ -418,8 +418,10 @@ float preprocessing(
  * @param argv command line arguments
  * @return int 0 on normal exit
  */
-int main(int argc, char **argv)
+int kmeans_c(int argc, char **argv)
 {
+    printf("helloword\n");
+
     /* Variables for I/O. */
     int opt;
     extern char *optarg;
