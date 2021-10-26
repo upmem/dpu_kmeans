@@ -19,22 +19,16 @@ Installation
 ------------
 
 - install the [UPMEM SDK](https://sdk.upmem.com/)
-- `pip install dpu-trees`
-
-OR
-
-- clone this repository
-- install the [UPMEM SDK](https://sdk.upmem.com/)
-- `pip install ./dpu_trees`
+- `pip install dpu-kmeans`
 
 Development
 -----------
 
 - clone this repository
 - install the [UPMEM SDK](https://sdk.upmem.com/)
-- `cd dpu_trees`
+- `cd dpu_kmeans`
 - `pre-commit install`
-- `python3 setup.py develop`
+- `pip install -e .`
 - `python setup.py clean`
 
 OR
@@ -59,7 +53,7 @@ OR
 - start in Dev Container
 - `nox`
 
-*Note:* `nox` and `pip` will fail if you executed `setup.py install` or `setup.py develop`, delete the cache by running `python setup.py clean` to solve.
+*Note:* `nox` and `pip` might fail if you executed `pip install .` previously, delete the `_skbuild` cache or run `python setup.py clean` to solve.
 
 Test call
 ---------
