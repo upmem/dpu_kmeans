@@ -1,4 +1,6 @@
 cmake_minimum_required(VERSION 3.15...3.19)
+set(CMAKE_C_COMPILER "gcc")
+set(CMAKE_CXX_COMPILER "g++")
 
 project(dpu_kmeans)
 
@@ -42,8 +44,19 @@ find_package(PkgConfig REQUIRED)
 # "${UPMEM_HOME}/share/pkgconfig") endif()
 pkg_search_module(DPU REQUIRED IMPORTED_TARGET dpu)
 
-pybind11_add_module(_core MODULE src/main.cpp src/trees.c)
-target_link_libraries(_core PRIVATE PkgConfig::DPU)
+find_package(OpenMP REQUIRED)
+
+pybind11_add_module(
+  _core
+  MODULE
+  src/main.cpp
+  src/trees.c
+  src/kmeans.c
+  src/cluster.c
+  src/kmeans_clustering.c
+  src/kmeans_dpu.c
+  src/rmse.c)
+target_link_libraries(_core PRIVATE PkgConfig::DPU OpenMP::OpenMP_CXX)
 target_include_directories(_core PRIVATE PkgConfig::DPU)
 
 target_compile_definitions(_core PRIVATE VERSION_INFO=${PROJECT_VERSION})

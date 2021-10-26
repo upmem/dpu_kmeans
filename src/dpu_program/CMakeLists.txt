@@ -14,6 +14,8 @@ include("${UPMEM_HOME}/share/upmem/cmake/dpu.cmake")
 
 add_executable(helloworld helloworld.c)
 add_executable(trivial_checksum_example trivial_checksum_example.c)
+add_executable(kmeans_dpu_kernel kmeans_dpu_kernel.c)
 
 install(TARGETS helloworld DESTINATION .)
 install(TARGETS trivial_checksum_example DESTINATION .)
+install(TARGETS kmeans_dpu_kernel DESTINATION .)

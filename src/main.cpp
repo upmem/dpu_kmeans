@@ -1,4 +1,5 @@
 #include <pybind11/pybind11.h>
+// #include <wordexp.h>
 
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)
@@ -14,8 +15,23 @@ int array_sum(){
 extern "C" char* call_home(char*);
 extern "C" int dpu_test(char*);
 extern "C" int checksum(char*);
+extern "C" int main(int, char**);
 
-namespace py = pybind11;
+// namespace py = pybind11;
+
+void kmeans(char *commandLine){
+    int argc = 0;
+    char *argv[64];
+    char *p2 = strtok(commandLine, " ");
+    while (p2 && argc < 63)
+    {
+        argv[argc++] = p2;
+        p2 = strtok(0, " ");
+    }
+    argv[argc] = 0;
+
+    main(argc, argv);
+}
 
 PYBIND11_MODULE(_core, m) {
     m.doc() = R"pbdoc(
@@ -32,6 +48,7 @@ PYBIND11_MODULE(_core, m) {
            call_home
            dpu_test
            checksum
+           main
     )pbdoc";
 
     m.def("add", &add, R"pbdoc(
@@ -56,6 +73,10 @@ PYBIND11_MODULE(_core, m) {
 
     m.def("checksum", &checksum, R"pbdoc(
         Checksum test on dpus
+    )pbdoc");
+
+    m.def("kmeans", &kmeans, R"pbdoc(
+        Main kmeans function
     )pbdoc");
 
 #ifdef VERSION_INFO
