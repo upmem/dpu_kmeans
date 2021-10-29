@@ -245,9 +245,9 @@ int cluster(
                 if (rmse < min_rmse_ref)
                 {
                     min_rmse_ref = rmse;         //update reference min RMSE
-                    *min_rmse = min_rmse_ref;     //update return min RMSE
+                    *min_rmse = min_rmse_ref;    //update return min RMSE
                     *best_nclusters = nclusters; //update optimum number of clusters
-                    index = i_init;                 //update number of iteration to reach best RMSE
+                    index = i_init;              //update number of iteration to reach best RMSE
                 }
             }
         }

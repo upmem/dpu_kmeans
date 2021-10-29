@@ -96,7 +96,7 @@ int main(int, char **);
 
 /** @name cluster.c */
 /**@{*/
-int cluster(uint64_t, uint64_t, int, uint32_t, float **, int_feature **, int, int, float, int *, float ***, float *, int, int, char *, const char*);
+int cluster(uint64_t, uint64_t, int, uint32_t, float **, int_feature **, int, int, float, int *, float ***, float *, int, int, char *, const char *);
 int get_lcm(int, int);
 /**@}*/
 

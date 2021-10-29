@@ -248,10 +248,10 @@ float preprocessing(
     float max_feature = 0;
     float scale_factor;
 
-    #ifdef PERF_COUNTER
+#ifdef PERF_COUNTER
     struct timeval tic, toc;
     gettimeofday(&tic, NULL);
-    #endif
+#endif
 
     /* DEBUG : print features head */
     // printf("features head:\n");
@@ -265,34 +265,36 @@ float preprocessing(
 
     mean = (float *)calloc(nfeatures, sizeof(float));
     variance = (double *)calloc(nfeatures, sizeof(double));
-    /* compute mean by feature */
-    #pragma omp parallel for collapse(2) \
-            reduction(+ : mean[:nfeatures])
+/* compute mean by feature */
+#pragma omp parallel for collapse(2) \
+    reduction(+                      \
+              : mean[:nfeatures])
     for (ifeature = 0; ifeature < nfeatures; ifeature++)
         for (ipoint = 0; ipoint < npoints; ipoint++)
             mean[ifeature] += features[ipoint][ifeature];
 
-    #pragma omp parallel for
+#pragma omp parallel for
     for (ifeature = 0; ifeature < nfeatures; ifeature++)
         mean[ifeature] /= npoints;
 
-    /* DEBUG : print the means per feature */
-    // printf("means = ");
-    // for (ifeature = 0; ifeature < nfeatures; ifeature++)
-    //     printf(" %.4f",mean[ifeature]);
-    // printf("\n");
+/* DEBUG : print the means per feature */
+// printf("means = ");
+// for (ifeature = 0; ifeature < nfeatures; ifeature++)
+//     printf(" %.4f",mean[ifeature]);
+// printf("\n");
 
-    /* subtract mean from each feature */
-    #pragma omp parallel for collapse(2)
+/* subtract mean from each feature */
+#pragma omp parallel for collapse(2)
     for (ipoint = 0; ipoint < npoints; ipoint++)
         for (ifeature = 0; ifeature < nfeatures; ifeature++)
             features[ipoint][ifeature] -= mean[ifeature];
 
-    /* ****** discretization ****** */
+/* ****** discretization ****** */
 
-    /* get maximum absolute value of features */
-    #pragma omp parallel for collapse(2) \
-            reduction(max : max_feature)
+/* get maximum absolute value of features */
+#pragma omp parallel for collapse(2) \
+    reduction(max                    \
+              : max_feature)
     for (ipoint = 0; ipoint < npoints; ipoint++)
         for (ifeature = 0; ifeature < nfeatures; ifeature++)
             if (fabsf(features[ipoint][ifeature]) > max_feature)
@@ -329,59 +331,61 @@ float preprocessing(
         exit(EXIT_FAILURE);
     }
 
-    #pragma omp parallel for collapse(2)
+#pragma omp parallel for collapse(2)
     for (ipoint = 0; ipoint < npoints; ipoint++)
         for (ifeature = 0; ifeature < nfeatures; ifeature++)
             features_int[ipoint][ifeature] = lroundf(features[ipoint][ifeature] * scale_factor);
 
-    /* DEBUG : print features head */
-    // printf("features head:\n");
-    // for (int ipoint = 0; ipoint < 10; ipoint++)
-    // {
-    //     for (int ifeature = 0; ifeature < nfeatures; ifeature++)
-    //         printf("%8d ", features_int[ipoint][ifeature]);
-    //     printf("\n");
-    // }
-    // printf("\n");
+/* DEBUG : print features head */
+// printf("features head:\n");
+// for (int ipoint = 0; ipoint < 10; ipoint++)
+// {
+//     for (int ifeature = 0; ifeature < nfeatures; ifeature++)
+//         printf("%8d ", features_int[ipoint][ifeature]);
+//     printf("\n");
+// }
+// printf("\n");
 
-    /* DEBUG : print features maxes */
-    // printf("features max:\n");
-    // for (ifeature = 0; ifeature < nfeatures; ifeature++){
-    //     int max_features_int = 0;
-    //     for (ipoint = 0; ipoint < npoints; ipoint++){
-    //         if (features_int[ipoint][ifeature] > max_features_int)
-    //             max_features_int = features_int[ipoint][ifeature];
-    //     }
-    //     printf("%d ", max_features_int);
-    // }
-    // printf("\n");
+/* DEBUG : print features maxes */
+// printf("features max:\n");
+// for (ifeature = 0; ifeature < nfeatures; ifeature++){
+//     int max_features_int = 0;
+//     for (ipoint = 0; ipoint < npoints; ipoint++){
+//         if (features_int[ipoint][ifeature] > max_features_int)
+//             max_features_int = features_int[ipoint][ifeature];
+//     }
+//     printf("%d ", max_features_int);
+// }
+// printf("\n");
 
-    /* ***** discretization end ***** */
+/* ***** discretization end ***** */
 
-    /* compute variance by feature */
-    #pragma omp parallel for collapse(2) \
-            reduction(+ : variance[:nfeatures])
+/* compute variance by feature */
+#pragma omp parallel for collapse(2) \
+    reduction(+                      \
+              : variance[:nfeatures])
     for (ipoint = 0; ipoint < npoints; ipoint++)
         for (ifeature = 0; ifeature < nfeatures; ifeature++)
             variance[ifeature] += (double)features_int[ipoint][ifeature] * features_int[ipoint][ifeature];
 
-    #pragma omp parallel for
+#pragma omp parallel for
     for (ifeature = 0; ifeature < nfeatures; ifeature++)
         variance[ifeature] /= npoints;
 
     /* compute average of variance */
     avg_variance = 0;
-    #pragma omp parallel for reduction(+ : avg_variance)
+#pragma omp parallel for reduction(+ \
+                                   : avg_variance)
     for (ifeature = 0; ifeature < nfeatures; ifeature++)
         avg_variance += variance[ifeature];
     avg_variance /= nfeatures;
     *threshold *= avg_variance;
 
-    #ifdef PERF_COUNTER
+#ifdef PERF_COUNTER
     /* compute time spent on preprocessing */
     gettimeofday(&toc, NULL);
     printf("preprocessing time: %f seconds\n\n", time_seconds(tic, toc));
-    #endif
+#endif
 
     printf("avg_variance = %.4f\n", avg_variance);
     printf("threshold = %.4f\n", *threshold);
@@ -434,32 +438,32 @@ int kmeans_c(int argc, char **argv, const char *DPU_BINARY)
 
     /* Default parameters. */
     float threshold = 0.0001; /* threshold for termination of the algorithm */
-    int max_nclusters = 5;      /* upper bound of the number of clusters */
-    int min_nclusters = 5;      /* lower bound of the number of clusters */
-    int best_nclusters = 0;      /* best number of clusters according to RMSE */
-    int nloops = 1;              /* how many times the algorithm will be executed for each number of clusters */
-    int isRMSE = 0;              /* whether or not RMSE is computed */
+    int max_nclusters = 5;    /* upper bound of the number of clusters */
+    int min_nclusters = 5;    /* lower bound of the number of clusters */
+    int best_nclusters = 0;   /* best number of clusters according to RMSE */
+    int nloops = 1;           /* how many times the algorithm will be executed for each number of clusters */
+    int isRMSE = 0;           /* whether or not RMSE is computed */
 
     /* Size variables. */
-    int nfeatures;      /* number of features */
+    int nfeatures;    /* number of features */
     uint64_t npoints; /* number of points */
     uint64_t npadded; /* number of points with padding */
-    uint32_t ndpu;      /* number of available DPUs */
+    uint32_t ndpu;    /* number of available DPUs */
 
     /* Data arrays. */
-    float **features;                          /* array of features */
-    int_feature **features_int;                  /* array of discretized features */
-    float **cluster_centres = NULL;              /* array of centroid coordinates */
+    float **features;                         /* array of features */
+    int_feature **features_int;               /* array of discretized features */
+    float **cluster_centres = NULL;           /* array of centroid coordinates */
     int_feature **cluster_centres_int = NULL; /* array of discretized centroid coordinates */
     float *mean;                              /* feature-wise average of points coordinates */
 
-    int index;    /* number of iterations on the best run */
+    int index;  /* number of iterations on the best run */
     float rmse; /* RMSE value */
 
     float scale_factor; /* scaling factor of the input features */
 
     printf("gotten arguments:\n");
-    for (int i_arg=0; i_arg < argc; i_arg++)
+    for (int i_arg = 0; i_arg < argc; i_arg++)
     {
         printf("%s ", argv[i_arg]);
     }
@@ -606,11 +610,11 @@ int kmeans_c(int argc, char **argv, const char *DPU_BINARY)
         {
             printf("%2d:", icluster);
             for (int ifeature = 0; ifeature < nfeatures; ifeature++)
-                #ifdef FLT_REDUCE
+#ifdef FLT_REDUCE
                 printf(" % 10.6f", cluster_centres[icluster][ifeature] + mean[ifeature]);
-                #else
+#else
                 printf(" % 10.6f", cluster_centres[icluster][ifeature] / scale_factor + mean[ifeature]);
-                #endif
+#endif
             printf("\n");
         }
     }

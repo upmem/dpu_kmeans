@@ -39,7 +39,7 @@ uint16_t task_size_in_features;
  * Variables for host application communication
  */
 /**@{*/
-__host             int nfeatures_host;
+__host int nfeatures_host;
 __host unsigned int nclusters_host;
 __host unsigned int npoints;
 __host unsigned int task_size_in_points_host;
@@ -85,7 +85,7 @@ __mram_noinit uint8_t t_membership[((MAX_FEATURE_DPU / 3) / 8) * 8];
 // __mram_noinit int32_t c_clusters_mram[ASSUMED_NR_CLUSTERS * ASSUMED_NR_FEATURES]; (off because of MRAM transfer bug)
 __dma_aligned int centers_count[ASSUMED_NR_CLUSTERS];
 __mram_noinit int centers_count_mram[ASSUMED_NR_CLUSTERS];
-            //   int centers_count_tasklets[NR_TASKLETS][ASSUMED_NR_CLUSTERS];
+//   int centers_count_tasklets[NR_TASKLETS][ASSUMED_NR_CLUSTERS];
 
 __dma_aligned int64_t centers_sum[ASSUMED_NR_CLUSTERS * ASSUMED_NR_FEATURES];
 __mram_noinit int64_t centers_sum_mram[ASSUMED_NR_CLUSTERS * ASSUMED_NR_FEATURES];
@@ -138,13 +138,12 @@ bool taskDispatch(int *current_itask_in_points, int *current_itask_in_features, 
 
     mutex_unlock(task_mutex);
 
-    #ifdef PERF_COUNTER
+#ifdef PERF_COUNTER
     tasklet_counters[DISPATCH_CTR] += perfcounter_get() - tasklet_counters[DISPATCH_TIC];
-    #endif
+#endif
 
     return *current_itask_in_points < npoints;
 }
-
 
 /**
  * @brief Initializes all variables before a run.
@@ -155,13 +154,13 @@ void initialize(uint8_t tasklet_id)
 {
     if (tasklet_id == 0)
     {
-    #ifdef PERF_COUNTER
+#ifdef PERF_COUNTER
         perfcounter_config((PERF_COUNTER) ? COUNT_INSTRUCTIONS : COUNT_CYCLES, true);
 
         // initializing global perf counters
         memset(host_counters, 0, sizeof(host_counters));
         active_tasklets = 0;
-    #endif
+#endif
 
         // downcasting some host variables
         nfeatures = nfeatures_host;
@@ -212,7 +211,6 @@ void initialize(uint8_t tasklet_id)
     // memset(centers_sum_tasklets[tasklet_id], 0, sizeof(**centers_sum_tasklets) * ncluster_features);
 }
 
-
 /**
  * @brief Writes the result of each point to MRAM at the end of each point.
  *
@@ -242,19 +240,19 @@ void task_reduce(
     tasklet_counters[LOOP_TIC] = perfcounter_get();
 #endif
 
-    // mandatory mutex here because implicit MRAM accesses are not thread safe for variables smaller than 8 bytes
-    // TODO : needs a better solution
-    #ifdef FLT_REDUCE
-    #ifdef PERF_COUNTER
+// mandatory mutex here because implicit MRAM accesses are not thread safe for variables smaller than 8 bytes
+// TODO : needs a better solution
+#ifdef FLT_REDUCE
+#ifdef PERF_COUNTER
     tasklet_counters[MUTEX_TIC] = perfcounter_get();
-    #endif
+#endif
     mutex_lock(membership_mutex);
     t_membership[point_global_index] = icluster;
     mutex_unlock(membership_mutex);
-    #ifdef PERF_COUNTER
+#ifdef PERF_COUNTER
     tasklet_counters[MUTEX_CTR] += perfcounter_get() - tasklet_counters[MUTEX_TIC];
-    #endif
-    #endif
+#endif
+#endif
 
     // centers_count_tasklets[tasklet_id][icluster]++;
     mutex_lock(write_count_mutex);
@@ -263,29 +261,28 @@ void task_reduce(
 
     uint16_t cluster_base_index = cluster_base_indices[icluster];
 
-    #pragma unroll(ASSUMED_NR_FEATURES)
-    #pragma must_iterate(1, ASSUMED_NR_FEATURES, 1)
+#pragma unroll(ASSUMED_NR_FEATURES)
+#pragma must_iterate(1, ASSUMED_NR_FEATURES, 1)
     for (uint8_t idim = 0; idim < nfeatures; idim++)
     {
-        #ifdef PERF_COUNTER
+#ifdef PERF_COUNTER
         tasklet_counters[ARITH_TIC] = perfcounter_get();
-        #endif
+#endif
 
         // centers_sum_tasklets[tasklet_id][cluster_base_indices[icluster] + idim] += w_features[point_base_index + idim];
         mutex_lock(write_mutex);
         centers_sum[cluster_base_index + idim] += w_features[point_base_index + idim];
         mutex_unlock(write_mutex);
 
-        #ifdef PERF_COUNTER
+#ifdef PERF_COUNTER
         tasklet_counters[REDUCE_ARITH_CTR] += perfcounter_get() - tasklet_counters[ARITH_TIC];
-        #endif
+#endif
     }
 
-    #ifdef PERF_COUNTER
+#ifdef PERF_COUNTER
     tasklet_counters[REDUCE_LOOP_CTR] += perfcounter_get() - tasklet_counters[LOOP_TIC];
-    #endif
+#endif
 }
-
 
 /**
  * @brief Final reduction: all tasklets work together to compute the partial sums in WRAM.
@@ -329,7 +326,6 @@ void final_reduce(uint8_t tasklet_id)
         mram_write(centers_sum, centers_sum_mram, mram_transfer_size);
     }
 }
-
 
 #ifdef PERF_COUNTER
 /**
@@ -376,24 +372,24 @@ int main()
 
     __dma_aligned int_feature w_features[WRAM_FEATURES_SIZE / sizeof(int_feature)]; /* limited to 2048 bytes */
 
-    #ifdef PERF_COUNTER
+#ifdef PERF_COUNTER
     perfcounter_t tasklet_counters[LOCAL_COUNTERS] = {0};
-    #endif
+#endif
 
     initialize(tasklet_id);
 
     barrier_wait(&sync_barrier);
 
-    #ifndef PERF_COUNTER
+#ifndef PERF_COUNTER
     while (taskDispatch(&current_itask_in_points, &current_itask_in_features))
     {
-    #else
+#else
     tasklet_counters[INIT_CTR] = perfcounter_get();
 
     while (taskDispatch(&current_itask_in_points, &current_itask_in_features, tasklet_counters))
     {
         tasklet_counters[MAIN_TIC] = perfcounter_get();
-    #endif
+#endif
 
         mram_read(&t_features[current_itask_in_features], w_features, task_size_in_bytes);
 
@@ -404,27 +400,27 @@ int main()
             uint8_t index = -1;
             uint16_t point_base_index = point_base_indices[ipoint];
 
-            #ifdef PERF_COUNTER
+#ifdef PERF_COUNTER
             tasklet_counters[ARITH_TIC] = perfcounter_get();
-            #endif
-            /* find the cluster center id with min distance to pt */
-            #pragma must_iterate(1, ASSUMED_NR_CLUSTERS, 1)
+#endif
+/* find the cluster center id with min distance to pt */
+#pragma must_iterate(1, ASSUMED_NR_CLUSTERS, 1)
             for (uint8_t icluster = 0; icluster < nclusters; icluster++)
             {
                 uint64_t dist = 0; /* Euclidean distance squared */
                 uint16_t cluster_base_index = cluster_base_indices[icluster];
 
-                #pragma unroll(ASSUMED_NR_FEATURES)
-                #pragma must_iterate(1, ASSUMED_NR_FEATURES, 1)
+#pragma unroll(ASSUMED_NR_FEATURES)
+#pragma must_iterate(1, ASSUMED_NR_FEATURES, 1)
                 for (uint8_t idim = 0; idim < nfeatures; idim++)
                 {
                     volatile int_feature diff = (w_features[point_base_index + idim] -
                                                  c_clusters[cluster_base_index + idim]);
-                    #ifdef FEATURETYPE_32
-                    dist += (int64_t)diff * diff;    /* sum of squares */
-                    #else
-                    dist += diff * diff;            /* sum of squares */
-                    #endif
+#ifdef FEATURETYPE_32
+                    dist += (int64_t)diff * diff; /* sum of squares */
+#else
+                    dist += diff * diff; /* sum of squares */
+#endif
                 }
                 /* see if distance is smaller than previous ones:
                 if so, change minimum distance and save index of cluster center */
@@ -434,35 +430,35 @@ int main()
                     index = icluster;
                 }
             }
-            #ifdef PERF_COUNTER
+#ifdef PERF_COUNTER
             tasklet_counters[CRITLOOP_ARITH_CTR] += perfcounter_get() - tasklet_counters[ARITH_TIC];
-            #endif
+#endif
 
-            #ifndef PERF_COUNTER
+#ifndef PERF_COUNTER
             task_reduce(tasklet_id, index, current_itask_in_points + ipoint, point_base_index, w_features);
-            #else
+#else
             task_reduce(tasklet_id, index, current_itask_in_points + ipoint, point_base_index, w_features, tasklet_counters);
-            #endif
+#endif
         }
 
-        #ifdef PERF_COUNTER
+#ifdef PERF_COUNTER
         tasklet_counters[MAIN_LOOP_CTR] += perfcounter_get() - tasklet_counters[MAIN_TIC];
-        #endif
+#endif
     }
 
-    #ifdef PERF_COUNTER
+#ifdef PERF_COUNTER
     tasklet_counters[LOOP_TIC] = perfcounter_get();
-    #endif
+#endif
     final_reduce(tasklet_id);
-    #ifdef PERF_COUNTER
+#ifdef PERF_COUNTER
     tasklet_counters[REDUCE_LOOP_CTR] += perfcounter_get() - tasklet_counters[LOOP_TIC];
-    #endif
+#endif
 
-    #ifdef PERF_COUNTER
+#ifdef PERF_COUNTER
     tasklet_counters[TOTAL_CTR] = perfcounter_get();
 
     counters_tally(tasklet_id, tasklet_counters);
-    #endif
+#endif
 
     // DEBUG
     // barrier_wait(&sync_barrier);

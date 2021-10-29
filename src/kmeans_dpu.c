@@ -38,9 +38,9 @@ void allocateMemory(uint64_t npadded, int ndpu)
     for (int i = 1; i < ndpu; i++)
         centers_pcount[i] = centers_pcount[i - 1] + ASSUMED_NR_CLUSTERS;
 
-    #ifdef PERF_COUNTER
+#ifdef PERF_COUNTER
     counters = malloc(ndpu * sizeof(uint64_t[HOST_COUNTERS]));
-    #endif
+#endif
 }
 
 /**
@@ -52,9 +52,9 @@ void deallocateMemory()
     free(centers_pcount[0]);
     free(centers_pcount);
 
-    #ifdef PERF_COUNTER
+#ifdef PERF_COUNTER
     free(counters);
-    #endif
+#endif
 }
 
 /**
@@ -71,7 +71,6 @@ int offset(int feature, int cluster, int dpu, int nfeatures, int nclusters)
 {
     return (dpu * nclusters * nfeatures) + (cluster * nfeatures) + feature;
 }
-
 
 /**
  * @brief Fills the DPUs with their assigned points.
@@ -145,23 +144,23 @@ void kmeansDpu(
 
     int npointperdpu = npadded / ndpu; /* number of points per DPU */
 
-    #ifdef PERF_COUNTER
+#ifdef PERF_COUNTER
     uint64_t counters_mean[HOST_COUNTERS] = {0};
-    #endif
+#endif
 
     //============RUNNING ONE LLOYD ITERATION ON THE DPU==============
     DPU_ASSERT(dpu_launch(allset, DPU_SYNCHRONOUS));
-    //================================================================
+//================================================================
 
-    /* DEBUG : read logs */
-    // DPU_FOREACH(allset, dpu, each_dpu) {
-    //     if (each_dpu >= 0)
-    //         DPU_ASSERT(dpu_log_read(dpu, stdout));
-    // }
-    // exit(0);
+/* DEBUG : read logs */
+// DPU_FOREACH(allset, dpu, each_dpu) {
+//     if (each_dpu >= 0)
+//         DPU_ASSERT(dpu_log_read(dpu, stdout));
+// }
+// exit(0);
 
-    /* Performance tracking */
-    #ifdef PERF_COUNTER
+/* Performance tracking */
+#ifdef PERF_COUNTER
     DPU_FOREACH(allset, dpu, each_dpu)
     {
         DPU_ASSERT(dpu_prepare_xfer(dpu, &counters[each_dpu]));
@@ -191,7 +190,7 @@ void kmeansDpu(
     printf("\ntotal %s in arithmetic : %ld\n", (PERF_COUNTER) ? "instructions" : "cycles", counters_mean[CRITLOOP_ARITH_CTR] + counters_mean[REDUCE_ARITH_CTR]);
     printf("percent %s in arithmetic : %.2f%%\n", (PERF_COUNTER) ? "instructions" : "cycles", 100.0 * (float)(counters_mean[CRITLOOP_ARITH_CTR] + counters_mean[REDUCE_ARITH_CTR]) / counters_mean[TOTAL_CTR]);
     printf("\n");
-    #endif
+#endif
 
     /* copy back membership count per dpu (device to host) */
     DPU_FOREACH(allset, dpu, each_dpu)
