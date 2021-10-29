@@ -20,9 +20,9 @@
 struct timeval cluster_timing; /**< Total clustering time */
 float min_rmse_ref = FLT_MAX;  /**< reference min_rmse value */
 
-#ifndef DPU_BINARY
-#define DPU_BINARY "src/dpu_kmeans/dpu_program/kmeans_dpu_kernel" /**< filename of the binary sent to the kernel */
-#endif
+// #ifndef DPU_BINARY
+// #define DPU_BINARY "src/dpu_kmeans/dpu_program/kmeans_dpu_kernel" /**< filename of the binary sent to the kernel */
+// #end
 extern struct dpu_set_t allset;
 
 /**
@@ -93,25 +93,26 @@ unsigned int get_task_size(int nfeatures, unsigned int npointperdpu)
  * @return Number of iterations to reach the best RMSE.
  */
 int cluster(
-    uint64_t npoints,            /**< number of data points */
-    uint64_t npadded,            /**< number of data points with padding */
-    int nfeatures,                /**< number of attributes for each point */
-    uint32_t ndpu,                /**< number of available DPUs */
-    float **features_float,        /**< array: [npadded][nfeatures] */
+    uint64_t npoints,           /**< number of data points */
+    uint64_t npadded,           /**< number of data points with padding */
+    int nfeatures,              /**< number of attributes for each point */
+    uint32_t ndpu,              /**< number of available DPUs */
+    float **features_float,     /**< array: [npadded][nfeatures] */
     int_feature **features_int, /**< array: [npadded][nfeatures] */
-    int min_nclusters,            /**< range of min to max number of clusters */
-    int max_nclusters,            /**< range of min to max number of clusters */
+    int min_nclusters,          /**< range of min to max number of clusters */
+    int max_nclusters,          /**< range of min to max number of clusters */
     float threshold,            /**< loop terminating factor */
     int *best_nclusters,        /**< [out] number between min and max with lowest RMSE */
-    float ***cluster_centres,    /**< [out] [best_nclusters][nfeatures] */
+    float ***cluster_centres,   /**< [out] [best_nclusters][nfeatures] */
     float *min_rmse,            /**< [out] minimum RMSE */
-    int isRMSE,                    /**< calculate RMSE */
-    int nloops,                    /**< number of iteration for each number of clusters */
-    char *logname)                /**< name of the log file */
+    int isRMSE,                 /**< calculate RMSE */
+    int nloops,                 /**< number of iteration for each number of clusters */
+    char *logname,              /**< name of the log file */
+    const char *DPU_BINARY)     /**< path to the DPU kernel */
 {
-    unsigned int nclusters;                        /* number of clusters k */
-    int index = 0;                                /* number of iteration to reach the best RMSE */
-    float rmse;                                    /* RMSE for each clustering */
+    unsigned int nclusters;                     /* number of clusters k */
+    int index = 0;                              /* number of iteration to reach the best RMSE */
+    float rmse;                                 /* RMSE for each clustering */
     uint8_t *membership;                        /* which cluster a data point belongs to */
     float **tmp_cluster_centres;                /* hold coordinates of cluster centers */
     unsigned int npointperdpu = npadded / ndpu; /* number of points per DPU */
@@ -129,6 +130,8 @@ int cluster(
 
     printf("Possible break point\n");
     /* load DPU binary */
+    // DPU_ASSERT(dpu_load(allset,"/home/upmemstaff/sbrocard/new_kmeans/DPU/kmeans/kmeans_dpu_kernel", NULL));
+    // DPU_ASSERT(dpu_load(allset, "src/dpu_kmeans/dpu_program/kmeans_dpu_kernel", NULL));
     DPU_ASSERT(dpu_load(allset, DPU_BINARY, NULL));
     printf("Wasn't load\n");
 
@@ -160,10 +163,10 @@ int cluster(
     /* fill DPUs with the data points */
     populateDpu(
         features_int, /* array: [npoints][nfeatures] */
-        nfeatures,      /* number of attributes for each point */
+        nfeatures,    /* number of attributes for each point */
         npoints,      /* number of real data points */
         npadded,      /* number of padded data points */
-        ndpu);          /* number of available DPUs */
+        ndpu);        /* number of available DPUs */
 
     /* allocate memory for device communication */
     allocateMemory(npadded, ndpu);

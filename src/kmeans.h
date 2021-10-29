@@ -8,12 +8,6 @@
 #ifndef _H_KMEANS
 #define _H_KMEANS /**< header guard */
 
-/**
- * @brief number of parallel tasklets on DPUs
- *
- */
-#define NR_TASKLETS 16
-
 #ifndef _KMEANS_DPU_KERNEL_H_
 #include <stdint.h>
 #include <sys/time.h>
@@ -102,7 +96,7 @@ int main(int, char **);
 
 /** @name cluster.c */
 /**@{*/
-int cluster(uint64_t, uint64_t, int, uint32_t, float **, int_feature **, int, int, float, int *, float ***, float *, int, int, char *);
+int cluster(uint64_t, uint64_t, int, uint32_t, float **, int_feature **, int, int, float, int *, float ***, float *, int, int, char *, const char*);
 int get_lcm(int, int);
 /**@}*/
 

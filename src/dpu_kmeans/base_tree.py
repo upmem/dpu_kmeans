@@ -22,4 +22,6 @@ def test_checksum():
 
 
 def test_kmeans(args: str):
-    kmeans(args)
+    ref = files("dpu_kmeans").joinpath("dpu_program/kmeans_dpu_kernel")
+    with as_file(ref) as path:
+        kmeans(args, str(path))

@@ -13,6 +13,10 @@ except ImportError:
     raise
 
 from setuptools import find_packages
+from setuptools_scm import get_version
+
+version = get_version(local_scheme="no-local-version")
+version = "".join([c for c in version if c.isdigit() or c == "."])
 
 # compilation of the host library
 setup(
@@ -35,4 +39,8 @@ setup(
         ':python_version < "3.9"': ["importlib_resources"],
     },
     zip_safe=False,
+    cmake_args=[
+        "-DNR_TASKLETS=16",  # number of parallel tasklets on each DPU
+        f"-DVERSION={version}",
+    ],
 )

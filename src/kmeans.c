@@ -416,16 +416,18 @@ float preprocessing(
  * Execute ./kmeans for usage information.
  * @param argc n° of command line arguments
  * @param argv command line arguments
+ * @param DPU_BINARY path of the dpu kernel to be loaded
  * @return int 0 on normal exit
  */
-int kmeans_c(int argc, char **argv)
+int kmeans_c(int argc, char **argv, const char *DPU_BINARY)
 {
-    printf("helloword\n");
+    // printf("helloword\n");
 
     /* Variables for I/O. */
     int opt;
     extern char *optarg;
     char *filename = 0;
+    extern int optind;
     int isBinaryFile = 0;
     char testname[100];
     int isOutput = 0;
@@ -456,9 +458,19 @@ int kmeans_c(int argc, char **argv)
 
     float scale_factor; /* scaling factor of the input features */
 
+    printf("gotten arguments:\n");
+    for (int i_arg=0; i_arg < argc; i_arg++)
+    {
+        printf("%s ", argv[i_arg]);
+    }
+    printf("\n");
+
+    optind = 0;
     /* obtain command line arguments and change appropriate options */
     while ((opt = getopt(argc, argv, "i:t:m:n:l:bro")) != EOF)
     {
+        if (optarg)
+            printf("%s\n", optarg);
         switch (opt)
         {
         case 'i':
@@ -568,19 +580,20 @@ int kmeans_c(int argc, char **argv)
     cluster_centres = NULL;
     index = cluster(npoints,          /* number of data points */
                     npadded,          /* number of data points with padding */
-                    nfeatures,          /* number of features for each point */
-                    ndpu,              /* number of available DPUs */
-                    features,          /* array: [npoints][nfeatures] */
-                    features_int,      /* array: [npoints][nfeatures] */
-                    min_nclusters,      /* range of min to max number of clusters */
-                    max_nclusters,      /* range of min to max number of clusters */
-                    threshold,          /* loop termination factor */
+                    nfeatures,        /* number of features for each point */
+                    ndpu,             /* number of available DPUs */
+                    features,         /* array: [npoints][nfeatures] */
+                    features_int,     /* array: [npoints][nfeatures] */
+                    min_nclusters,    /* range of min to max number of clusters */
+                    max_nclusters,    /* range of min to max number of clusters */
+                    threshold,        /* loop termination factor */
                     &best_nclusters,  /* return: number between min and max */
                     &cluster_centres, /* return: [best_nclusters][nfeatures] */
-                    &rmse,              /* Root Mean Squared Error */
-                    isRMSE,              /* calculate RMSE */
-                    nloops,              /* number of iteration for each number of clusters */
-                    filename);          /* name of the log file */
+                    &rmse,            /* Root Mean Squared Error */
+                    isRMSE,           /* calculate RMSE */
+                    nloops,           /* number of iteration for each number of clusters */
+                    filename,         /* name of the log file */
+                    DPU_BINARY);      /* path to the DPU kernel */
 
     /* =============== Command Line Output =============== */
 

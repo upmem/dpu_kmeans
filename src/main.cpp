@@ -15,11 +15,11 @@ int array_sum(){
 extern "C" char* call_home(char*);
 extern "C" int dpu_test(char*);
 extern "C" int checksum(char*);
-extern "C" int kmeans_c(int, char**);
+extern "C" int kmeans_c(int, char**, const char*);
 
 // namespace py = pybind11;
 
-void kmeans(char *commandLine2){
+void kmeans(char *commandLine2, const char *DPU_BINARY){
     printf("parsing inputs\n");
 
     char commandLine[] = "./kmeans -o -b -n 4 -m 4 -i /scratch/sbrocard/beach.dat";
@@ -36,9 +36,14 @@ void kmeans(char *commandLine2){
     }
     argv[argc] = 0;
 
-    printf("finished parsing\n");
+    printf("finished parsing, argc = %d\n", argc);
+    for (int i=0; i<argc; i++)
+    {
+        printf("%s ", argv[i]);
+    }
+    printf("\n");
 
-    kmeans_c(argc, argv);
+    kmeans_c(argc, argv, DPU_BINARY);
 }
 
 PYBIND11_MODULE(_core, m) {

@@ -180,16 +180,16 @@ float **kmeans_clustering(
             new_centers);     /* [out] sum of points coordinates in each cluster */
 
         /* DEBUG : print the centroids on each iteration */
-        // printf("clusters :\n");
-        // for (i = 0; i < nclusters; i++)
-        // {
-        //     for (j = 0; j < nfeatures; j++)
-        //     {
-        //         printf("% .4f ",(float)new_centers[i][j] / new_centers_len[i]);
-        //     }
-        //     printf("(%d points)\n", new_centers_len[i]);
-        // }
-        // printf("\n");
+        printf("clusters :\n");
+        for (int i = 0; i < nclusters; i++)
+        {
+            for (int j = 0; j < nfeatures; j++)
+            {
+                printf("% .4f ",(float)new_centers[i][j] / new_centers_len[i]);
+            }
+            printf("(%d points)\n", new_centers_len[i]);
+        }
+        printf("\n");
 
         /* replace old cluster centers with new_centers */
         /* CPU side of reduction */

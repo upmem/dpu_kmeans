@@ -26,6 +26,7 @@ Development
 
 - clone this repository
 - install the [UPMEM SDK](https://sdk.upmem.com/)
+- install the build requirements in [`pyproject.toml`](pyproject.toml)
 - `cd dpu_kmeans`
 - `pre-commit install`
 - `pip install -e .`
@@ -36,6 +37,10 @@ OR
 - clone this repository
 - open folder in VS Code
 - start in Dev Container
+
+to debug: `python setup.py develop --build-type Debug`
+
+*Note:* The dev container is for development only and uses the PIM simulator.
 
 Testing
 -------
@@ -53,14 +58,14 @@ OR
 - start in Dev Container
 - `nox`
 
-*Note:* `nox` and `pip` might fail if you executed `pip install .` previously, delete the `_skbuild` cache or run `python setup.py clean` to solve.
+*Note:* `nox`, `python setup.py` and `pip` might fail if you executed `pip install .` previously, delete the `_skbuild` cache or run `python setup.py clean` to solve.
 
 Test call
 ---------
 
 ```python
-import dpu_trees
-dpu_trees.add(1, 2)
+import dpu_kmeans
+dpu_kmeans.test_checksum()
 ```
 Expected return: `0x007f8000`
 
