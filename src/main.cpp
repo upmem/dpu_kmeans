@@ -17,37 +17,37 @@ int array_sum()
 extern "C" char *call_home(char *);
 extern "C" int dpu_test(char *);
 extern "C" int checksum(char *);
-extern "C" int kmeans_c(int, char **, const char *);
+extern "C" void kmeans_c(char *, int, float, int, int, int, int, int, const char *);
 
 // namespace py = pybind11;
 
-void kmeans(char *commandLine2, const char *DPU_BINARY)
-{
-    printf("parsing inputs\n");
+// void kmeans(char *commandLine2, const char *DPU_BINARY)
+// {
+//     printf("parsing inputs\n");
 
-    char commandLine[] = "./kmeans -o -b -n 4 -m 4 -i /scratch/sbrocard/beach.dat";
-    int argc = 0;
-    char *argv[64];
-    printf("before strtok\n");
-    char *p2 = strtok(commandLine, " ");
-    printf("before loop\n");
-    while (p2 && argc < 63)
-    {
-        argv[argc++] = p2;
-        p2 = strtok(0, " ");
-        printf("p2 = %s\n", p2);
-    }
-    argv[argc] = 0;
+//     char commandLine[] = "./kmeans -o -b -n 4 -m 4 -i /scratch/sbrocard/beach.dat";
+//     int argc = 0;
+//     char *argv[64];
+//     printf("before strtok\n");
+//     char *p2 = strtok(commandLine, " ");
+//     printf("before loop\n");
+//     while (p2 && argc < 63)
+//     {
+//         argv[argc++] = p2;
+//         p2 = strtok(0, " ");
+//         printf("p2 = %s\n", p2);
+//     }
+//     argv[argc] = 0;
 
-    printf("finished parsing, argc = %d\n", argc);
-    for (int i = 0; i < argc; i++)
-    {
-        printf("%s ", argv[i]);
-    }
-    printf("\n");
+//     printf("finished parsing, argc = %d\n", argc);
+//     for (int i = 0; i < argc; i++)
+//     {
+//         printf("%s ", argv[i]);
+//     }
+//     printf("\n");
 
-    kmeans_c(argc, argv, DPU_BINARY);
-}
+//     kmeans_c(argc, argv, DPU_BINARY);
+// }
 
 PYBIND11_MODULE(_core, m)
 {
@@ -95,7 +95,7 @@ PYBIND11_MODULE(_core, m)
         Checksum test on dpus
     )pbdoc");
 
-    m.def("kmeans", &kmeans, R"pbdoc(
+    m.def("kmeans_c", &kmeans_c, R"pbdoc(
         Main kmeans function
     )pbdoc");
 

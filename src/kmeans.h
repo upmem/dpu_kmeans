@@ -11,6 +11,9 @@
 #ifndef _KMEANS_DPU_KERNEL_H_
 #include <stdint.h>
 #include <sys/time.h>
+
+typedef struct dpu_set_t dpu_set;
+
 #endif // ifndef _KMEANS_DPU_KERNEL_H_
 
 #ifndef FLT_MAX
@@ -89,29 +92,29 @@ double time_seconds(struct timeval, struct timeval);
 void strip_ext(char *);
 void usage(char *);
 float preprocessing(float **, int, uint64_t, uint64_t, float **, int_feature ***, float *);
-void read_binary_input(char *, uint64_t *, uint64_t *, int *, uint32_t, float ***);
-void read_text_input(char *, uint64_t *, uint64_t *, int *, uint32_t, float ***);
-int main(int, char **);
+void read_binary_input(const char *, uint64_t *, uint64_t *, int *, uint32_t, float ***);
+void read_text_input(const char *, uint64_t *, uint64_t *, int *, uint32_t, float ***);
+void kmeans_c(const char *, int, float, int, int, int, int, int, const char *);
 /**@}*/
 
 /** @name cluster.c */
 /**@{*/
-int cluster(uint64_t, uint64_t, int, uint32_t, float **, int_feature **, int, int, float, int *, float ***, float *, int, int, char *, const char *);
+int cluster(uint64_t, uint64_t, int, uint32_t, float **, int_feature **, int, int, float, int *, float ***, float *, int, int, char *, const char *, dpu_set *);
 int get_lcm(int, int);
 /**@}*/
 
 /** @name kmeans_clustering.c */
 /**@{*/
-float **kmeans_clustering(int_feature **, float **, int, uint64_t, uint64_t, unsigned int, int, float, uint8_t *, int *, int);
-void final_reduction(float **, int, uint64_t, uint64_t, unsigned int, int, uint8_t *, float **);
+float **kmeans_clustering(int_feature **, float **, int, uint64_t, uint64_t, unsigned int, int, float, uint8_t *, int *, int, dpu_set *);
+void final_reduction(float **, int, uint64_t, uint64_t, unsigned int, int, uint8_t *, float **, dpu_set *);
 /**@}*/
 
 /** @name kmeans_dpu.c */
 /**@{*/
 void allocateMemory(uint64_t, int);
 void deallocateMemory();
-void populateDpu(int_feature **, int, uint64_t, uint64_t, int);
-void kmeansDpu(int, uint64_t, uint64_t, int, int, int64_t[ASSUMED_NR_CLUSTERS], int64_t[ASSUMED_NR_CLUSTERS][ASSUMED_NR_FEATURES]);
+void populateDpu(int_feature **, int, uint64_t, uint64_t, int, dpu_set *);
+void kmeansDpu(int, uint64_t, uint64_t, int, int, int64_t[ASSUMED_NR_CLUSTERS], int64_t[ASSUMED_NR_CLUSTERS][ASSUMED_NR_FEATURES], dpu_set *);
 /**@}*/
 #endif // ifndef _KMEANS_DPU_KERNEL_H_
 

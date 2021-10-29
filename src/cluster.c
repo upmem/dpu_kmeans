@@ -17,13 +17,12 @@
 
 #include "kmeans.h"
 
-struct timeval cluster_timing; /**< Total clustering time */
-float min_rmse_ref = FLT_MAX;  /**< reference min_rmse value */
+static struct timeval cluster_timing; /**< Total clustering time */
+static float min_rmse_ref = FLT_MAX;  /**< reference min_rmse value */
 
 // #ifndef DPU_BINARY
 // #define DPU_BINARY "src/dpu_kmeans/dpu_program/kmeans_dpu_kernel" /**< filename of the binary sent to the kernel */
 // #end
-extern struct dpu_set_t allset;
 
 /**
  * @brief Computes the lowest common multiple of two integers.
@@ -108,7 +107,8 @@ int cluster(
     int isRMSE,                 /**< calculate RMSE */
     int nloops,                 /**< number of iteration for each number of clusters */
     char *logname,              /**< name of the log file */
-    const char *DPU_BINARY)     /**< path to the DPU kernel */
+    const char *DPU_BINARY,     /**< path to the DPU kernel */
+    dpu_set *allset)
 {
     unsigned int nclusters;                     /* number of clusters k */
     int index = 0;                              /* number of iteration to reach the best RMSE */
@@ -129,10 +129,11 @@ int cluster(
     fprintf(fp, "nclusters, iterations, time in seconds\n");
 
     printf("Possible break point\n");
+    printf("loading %s\n", DPU_BINARY);
     /* load DPU binary */
-    // DPU_ASSERT(dpu_load(allset,"/home/upmemstaff/sbrocard/new_kmeans/DPU/kmeans/kmeans_dpu_kernel", NULL));
-    // DPU_ASSERT(dpu_load(allset, "src/dpu_kmeans/dpu_program/kmeans_dpu_kernel", NULL));
-    DPU_ASSERT(dpu_load(allset, DPU_BINARY, NULL));
+    // DPU_ASSERT(dpu_load(*allset,"/home/upmemstaff/sbrocard/new_kmeans/DPU/kmeans/kmeans_dpu_kernel", NULL));
+    // DPU_ASSERT(dpu_load(*allset, "src/dpu_kmeans/dpu_program/kmeans_dpu_kernel", NULL));
+    DPU_ASSERT(dpu_load(*allset, DPU_BINARY, NULL));
     printf("Wasn't load\n");
 
     /* allocate memory for membership */
@@ -148,12 +149,12 @@ int cluster(
     task_size_in_points = task_size_in_features / nfeatures;
 
     /* send computation parameters to the DPUs */
-    DPU_ASSERT(dpu_broadcast_to(allset, "nfeatures_host", 0, &nfeatures, sizeof(nfeatures), DPU_XFER_DEFAULT));
-    DPU_ASSERT(dpu_broadcast_to(allset, "npoints", 0, &npointperdpu, sizeof(npointperdpu), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_broadcast_to(*allset, "nfeatures_host", 0, &nfeatures, sizeof(nfeatures), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_broadcast_to(*allset, "npoints", 0, &npointperdpu, sizeof(npointperdpu), DPU_XFER_DEFAULT));
 
-    DPU_ASSERT(dpu_broadcast_to(allset, "task_size_in_points_host", 0, &task_size_in_points, sizeof(task_size_in_points), DPU_XFER_DEFAULT));
-    DPU_ASSERT(dpu_broadcast_to(allset, "task_size_in_bytes_host", 0, &task_size_in_bytes, sizeof(task_size_in_bytes), DPU_XFER_DEFAULT));
-    DPU_ASSERT(dpu_broadcast_to(allset, "task_size_in_features_host", 0, &task_size_in_features, sizeof(task_size_in_features), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_broadcast_to(*allset, "task_size_in_points_host", 0, &task_size_in_points, sizeof(task_size_in_points), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_broadcast_to(*allset, "task_size_in_bytes_host", 0, &task_size_in_bytes, sizeof(task_size_in_bytes), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_broadcast_to(*allset, "task_size_in_features_host", 0, &task_size_in_features, sizeof(task_size_in_features), DPU_XFER_DEFAULT));
 
     printf("points per DPU : %d\n", npointperdpu);
     printf("tasks per DPU: %d\n", npointperdpu / task_size_in_points);
@@ -166,7 +167,8 @@ int cluster(
         nfeatures,    /* number of attributes for each point */
         npoints,      /* number of real data points */
         npadded,      /* number of padded data points */
-        ndpu);        /* number of available DPUs */
+        ndpu,         /* number of available DPUs */
+        allset);
 
     /* allocate memory for device communication */
     allocateMemory(npadded, ndpu);
@@ -204,7 +206,8 @@ int cluster(
                 threshold,
                 membership,
                 &iterations_counter,
-                i_init);
+                i_init,
+                allset);
 
             gettimeofday(&toc, NULL);
             cluster_timing.tv_sec += toc.tv_sec - tic.tv_sec;

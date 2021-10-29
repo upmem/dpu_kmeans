@@ -15,10 +15,8 @@
 
 #include "kmeans.h"
 
-extern struct dpu_set_t allset;
-
-int64_t new_centers_len[ASSUMED_NR_CLUSTERS];                  /**< [nclusters]: no. of points in each cluster */
-int64_t new_centers[ASSUMED_NR_CLUSTERS][ASSUMED_NR_FEATURES]; /**< coordinates of the centroids */
+static int64_t new_centers_len[ASSUMED_NR_CLUSTERS];                  /**< [nclusters]: no. of points in each cluster */
+static int64_t new_centers[ASSUMED_NR_CLUSTERS][ASSUMED_NR_FEATURES]; /**< coordinates of the centroids */
 
 /**
  * @brief Performs a final reduction of the centroids coordinates in float format.
@@ -31,7 +29,8 @@ void final_reduction(
     unsigned int nclusters, /**< number of clusters in this iteration */
     int ndpu,               /**< number of available DPUs */
     uint8_t *membership,    /**< membership of each point */
-    float **clusters_float) /**< [out] final centroids coordinates */
+    float **clusters_float, /**< [out] final centroids coordinates */
+    dpu_set *allset)
 {
     uint32_t each_dpu;    /* Iteration variable for the DPUs. */
     struct dpu_set_t dpu; /* Iteration variable for the DPUs. */
@@ -45,11 +44,11 @@ void final_reduction(
 #endif
 
     /* copy back points membership */
-    DPU_FOREACH(allset, dpu, each_dpu)
+    DPU_FOREACH(*allset, dpu, each_dpu)
     {
         DPU_ASSERT(dpu_prepare_xfer(dpu, &(membership[each_dpu * npointperdpu])));
     }
-    DPU_ASSERT(dpu_push_xfer(allset, DPU_XFER_FROM_DPU, "t_membership", 0, npointperdpu * sizeof(*membership), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_push_xfer(*allset, DPU_XFER_FROM_DPU, "t_membership", 0, npointperdpu * sizeof(*membership), DPU_XFER_DEFAULT));
 
 #ifdef PERF_COUNTER
     gettimeofday(&toc, NULL);
@@ -106,7 +105,8 @@ float **kmeans_clustering(
     float threshold,            /**< loop terminating factor */
     uint8_t *membership,        /**< [out] cluster membership of each point */
     int *loop,                  /**< [out] number of inner iterations */
-    int iteration)              /**< index of current outer iteration */
+    int iteration,              /**< index of current outer iteration */
+    dpu_set *allset)
 {
     float **clusters_float;                     /* [out] final cluster coordinates */
     int_feature **clusters_int;                 /* intermediary cluster coordinates */
@@ -160,12 +160,12 @@ float **kmeans_clustering(
 #endif
 
     /* inform DPUs of the current number of cluters */
-    DPU_ASSERT(dpu_broadcast_to(allset, "nclusters_host", 0, &nclusters, sizeof(nclusters), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_broadcast_to(*allset, "nclusters_host", 0, &nclusters, sizeof(nclusters), DPU_XFER_DEFAULT));
 
     /* iterate until convergence */
     do
     {
-        DPU_ASSERT(dpu_broadcast_to(allset, "c_clusters", 0, clusters_int[0], nclusters_round * nfeatures * sizeof(int_feature), DPU_XFER_DEFAULT));
+        DPU_ASSERT(dpu_broadcast_to(*allset, "c_clusters", 0, clusters_int[0], nclusters_round * nfeatures * sizeof(int_feature), DPU_XFER_DEFAULT));
 
         memset(new_centers, 0, sizeof(new_centers));
         memset(new_centers_len, 0, sizeof(new_centers_len));
@@ -177,7 +177,8 @@ float **kmeans_clustering(
             ndpu,            /* number of available DPUs */
             nclusters,       /* number of clusters k */
             new_centers_len, /* [out] number of points in each cluster */
-            new_centers);    /* [out] sum of points coordinates in each cluster */
+            new_centers,     /* [out] sum of points coordinates in each cluster */
+            allset);
 
         /* DEBUG : print the centroids on each iteration */
         printf("clusters :\n");
@@ -223,7 +224,8 @@ float **kmeans_clustering(
                     nclusters,
                     ndpu,
                     membership,
-                    clusters_float);
+                    clusters_float,
+                    allset);
 #endif
 
     return clusters_float;

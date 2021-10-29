@@ -15,10 +15,8 @@
 
 #include "kmeans.h"
 
-extern struct dpu_set_t allset;
-
-int64_t *centers_psum; /**< partial average performed by individual DPUs for each centroid */
-int **centers_pcount;  /**< partial count of points membership by each DPU */
+static int64_t *centers_psum; /**< partial average performed by individual DPUs for each centroid */
+static int **centers_pcount;  /**< partial count of points membership by each DPU */
 
 #ifdef PERF_COUNTER
 uint64_t (*counters)[HOST_COUNTERS]; /**< performance counters from every DPU */
@@ -80,8 +78,8 @@ void populateDpu(
     int nfeatures,         /**< number of attributes for each point */
     uint64_t npoints,      /**< number of real data points */
     uint64_t npadded,      /**< number of padded data points */
-    int ndpu               /**< number of available DPUs */
-)
+    int ndpu,              /**< number of available DPUs */
+    dpu_set *allset)
 {
     /**@{*/
     /** Iteration variables for the DPUs. */
@@ -93,13 +91,13 @@ void populateDpu(
     int *nreal_points;                      /**< number of real data points on each dpu */
     int64_t remaining_points = npoints;     /**< number of yet unassigned points */
 
-    DPU_FOREACH(allset, dpu, each_dpu)
+    DPU_FOREACH(*allset, dpu, each_dpu)
     {
         int next;
         next = each_dpu * npointperdpu;
         DPU_ASSERT(dpu_prepare_xfer(dpu, feature[next]));
     }
-    DPU_ASSERT(dpu_push_xfer(allset, DPU_XFER_TO_DPU, "t_features", 0, npointperdpu * nfeatures * sizeof(int_feature), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_push_xfer(*allset, DPU_XFER_TO_DPU, "t_features", 0, npointperdpu * nfeatures * sizeof(int_feature), DPU_XFER_DEFAULT));
 
     // telling each DPU how many real points it has to process
     nreal_points = (int *)malloc(ndpu * sizeof(int));
@@ -119,11 +117,11 @@ void populateDpu(
     // }
     // printf("\n");
 
-    DPU_FOREACH(allset, dpu, each_dpu)
+    DPU_FOREACH(*allset, dpu, each_dpu)
     {
         DPU_ASSERT(dpu_prepare_xfer(dpu, &nreal_points[each_dpu]));
     }
-    DPU_ASSERT(dpu_push_xfer(allset, DPU_XFER_TO_DPU, "npoints", 0, sizeof(int), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_push_xfer(*allset, DPU_XFER_TO_DPU, "npoints", 0, sizeof(int), DPU_XFER_DEFAULT));
     free(nreal_points);
 }
 
@@ -137,7 +135,8 @@ void kmeansDpu(
     int ndpu,                                                      /**< number of available DPUs */
     int nclusters,                                                 /**< number of clusters k */
     int64_t new_centers_len[ASSUMED_NR_CLUSTERS],                  /**< [out] number of elements in each cluster */
-    int64_t new_centers[ASSUMED_NR_CLUSTERS][ASSUMED_NR_FEATURES]) /**< [out] sum of elements in each cluster */
+    int64_t new_centers[ASSUMED_NR_CLUSTERS][ASSUMED_NR_FEATURES], /**< [out] sum of elements in each cluster */
+    dpu_set *allset)
 {
     struct dpu_set_t dpu; /* Iteration variable for the DPUs. */
     uint32_t each_dpu;    /* Iteration variable for the DPUs. */
@@ -149,11 +148,11 @@ void kmeansDpu(
 #endif
 
     //============RUNNING ONE LLOYD ITERATION ON THE DPU==============
-    DPU_ASSERT(dpu_launch(allset, DPU_SYNCHRONOUS));
-//================================================================
+    DPU_ASSERT(dpu_launch(*allset, DPU_SYNCHRONOUS));
+    //================================================================
 
 /* DEBUG : read logs */
-// DPU_FOREACH(allset, dpu, each_dpu) {
+// DPU_FOREACH(*allset, dpu, each_dpu) {
 //     if (each_dpu >= 0)
 //         DPU_ASSERT(dpu_log_read(dpu, stdout));
 // }
@@ -161,11 +160,11 @@ void kmeansDpu(
 
 /* Performance tracking */
 #ifdef PERF_COUNTER
-    DPU_FOREACH(allset, dpu, each_dpu)
+    DPU_FOREACH(*allset, dpu, each_dpu)
     {
         DPU_ASSERT(dpu_prepare_xfer(dpu, &counters[each_dpu]));
     }
-    DPU_ASSERT(dpu_push_xfer(allset, DPU_XFER_FROM_DPU, "host_counters", 0, sizeof(uint64_t[HOST_COUNTERS]), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_push_xfer(*allset, DPU_XFER_FROM_DPU, "host_counters", 0, sizeof(uint64_t[HOST_COUNTERS]), DPU_XFER_DEFAULT));
 
     for (int icounter = 0; icounter < HOST_COUNTERS; icounter++)
     {
@@ -193,12 +192,12 @@ void kmeansDpu(
 #endif
 
     /* copy back membership count per dpu (device to host) */
-    DPU_FOREACH(allset, dpu, each_dpu)
+    DPU_FOREACH(*allset, dpu, each_dpu)
     {
         DPU_ASSERT(dpu_prepare_xfer(dpu, &(centers_pcount[each_dpu][0])));
     }
     int nclusters_even = ((nclusters + 1) / 2) * 2;
-    DPU_ASSERT(dpu_push_xfer(allset, DPU_XFER_FROM_DPU, "centers_count_mram", 0, sizeof(int) * nclusters_even, DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_push_xfer(*allset, DPU_XFER_FROM_DPU, "centers_count_mram", 0, sizeof(int) * nclusters_even, DPU_XFER_DEFAULT));
 
     /* DEBUG : print outputed centroids counts per DPU */
     // for (int dpu_id = 0; dpu_id < ndpu; dpu_id++)
@@ -211,11 +210,11 @@ void kmeansDpu(
     // }
 
     /* copy back centroids partial averages (device to host) */
-    DPU_FOREACH(allset, dpu, each_dpu)
+    DPU_FOREACH(*allset, dpu, each_dpu)
     {
         DPU_ASSERT(dpu_prepare_xfer(dpu, &centers_psum[offset(0, 0, each_dpu, nfeatures, nclusters)]));
     }
-    DPU_ASSERT(dpu_push_xfer(allset, DPU_XFER_FROM_DPU, "centers_sum_mram", 0, nfeatures * nclusters * sizeof(int64_t), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_push_xfer(*allset, DPU_XFER_FROM_DPU, "centers_sum_mram", 0, nfeatures * nclusters * sizeof(int64_t), DPU_XFER_DEFAULT));
 
     for (int dpu_id = 0; dpu_id < ndpu; dpu_id++)
     {

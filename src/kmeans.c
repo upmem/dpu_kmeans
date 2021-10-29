@@ -19,8 +19,6 @@
 
 #include "kmeans.h"
 
-struct dpu_set_t allset; /**< Set of all available DPUs. */
-
 /**
  * @brief Returns the seconds elapsed between two timeval structures.
  *
@@ -54,26 +52,36 @@ void strip_ext(char *fname)
         *end = '\0';
 }
 
-/**
- * @brief Usage info on the KMeans program.
- *
- * @param argv0
- */
-void usage(char *argv0)
+void *get_log_name(const char *filename, char **log_name, char **base_name)
 {
-    char *help =
-        "\nUsage: %s [switches] -i filename\n\n"
-        "    -i filename      :file containing data to be clustered\n"
-        "    -m max_nclusters :maximum number of clusters allowed    [default=5]\n"
-        "    -n min_nclusters :minimum number of clusters allowed    [default=5]\n"
-        "    -t threshold     :threshold value                       [default=0.001]\n"
-        "    -l nloops        :iteration for each number of clusters [default=1]\n"
-        "    -b               :input file is in binary format         [default=0]\n"
-        "    -r               :calculate RMSE                        [default=off]\n"
-        "    -o               :output cluster center coordinates     [default=off]\n";
-    fprintf(stderr, help, argv0);
-    exit(-1);
+    *log_name = strdup(filename);
+    strip_ext(*log_name);
+    *base_name = strdup(basename(*log_name));
+    *log_name = dirname(*log_name);
+    strcat(*log_name, "/kmeanstime_dpu_");
+    strcat(*log_name, *base_name);
+    strcat(*log_name, ".log");
+
+    printf("generated log_name: %s\n", *log_name);
 }
+
+// void save_dat_file(const char* filename, uint64_t npoints, int nfeatures, float **features)
+// {
+//     char *dat_name;
+
+//     dat_name = strdup(filename);
+//     strip_ext(dat_name);
+//     strcat(dat_name, ".dat");
+
+//     FILE *binfile;
+//     binfile = fopen(dat_name, "wb");
+//     fwrite(&npoints, sizeof(uint64_t), 1, binfile);
+//     fwrite(&nfeatures, sizeof(int), 1, binfile);
+//     fwrite(features[0], sizeof(float), npoints * nfeatures, binfile);
+//     fclose(binfile);
+
+//     free(dat_name);
+// }
 
 /**
  * @brief Reads a binary input file from disk.
@@ -86,7 +94,7 @@ void usage(char *argv0)
  * @param features_out [out] Vector of features.
  */
 void read_binary_input(
-    char *filename,
+    const char *filename,
     uint64_t *npoints_out,
     uint64_t *npadded_out,
     int *nfeatures_out,
@@ -145,7 +153,7 @@ void read_binary_input(
  * @param features_out [out] Vector of features.
  */
 void read_text_input(
-    char *filename,
+    const char *filename,
     uint64_t *npoints_out,
     uint64_t *npadded_out,
     int *nfeatures_out,
@@ -417,32 +425,22 @@ float preprocessing(
 /**
  * @brief Main function for the KMeans algorithm.
  *
- * Execute ./kmeans for usage information.
- * @param argc n° of command line arguments
- * @param argv command line arguments
- * @param DPU_BINARY path of the dpu kernel to be loaded
- * @return int 0 on normal exit
  */
-int kmeans_c(int argc, char **argv, const char *DPU_BINARY)
+// int kmeans_c(int argc, char **argv, const char *DPU_BINARY)
+void kmeans_c(const char *filename,   /**< path of the data file */
+              int isBinaryFile,       /**< whether or not the data file is serialized */
+              float threshold,        /**< threshold for termination of the algorithm */
+              int max_nclusters,      /**< upper bound of the number of clusters */
+              int min_nclusters,      /**< lower bound of the number of clusters */
+              int isRMSE,             /**< whether or not RMSE is computed */
+              int isOutput,           /**< whether or not to print the centroids */
+              int nloops,             /**< how many times the algorithm will be executed for each number of clusters */
+              const char *DPU_BINARY) /**< path to the dpu kernel */
 {
-    // printf("helloword\n");
-
     /* Variables for I/O. */
-    int opt;
-    extern char *optarg;
-    char *filename = 0;
-    extern int optind;
-    int isBinaryFile = 0;
-    char testname[100];
-    int isOutput = 0;
-
-    /* Default parameters. */
-    float threshold = 0.0001; /* threshold for termination of the algorithm */
-    int max_nclusters = 5;    /* upper bound of the number of clusters */
-    int min_nclusters = 5;    /* lower bound of the number of clusters */
-    int best_nclusters = 0;   /* best number of clusters according to RMSE */
-    int nloops = 1;           /* how many times the algorithm will be executed for each number of clusters */
-    int isRMSE = 0;           /* whether or not RMSE is computed */
+    // char *stripped_name;
+    char *log_name;
+    char *base_name;
 
     /* Size variables. */
     int nfeatures;    /* number of features */
@@ -450,68 +448,20 @@ int kmeans_c(int argc, char **argv, const char *DPU_BINARY)
     uint64_t npadded; /* number of points with padding */
     uint32_t ndpu;    /* number of available DPUs */
 
+    dpu_set allset; /**< Set of all available DPUs. */
+
     /* Data arrays. */
-    float **features;                         /* array of features */
-    int_feature **features_int;               /* array of discretized features */
-    float **cluster_centres = NULL;           /* array of centroid coordinates */
-    int_feature **cluster_centres_int = NULL; /* array of discretized centroid coordinates */
-    float *mean;                              /* feature-wise average of points coordinates */
+    float **features;               /* array of features */
+    int_feature **features_int;     /* array of discretized features */
+    float **cluster_centres = NULL; /* array of centroid coordinates */
+    float *mean;                    /* feature-wise average of points coordinates */
+    // int_feature **cluster_centres_int = NULL; /* array of discretized centroid coordinates */
 
-    int index;  /* number of iterations on the best run */
-    float rmse; /* RMSE value */
-
-    float scale_factor; /* scaling factor of the input features */
-
-    printf("gotten arguments:\n");
-    for (int i_arg = 0; i_arg < argc; i_arg++)
-    {
-        printf("%s ", argv[i_arg]);
-    }
-    printf("\n");
-
-    optind = 0;
-    /* obtain command line arguments and change appropriate options */
-    while ((opt = getopt(argc, argv, "i:t:m:n:l:bro")) != EOF)
-    {
-        if (optarg)
-            printf("%s\n", optarg);
-        switch (opt)
-        {
-        case 'i':
-            filename = optarg;
-            break;
-        case 'b':
-            isBinaryFile = 1;
-            break;
-        case 't':
-            threshold = atof(optarg);
-            break;
-        case 'm':
-            max_nclusters = atoi(optarg);
-            break;
-        case 'n':
-            min_nclusters = atoi(optarg);
-            break;
-        case 'r':
-            isRMSE = 1;
-            break;
-        case 'o':
-            isOutput = 1;
-            break;
-        case 'l':
-            nloops = atoi(optarg);
-            break;
-        case '?':
-            usage(argv[0]);
-            break;
-        default:
-            usage(argv[0]);
-            break;
-        }
-    }
-
-    if (filename == 0)
-        usage(argv[0]);
+    /* Generated values. */
+    int index;              /* number of iterations on the best run */
+    float rmse;             /* RMSE value */
+    int best_nclusters = 0; /* best number of clusters according to RMSE */
+    float scale_factor;     /* scaling factor of the input features */
 
     /* ============== DPUs init ==============*/
     /* necessary to do it first to know the n° of available DPUs */
@@ -529,22 +479,34 @@ int kmeans_c(int argc, char **argv, const char *DPU_BINARY)
         read_text_input(filename, &npoints, &npadded, &nfeatures, ndpu, &features);
 
         /* Saving features as a binary for next time */
-        strip_ext(filename);
-        strcat(filename, ".dat");
-        FILE *binfile;
-        binfile = fopen(filename, "wb");
-        fwrite(&npoints, sizeof(uint64_t), 1, binfile);
-        fwrite(&nfeatures, sizeof(int), 1, binfile);
-        fwrite(features[0], sizeof(float), npoints * nfeatures, binfile);
-        fclose(binfile);
+        // save_dat_file(filename, npoints, nfeatures, features);
+        // char *dat_name=NULL;
+
+        // dat_name = strdup(filename);
+        // strip_ext(dat_name);
+        // strcat(dat_name, ".dat");
+        // dat_name = get_dat_name(filename);
+        // printf("dat_name : %s\n", dat_name);
+        // FILE *binfile;
+        // binfile = fopen(dat_name, "wb");
+        // fwrite(&npoints, sizeof(uint64_t), 1, binfile);
+        // fwrite(&nfeatures, sizeof(int), 1, binfile);
+        // fwrite(features[0], sizeof(float), npoints * nfeatures, binfile);
+        // fclose(binfile);
+        // free(dat_name);
     }
 
-    strip_ext(filename);
-    strcpy(testname, basename(filename));
-    filename = dirname(filename);
-    strcat(filename, "/kmeanstime_dpu_");
-    strcat(filename, testname);
-    strcat(filename, ".log");
+    // stripped_name = strdup(filename);
+    // strip_ext(stripped_name);
+    // base_name = basename(stripped_name);
+    // log_name = dirname(stripped_name);
+    // strcat(log_name, "/kmeanstime_dpu_");
+    // strcat(log_name, base_name);
+    // strcat(log_name, ".log");
+    // log_name = get_log_name(filename);
+    get_log_name(filename, &log_name, &base_name);
+    // char log_name[] = "/scratch/sbrocard/kmeanstime_dpu_beach.log";
+    printf("log_name: %s\n", log_name);
 
     printf("\nI/O completed\n");
     printf("\nNumber of objects without padding: %lu\n", npoints);
@@ -596,8 +558,9 @@ int kmeans_c(int argc, char **argv, const char *DPU_BINARY)
                     &rmse,            /* Root Mean Squared Error */
                     isRMSE,           /* calculate RMSE */
                     nloops,           /* number of iteration for each number of clusters */
-                    filename,         /* name of the log file */
-                    DPU_BINARY);      /* path to the DPU kernel */
+                    log_name,         /* name of the log file */
+                    DPU_BINARY,       /* path to the DPU kernel */
+                    &allset);
 
     /* =============== Command Line Output =============== */
 
@@ -643,6 +606,12 @@ int kmeans_c(int argc, char **argv, const char *DPU_BINARY)
     free(cluster_centres[0]);
     free(cluster_centres);
     free(mean);
+    free(log_name);
+    printf("here\n");
+    // free(base_name);
+    printf("or here\n");
+    // free(stripped_name);
+    printf("or here?\n");
     DPU_ASSERT(dpu_free(allset));
-    return (0);
+    printf("finished\n");
 }
