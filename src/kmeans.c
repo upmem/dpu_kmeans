@@ -54,48 +54,47 @@ void strip_ext(char *fname)
 
 char *get_log_name(const char *filename_in)
 {
-    // printf("starting name processing\n");
     char *filename = strdup(filename_in);
-    char prefix[]="/kmeanstime_dpu_", suffix[]=".log";
+    char prefix[] = "/kmeanstime_dpu_", suffix[] = ".log";
 
     int n = strlen(filename) + strlen(prefix) + strlen(suffix);
-    char *log_name = (char*) malloc(n * sizeof(char));
+    char *log_name = (char *)malloc(n * sizeof(char));
     char *dir_name = dirname(filename);
     char *base_name = basename(filename);
 
     strip_ext(base_name);
-    // printf("stripped\n");
     strcpy(log_name, dir_name);
     strcat(log_name, "/kmeanstime_dpu_");
     strcat(log_name, base_name);
     strcat(log_name, ".log");
-    // printf("concatenated\n");
 
     free(filename);
-    // printf("freed\n");
-
-    // printf("generated log_name: %s\n", log_name);
 
     return log_name;
 }
 
-// void save_dat_file(const char* filename, uint64_t npoints, int nfeatures, float **features)
-// {
-//     char *dat_name;
+void save_dat_file(const char *filename_in, uint64_t npoints, int nfeatures, float **features)
+{
+    char *filename = strdup(filename_in);
+    char suffix[] = ".dat";
 
-//     dat_name = strdup(filename);
-//     strip_ext(dat_name);
-//     strcat(dat_name, ".dat");
+    int n = strlen(filename) + strlen(suffix);
+    char *dat_name = (char *)malloc(n * sizeof(char));
 
-//     FILE *binfile;
-//     binfile = fopen(dat_name, "wb");
-//     fwrite(&npoints, sizeof(uint64_t), 1, binfile);
-//     fwrite(&nfeatures, sizeof(int), 1, binfile);
-//     fwrite(features[0], sizeof(float), npoints * nfeatures, binfile);
-//     fclose(binfile);
+    strcpy(dat_name, filename);
+    strip_ext(dat_name);
+    strcat(dat_name, ".dat");
 
-//     free(dat_name);
-// }
+    FILE *binfile;
+    binfile = fopen(dat_name, "wb");
+    fwrite(&npoints, sizeof(uint64_t), 1, binfile);
+    fwrite(&nfeatures, sizeof(int), 1, binfile);
+    fwrite(features[0], sizeof(float), npoints * nfeatures, binfile);
+    fclose(binfile);
+
+    free(filename);
+    free(dat_name);
+}
 
 /**
  * @brief Reads a binary input file from disk.
@@ -436,6 +435,30 @@ float preprocessing(
     return scale_factor;
 }
 
+void error_check(uint64_t npoints, uint64_t npadded, int min_nclusters, int max_nclusters, int nfeatures, uint32_t ndpu)
+{
+    if (npoints < min_nclusters)
+    {
+        printf("Error: min_nclusters(%d) > npoints(%lu) -- cannot proceed\n", min_nclusters, npoints);
+        exit(EXIT_FAILURE);
+    }
+    if ((max_nclusters < min_nclusters) || (max_nclusters > ASSUMED_NR_CLUSTERS))
+    {
+        printf("Error: min_nclusters(%d) > max_nclusters(%lu) or max_nclusters > max clusters allowed(%d) -- cannot proceed\n", min_nclusters, npoints, ASSUMED_NR_CLUSTERS);
+        exit(EXIT_FAILURE);
+    }
+    if (ASSUMED_NR_FEATURES < nfeatures)
+    {
+        printf("Error: nfeatures(%d) > max clusters allowed(%d) -- cannot proceed\n", nfeatures, ASSUMED_NR_FEATURES);
+        exit(EXIT_FAILURE);
+    }
+    if (npadded * nfeatures / ndpu > MAX_FEATURE_DPU)
+    {
+        printf("Error: npadded*nfeatures/ndpu(%lu) > max features allowed per dpu(%d) -- cannot proceed\n", npadded * nfeatures / ndpu, MAX_FEATURE_DPU);
+        exit(EXIT_FAILURE);
+    }
+}
+
 /**
  * @brief Main function for the KMeans algorithm.
  *
@@ -493,33 +516,10 @@ void kmeans_c(const char *filename,   /**< path of the data file */
         read_text_input(filename, &npoints, &npadded, &nfeatures, ndpu, &features);
 
         /* Saving features as a binary for next time */
-        // save_dat_file(filename, npoints, nfeatures, features);
-        // char *dat_name=NULL;
-
-        // dat_name = strdup(filename);
-        // strip_ext(dat_name);
-        // strcat(dat_name, ".dat");
-        // dat_name = get_dat_name(filename);
-        // printf("dat_name : %s\n", dat_name);
-        // FILE *binfile;
-        // binfile = fopen(dat_name, "wb");
-        // fwrite(&npoints, sizeof(uint64_t), 1, binfile);
-        // fwrite(&nfeatures, sizeof(int), 1, binfile);
-        // fwrite(features[0], sizeof(float), npoints * nfeatures, binfile);
-        // fclose(binfile);
-        // free(dat_name);
+        save_dat_file(filename, npoints, nfeatures, features);
     }
 
-    // stripped_name = strdup(filename);
-    // strip_ext(stripped_name);
-    // base_name = basename(stripped_name);
-    // log_name = dirname(stripped_name);
-    // strcat(log_name, "/kmeanstime_dpu_");
-    // strcat(log_name, base_name);
-    // strcat(log_name, ".log");
-    // log_name = get_log_name(filename);
     log_name = get_log_name(filename);
-    // char log_name[] = "/scratch/sbrocard/kmeanstime_dpu_beach.log";
     printf("log_name: %s\n", log_name);
 
     printf("\nI/O completed\n");
@@ -530,26 +530,7 @@ void kmeans_c(const char *filename,   /**< path of the data file */
     /* ============== I/O end ==============*/
 
     // error check for clusters
-    if (npoints < min_nclusters)
-    {
-        printf("Error: min_nclusters(%d) > npoints(%lu) -- cannot proceed\n", min_nclusters, npoints);
-        exit(EXIT_FAILURE);
-    }
-    if ((max_nclusters < min_nclusters) || (max_nclusters > ASSUMED_NR_CLUSTERS))
-    {
-        printf("Error: min_nclusters(%d) > max_nclusters(%lu) or max_nclusters > max clusters allowed(%d) -- cannot proceed\n", min_nclusters, npoints, ASSUMED_NR_CLUSTERS);
-        exit(EXIT_FAILURE);
-    }
-    if (ASSUMED_NR_FEATURES < nfeatures)
-    {
-        printf("Error: nfeatures(%d) > max clusters allowed(%d) -- cannot proceed\n", nfeatures, ASSUMED_NR_FEATURES);
-        exit(EXIT_FAILURE);
-    }
-    if (npadded * nfeatures / ndpu > MAX_FEATURE_DPU)
-    {
-        printf("Error: npadded*nfeatures/ndpu(%lu) > max features allowed per dpu(%d) -- cannot proceed\n", npadded * nfeatures / ndpu, MAX_FEATURE_DPU);
-        exit(EXIT_FAILURE);
-    }
+    error_check(npoints, npadded, min_nclusters, max_nclusters, nfeatures, ndpu);
 
     /* ======================= pre-processing ===========================*/
     scale_factor = preprocessing(&mean, nfeatures, npoints, npadded, features, &features_int, &threshold);
@@ -621,11 +602,5 @@ void kmeans_c(const char *filename,   /**< path of the data file */
     free(cluster_centres);
     free(mean);
     free(log_name);
-    printf("here\n");
-    // free(base_name);
-    printf("or here\n");
-    // free(stripped_name);
-    printf("or here?\n");
     DPU_ASSERT(dpu_free(allset));
-    printf("finished\n");
 }
