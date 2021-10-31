@@ -52,17 +52,31 @@ void strip_ext(char *fname)
         *end = '\0';
 }
 
-void *get_log_name(const char *filename, char **log_name, char **base_name)
+char *get_log_name(const char *filename_in)
 {
-    *log_name = strdup(filename);
-    strip_ext(*log_name);
-    *base_name = strdup(basename(*log_name));
-    *log_name = dirname(*log_name);
-    strcat(*log_name, "/kmeanstime_dpu_");
-    strcat(*log_name, *base_name);
-    strcat(*log_name, ".log");
+    // printf("starting name processing\n");
+    char *filename = strdup(filename_in);
+    char prefix[]="/kmeanstime_dpu_", suffix[]=".log";
 
-    printf("generated log_name: %s\n", *log_name);
+    int n = strlen(filename) + strlen(prefix) + strlen(suffix);
+    char *log_name = (char*) malloc(n * sizeof(char));
+    char *dir_name = dirname(filename);
+    char *base_name = basename(filename);
+
+    strip_ext(base_name);
+    // printf("stripped\n");
+    strcpy(log_name, dir_name);
+    strcat(log_name, "/kmeanstime_dpu_");
+    strcat(log_name, base_name);
+    strcat(log_name, ".log");
+    // printf("concatenated\n");
+
+    free(filename);
+    // printf("freed\n");
+
+    // printf("generated log_name: %s\n", log_name);
+
+    return log_name;
 }
 
 // void save_dat_file(const char* filename, uint64_t npoints, int nfeatures, float **features)
@@ -440,7 +454,7 @@ void kmeans_c(const char *filename,   /**< path of the data file */
     /* Variables for I/O. */
     // char *stripped_name;
     char *log_name;
-    char *base_name;
+    // char *base_name;
 
     /* Size variables. */
     int nfeatures;    /* number of features */
@@ -504,7 +518,7 @@ void kmeans_c(const char *filename,   /**< path of the data file */
     // strcat(log_name, base_name);
     // strcat(log_name, ".log");
     // log_name = get_log_name(filename);
-    get_log_name(filename, &log_name, &base_name);
+    log_name = get_log_name(filename);
     // char log_name[] = "/scratch/sbrocard/kmeanstime_dpu_beach.log";
     printf("log_name: %s\n", log_name);
 
