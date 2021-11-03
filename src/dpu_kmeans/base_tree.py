@@ -39,17 +39,19 @@ def test_kmeans(
     nloops: int = 1,
     log_name: str = "",
 ):
+    npoints, nfeatures = 0, 0
     if isinstance(input, (str, PathLike)):
         filename, file_input, data = input, True, []
         if not log_name:
             log_name = (
                 dirname(filename)
-                + "kmeanstime_dpu_"
+                + "/kmeanstime_dpu_"
                 + splitext(basename(filename))[0]
                 + ".log"
             )
     else:
         filename, file_input, data = "", False, input
+        npoints, nfeatures = data.shape
         if not log_name:
             log_name = (
                 "kmeanstime_dpu_"
@@ -71,6 +73,8 @@ def test_kmeans(
             min_nclusters,
             isRMSE,
             isOutput,
+            npoints,
+            nfeatures,
             nloops,
             str(DPU_BINARY),
             log_name,

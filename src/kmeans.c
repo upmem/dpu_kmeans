@@ -41,7 +41,7 @@ double time_seconds(struct timeval tic, struct timeval toc)
  *
  * @param fname The file name string.
  */
-void strip_ext(char *fname)
+static void strip_ext(char *fname)
 {
     char *end = fname + strlen(fname);
 
@@ -50,39 +50,6 @@ void strip_ext(char *fname)
 
     if (end > fname)
         *end = '\0';
-}
-
-/**
- * @brief Saves the input data in a binary file for faster access next time.
- *
- * @param filename_in Name of the input text file.
- * @param npoints Number of points.
- * @param nfeatures Number of features.
- * @param features [npoints][nfeatures] Feature array.
- */
-void save_dat_file(const char *filename_in, uint64_t npoints, int nfeatures, float **features)
-{
-    char *filename = strdup(filename_in);
-    char suffix[] = ".dat";
-
-    int n = strlen(filename) + strlen(suffix);
-    char *dat_name = (char *)malloc(n * sizeof(char));
-
-    strcpy(dat_name, filename);
-    strip_ext(dat_name);
-    strcat(dat_name, ".dat");
-
-    printf("Writing points in binary format to %s\n", dat_name);
-
-    FILE *binfile;
-    binfile = fopen(dat_name, "wb");
-    fwrite(&npoints, sizeof(uint64_t), 1, binfile);
-    fwrite(&nfeatures, sizeof(int), 1, binfile);
-    fwrite(features[0], sizeof(float), npoints * nfeatures, binfile);
-    fclose(binfile);
-
-    free(filename);
-    free(dat_name);
 }
 
 /**
@@ -95,7 +62,7 @@ void save_dat_file(const char *filename_in, uint64_t npoints, int nfeatures, flo
  * @param ndpu Number of available DPUs.
  * @param features_out [out] Vector of features.
  */
-void read_binary_input(
+static void read_binary_input(
     const char *filename,
     uint64_t *npoints_out,
     uint64_t *npadded_out,
@@ -154,7 +121,7 @@ void read_binary_input(
  * @param ndpu Number of available DPUs.
  * @param features_out [out] Vector of features.
  */
-void read_text_input(
+static void read_text_input(
     const char *filename,
     uint64_t *npoints_out,
     uint64_t *npadded_out,
@@ -229,6 +196,53 @@ void read_text_input(
 }
 
 /**
+ * @brief Saves the input data in a binary file for faster access next time.
+ *
+ * @param filename_in Name of the input text file.
+ * @param npoints Number of points.
+ * @param nfeatures Number of features.
+ * @param features [npoints][nfeatures] Feature array.
+ */
+static void save_dat_file(const char *filename_in, uint64_t npoints, int nfeatures, float **features)
+{
+    char *filename = strdup(filename_in);
+    char suffix[] = ".dat";
+
+    int n = strlen(filename) + strlen(suffix);
+    char *dat_name = (char *)malloc(n * sizeof(char));
+
+    strcpy(dat_name, filename);
+    strip_ext(dat_name);
+    strcat(dat_name, ".dat");
+
+    printf("Writing points in binary format to %s\n", dat_name);
+
+    FILE *binfile;
+    binfile = fopen(dat_name, "wb");
+    fwrite(&npoints, sizeof(uint64_t), 1, binfile);
+    fwrite(&nfeatures, sizeof(int), 1, binfile);
+    fwrite(features[0], sizeof(float), npoints * nfeatures, binfile);
+    fclose(binfile);
+
+    free(filename);
+    free(dat_name);
+}
+
+static void format_array_input(uint64_t npoints, uint64_t *npadded_out, int nfeatures, uint32_t ndpu, float *data, float ***features_out)
+{
+    uint64_t npadded;
+    npadded = ((npoints + 8 * ndpu - 1) / (8 * ndpu)) * 8 * ndpu;
+
+    float **features = (float **)malloc(npadded * sizeof(float *));
+    features[0] = data;
+    for (int ipoint = 1; ipoint < npadded; ipoint++)
+        features[ipoint] = features[ipoint - 1] + nfeatures;
+
+    *npadded_out = npadded;
+    *features_out = features;
+}
+
+/**
  * @brief Preprocesses the data before running the KMeans algorithm.
  *
  * @param mean_out [out] Per-feature average.
@@ -240,7 +254,7 @@ void read_text_input(
  * @param threshold [out] Termination criterion for the algorithm.
  * @return Scaling factor applied to the input data.
  */
-float preprocessing(
+static float preprocessing(
     float **mean_out,
     int nfeatures,
     uint64_t npoints,
@@ -249,7 +263,8 @@ float preprocessing(
     int_feature ***features_int_out,
     float *threshold)
 {
-    int ipoint, ifeature;
+    uint64_t ipoint;
+    int ifeature;
 
     float *mean;
     double *variance;
@@ -425,6 +440,22 @@ float preprocessing(
 }
 
 /**
+ * @brief Restores the input data to its original state.
+ *
+ * @param npoints number of points
+ * @param nfeatures number of features
+ * @param features array of features
+ * @param mean average computed during preprocessing
+ */
+static void postprocessing(uint64_t npoints, int nfeatures, float **features, float *mean)
+{
+#pragma omp parallel for collapse(2)
+    for (uint64_t ipoint = 0; ipoint < npoints; ipoint++)
+        for (int ifeature = 0; ifeature < nfeatures; ifeature++)
+            features[ipoint][ifeature] += mean[ifeature];
+}
+
+/**
  * @brief Checks for errors in the input
  *
  * @param npoints Number of points.
@@ -434,7 +465,7 @@ float preprocessing(
  * @param nfeatures Number of features.
  * @param ndpu Number of available DPUs.
  */
-void error_check(uint64_t npoints, uint64_t npadded, int min_nclusters, int max_nclusters, int nfeatures, uint32_t ndpu)
+static void error_check(uint64_t npoints, uint64_t npadded, int min_nclusters, int max_nclusters, int nfeatures, uint32_t ndpu)
 {
     if (npoints < min_nclusters)
     {
@@ -468,7 +499,7 @@ void error_check(uint64_t npoints, uint64_t npadded, int min_nclusters, int max_
  * @param mean Mean that was subtracted during preprocessing.
  * @return float* The return array
  */
-float *array_output(int best_nclusters, int nfeatures, float **cluster_centres, float scale_factor, float *mean)
+static float *array_output(int best_nclusters, int nfeatures, float **cluster_centres, float scale_factor, float *mean)
 {
     float *output_clusters = (float *)malloc(best_nclusters * nfeatures * sizeof(float));
     for (int icluster = 0; icluster < best_nclusters; icluster++)
@@ -487,7 +518,7 @@ float *array_output(int best_nclusters, int nfeatures, float **cluster_centres, 
  * @brief output to the command line
  *
  */
-void cli_output(
+static void cli_output(
     int min_nclusters,       /**< lower bound of the number of clusters */
     int max_nclusters,       /**< upper bound of the number of clusters */
     int isOutput,            /**< whether or not to print the centroids */
@@ -551,17 +582,18 @@ float *kmeans_c(
     const char *DPU_BINARY, /**< path to the dpu kernel */
     const char *log_name,   /**< path to the log file */
     int *best_nclusters,    /**< [out] best number of clusters according to RMSE */
-    int *nfeatures_inout    /**< [in,out] number of features in the data file */
+    int *nfeatures_inout,   /**< [in,out] number of features in the data file */
+    uint64_t *npoints_inout      /**< [in,out] number of points in the data file */
 )
 {
     /* Variables for I/O. */
     float *output_clusters; /* return pointer */
 
     /* Size variables. */
-    int nfeatures = *nfeatures_inout; /* number of features */
-    uint64_t npoints;                 /* number of points */
-    uint64_t npadded;                 /* number of points with padding */
-    uint32_t ndpu;                    /* number of available DPUs */
+    int nfeatures = *nfeatures_inout;  /* number of features */
+    uint64_t npoints = *npoints_inout; /* number of points */
+    uint64_t npadded;                  /* number of points with padding */
+    uint32_t ndpu;                     /* number of available DPUs */
 
     dpu_set allset; /* Set of all available DPUs. */
 
@@ -598,6 +630,10 @@ float *kmeans_c(
             /* Saving features as a binary for next time */
             save_dat_file(filename, npoints, nfeatures, features);
         }
+    }
+    else
+    {
+        format_array_input(npoints, &npadded, nfeatures, ndpu, data, &features);
     }
 
     printf("log_name: %s\n", log_name);
@@ -646,8 +682,13 @@ float *kmeans_c(
 
     cli_output(min_nclusters, max_nclusters, isOutput, nfeatures, cluster_centres, scale_factor, mean, nloops, isRMSE, rmse, index);
 
+    /* =============== Postprocessing ==================== */
+
+    if (!fileInput)
+        postprocessing(npoints, nfeatures, features, mean);
+
     /* free up memory */
-    free(features[0]);
+    if (fileInput) free(features[0]);
     free(features);
     free(features_int[0]);
     free(features_int);

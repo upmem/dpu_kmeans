@@ -21,7 +21,7 @@ int array_sum()
 extern "C" char *call_home(char *);
 extern "C" int dpu_test(char *);
 extern "C" int checksum(char *);
-extern "C" float *kmeans_c(float *, const char *, int, int, float, int, int, int, int, int, const char *, const char *, int *, int *);
+extern "C" float *kmeans_c(float *, const char *, int, int, float, int, int, int, int, int, const char *, const char *, int *, int *, uint64_t *);
 
 namespace py = pybind11;
 
@@ -35,6 +35,8 @@ py::array_t<float> kmeans_cpp(
     int min_nclusters,       /**< lower bound of the number of clusters */
     int isRMSE,              /**< whether or not RMSE is computed */
     int isOutput,            /**< whether or not to print the centroids */
+    uint64_t npoints_in,
+    int nfeatures_in,
     int nloops,              /**< how many times the algorithm will be executed for each number of clusters */
     const char *DPU_BINARY,  /**< path to the dpu kernel */
     const char *log_name
@@ -42,7 +44,8 @@ py::array_t<float> kmeans_cpp(
 )
 {
     int ndim = 2;
-    int best_nclusters = max_nclusters, nfeatures;
+    int best_nclusters = max_nclusters, nfeatures = nfeatures_in;
+    uint64_t npoints = npoints_in;
 
     float *data_ptr = (float *) data.request().ptr;
     float *clusters = kmeans_c(
@@ -59,7 +62,8 @@ py::array_t<float> kmeans_cpp(
         DPU_BINARY,
         log_name,
         &best_nclusters,
-        &nfeatures
+        &nfeatures,
+        &npoints
         );
 
     // int n = sizeof(testarray);

@@ -87,7 +87,7 @@ float rms_err(float **, int, uint64_t, float **, int);
 /** @name kmeans.c */
 /**@{*/
 double time_seconds(struct timeval, struct timeval);
-float *kmeans_c(float*, const char *, int, int, float, int, int, int, int, int, const char *, const char *, int *, int *);
+float *kmeans_c(float*, const char *, int, int, float, int, int, int, int, int, const char *, const char *, int *, int *, uint64_t *);
 /**@}*/
 
 /** @name cluster.c */
