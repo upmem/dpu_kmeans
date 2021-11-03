@@ -30,7 +30,7 @@ void final_reduction(
     int ndpu,               /**< number of available DPUs */
     uint8_t *membership,    /**< membership of each point */
     float **clusters_float, /**< [out] final centroids coordinates */
-    dpu_set *allset)
+    dpu_set *allset)        /**< pointer to the set of all assigned DPUs */
 {
     uint32_t each_dpu;    /* Iteration variable for the DPUs. */
     struct dpu_set_t dpu; /* Iteration variable for the DPUs. */
@@ -106,7 +106,7 @@ float **kmeans_clustering(
     uint8_t *membership,        /**< [out] cluster membership of each point */
     int *loop,                  /**< [out] number of inner iterations */
     int iteration,              /**< index of current outer iteration */
-    dpu_set *allset)
+    dpu_set *allset)            /**< pointer to the set of all assigned DPUs */
 {
     float **clusters_float;                     /* [out] final cluster coordinates */
     int_feature **clusters_int;                 /* intermediary cluster coordinates */

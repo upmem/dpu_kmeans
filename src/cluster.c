@@ -74,7 +74,7 @@ unsigned int get_task_size(int nfeatures, unsigned int npointperdpu)
     task_size_in_features = task_size_in_points * nfeatures;
     task_size_in_bytes = task_size_in_features * sizeof(int_feature);
 
-    // task size in bytes must be a multiple of 8 for DMA alignment and of number of features x byte size of integers
+    // task size in bytes must be a multiple of 8 for DMA alignment and also a multiple of number of features x byte size of integers
     int lcm = get_lcm(sizeof(int_feature) * nfeatures, 8);
     task_size_in_bytes = (task_size_in_bytes + lcm - 1) / lcm * lcm;
     if (task_size_in_bytes > WRAM_FEATURES_SIZE)
@@ -108,7 +108,7 @@ int cluster(
     int nloops,                 /**< number of iteration for each number of clusters */
     char *logname,              /**< name of the log file */
     const char *DPU_BINARY,     /**< path to the DPU kernel */
-    dpu_set *allset)
+    dpu_set *allset)            /**< pointer to the set of all assigned DPUs */
 {
     unsigned int nclusters;                     /* number of clusters k */
     int index = 0;                              /* number of iteration to reach the best RMSE */

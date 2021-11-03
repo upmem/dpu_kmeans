@@ -1,4 +1,7 @@
 #include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+#include <vector>
+#include <iostream>
 // #include <wordexp.h>
 
 #define STRINGIFY(x) #x
@@ -17,37 +20,52 @@ int array_sum()
 extern "C" char *call_home(char *);
 extern "C" int dpu_test(char *);
 extern "C" int checksum(char *);
-extern "C" void kmeans_c(char *, int, float, int, int, int, int, int, const char *);
+extern "C" float *kmeans_c(const char *, int, float, int, int, int, int, int, const char *, int *, int *);
 
-// namespace py = pybind11;
+namespace py = pybind11;
 
-// void kmeans(char *commandLine2, const char *DPU_BINARY)
-// {
-//     printf("parsing inputs\n");
+py::array_t<float> kmeans_cpp(
+    const char *filename,   /**< path of the data file */
+    int isBinaryFile,       /**< whether or not the data file is serialized */
+    float threshold,        /**< threshold for termination of the algorithm */
+    int max_nclusters,      /**< upper bound of the number of clusters */
+    int min_nclusters,      /**< lower bound of the number of clusters */
+    int isRMSE,             /**< whether or not RMSE is computed */
+    int isOutput,           /**< whether or not to print the centroids */
+    int nloops,             /**< how many times the algorithm will be executed for each number of clusters */
+    const char *DPU_BINARY  /**< path to the dpu kernel */
+)
+{
+    int ndim = 2;
+    int best_nclusters = max_nclusters, nfeatures;
+    float *clusters = kmeans_c(
+        filename,
+        isBinaryFile,
+        threshold,
+        max_nclusters,
+        min_nclusters,
+        isRMSE,
+        isOutput,
+        nloops,
+        DPU_BINARY,
+        &best_nclusters,
+        &nfeatures
+        );
 
-//     char commandLine[] = "./kmeans -o -b -n 4 -m 4 -i /scratch/sbrocard/beach.dat";
-//     int argc = 0;
-//     char *argv[64];
-//     printf("before strtok\n");
-//     char *p2 = strtok(commandLine, " ");
-//     printf("before loop\n");
-//     while (p2 && argc < 63)
-//     {
-//         argv[argc++] = p2;
-//         p2 = strtok(0, " ");
-//         printf("p2 = %s\n", p2);
-//     }
-//     argv[argc] = 0;
+    std::vector<ssize_t> shape = {best_nclusters, nfeatures};
+    std::vector<ssize_t> strides = {sizeof(float) * nfeatures, sizeof(float)};
 
-//     printf("finished parsing, argc = %d\n", argc);
-//     for (int i = 0; i < argc; i++)
-//     {
-//         printf("%s ", argv[i]);
-//     }
-//     printf("\n");
+    py::capsule free_when_done(clusters, [](void *f) {
+        delete reinterpret_cast<float *>(f);
+    });
 
-//     kmeans_c(argc, argv, DPU_BINARY);
-// }
+    return py::array_t<float>(
+        shape,
+        strides,
+        clusters,
+        free_when_done
+    );
+}
 
 PYBIND11_MODULE(_core, m)
 {
@@ -65,7 +83,8 @@ PYBIND11_MODULE(_core, m)
            call_home
            dpu_test
            checksum
-           main
+           kmeans_c
+           kmeans_cpp
     )pbdoc";
 
     m.def("add", &add, R"pbdoc(
@@ -97,6 +116,10 @@ PYBIND11_MODULE(_core, m)
 
     m.def("kmeans_c", &kmeans_c, R"pbdoc(
         Main kmeans function
+    )pbdoc");
+
+    m.def("kmeans_cpp", &kmeans_cpp, R"pbdoc(
+        Main kmeans function in c++
     )pbdoc");
 
 #ifdef VERSION_INFO

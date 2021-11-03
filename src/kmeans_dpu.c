@@ -136,7 +136,7 @@ void kmeansDpu(
     int nclusters,                                                 /**< number of clusters k */
     int64_t new_centers_len[ASSUMED_NR_CLUSTERS],                  /**< [out] number of elements in each cluster */
     int64_t new_centers[ASSUMED_NR_CLUSTERS][ASSUMED_NR_FEATURES], /**< [out] sum of elements in each cluster */
-    dpu_set *allset)
+    dpu_set *allset)                                               /**< pointer to the set of all assigned DPUs */
 {
     struct dpu_set_t dpu; /* Iteration variable for the DPUs. */
     uint32_t each_dpu;    /* Iteration variable for the DPUs. */

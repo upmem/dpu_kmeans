@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 
+import numpy as np
+
 try:
     from importlib.resources import files, as_file
 except ImportError:
     # Try backported to PY<39 `importlib_resources`.
     from importlib_resources import files, as_file
 
-from ._core import dpu_test, checksum, kmeans_c
+from ._core import dpu_test, checksum, kmeans_cpp
 
 
 def test_dpu_bin():
@@ -33,7 +35,7 @@ def test_kmeans(
 ):
     ref = files("dpu_kmeans").joinpath("dpu_program/kmeans_dpu_kernel")
     with as_file(ref) as DPU_BINARY:
-        kmeans_c(
+        result = kmeans_cpp(
             filename,
             isBinaryFile,
             threshold,
@@ -44,3 +46,4 @@ def test_kmeans(
             nloops,
             str(DPU_BINARY),
         )
+    return result

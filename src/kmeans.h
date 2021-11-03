@@ -94,7 +94,7 @@ void usage(char *);
 float preprocessing(float **, int, uint64_t, uint64_t, float **, int_feature ***, float *);
 void read_binary_input(const char *, uint64_t *, uint64_t *, int *, uint32_t, float ***);
 void read_text_input(const char *, uint64_t *, uint64_t *, int *, uint32_t, float ***);
-void kmeans_c(const char *, int, float, int, int, int, int, int, const char *);
+float *kmeans_c(const char *, int, float, int, int, int, int, int, const char *, int *, int *);
 /**@}*/
 
 /** @name cluster.c */

@@ -463,21 +463,23 @@ void error_check(uint64_t npoints, uint64_t npadded, int min_nclusters, int max_
  * @brief Main function for the KMeans algorithm.
  *
  */
-// int kmeans_c(int argc, char **argv, const char *DPU_BINARY)
-void kmeans_c(const char *filename,   /**< path of the data file */
-              int isBinaryFile,       /**< whether or not the data file is serialized */
-              float threshold,        /**< threshold for termination of the algorithm */
-              int max_nclusters,      /**< upper bound of the number of clusters */
-              int min_nclusters,      /**< lower bound of the number of clusters */
-              int isRMSE,             /**< whether or not RMSE is computed */
-              int isOutput,           /**< whether or not to print the centroids */
-              int nloops,             /**< how many times the algorithm will be executed for each number of clusters */
-              const char *DPU_BINARY) /**< path to the dpu kernel */
+float *kmeans_c(
+    const char *filename,   /**< path of the data file */
+    int isBinaryFile,       /**< whether or not the data file is serialized */
+    float threshold,        /**< threshold for termination of the algorithm */
+    int max_nclusters,      /**< upper bound of the number of clusters */
+    int min_nclusters,      /**< lower bound of the number of clusters */
+    int isRMSE,             /**< whether or not RMSE is computed */
+    int isOutput,           /**< whether or not to print the centroids */
+    int nloops,             /**< how many times the algorithm will be executed for each number of clusters */
+    const char *DPU_BINARY, /**< path to the dpu kernel */
+    int *best_nclusters,    /**< [out] best number of clusters according to RMSE */
+    int *nfeatures_out      /**< [out] number of features in the data file */
+)
 {
     /* Variables for I/O. */
-    // char *stripped_name;
     char *log_name;
-    // char *base_name;
+    float *output_clusters;
 
     /* Size variables. */
     int nfeatures;    /* number of features */
@@ -497,7 +499,7 @@ void kmeans_c(const char *filename,   /**< path of the data file */
     /* Generated values. */
     int index;              /* number of iterations on the best run */
     float rmse;             /* RMSE value */
-    int best_nclusters = 0; /* best number of clusters according to RMSE */
+    // int best_nclusters = 0; /* best number of clusters according to RMSE */
     float scale_factor;     /* scaling factor of the input features */
 
     /* ============== DPUs init ==============*/
@@ -548,14 +550,32 @@ void kmeans_c(const char *filename,   /**< path of the data file */
                     min_nclusters,    /* range of min to max number of clusters */
                     max_nclusters,    /* range of min to max number of clusters */
                     threshold,        /* loop termination factor */
-                    &best_nclusters,  /* return: number between min and max */
-                    &cluster_centres, /* return: [best_nclusters][nfeatures] */
+                    best_nclusters,   /* [out] number between min and max */
+                    &cluster_centres, /* [out] [best_nclusters][nfeatures] */
                     &rmse,            /* Root Mean Squared Error */
                     isRMSE,           /* calculate RMSE */
                     nloops,           /* number of iteration for each number of clusters */
                     log_name,         /* name of the log file */
                     DPU_BINARY,       /* path to the DPU kernel */
                     &allset);
+
+    /* =============== Array Output ====================== */
+
+    printf("best_nclusters: %d\n", *best_nclusters);
+
+    *nfeatures_out = nfeatures;
+
+    output_clusters = (float *) malloc(*best_nclusters * nfeatures * sizeof(float));
+    for(int icluster = 0; icluster < *best_nclusters; icluster++)
+        for(int ifeature = 0; ifeature < nfeatures; ifeature++)
+        {
+#ifdef FLT_REDUCE
+            output_clusters[ifeature + icluster * nfeatures] = cluster_centres[icluster][ifeature] + mean[ifeature];
+#else
+            output_clusters[ifeature + icluster * nfeatures] = cluster_centres[icluster][ifeature] / scale_factor + mean[ifeature];
+#endif
+        }
+    printf("done writing\n");
 
     /* =============== Command Line Output =============== */
 
@@ -603,4 +623,6 @@ void kmeans_c(const char *filename,   /**< path of the data file */
     free(mean);
     free(log_name);
     DPU_ASSERT(dpu_free(allset));
+
+    return output_clusters;
 }

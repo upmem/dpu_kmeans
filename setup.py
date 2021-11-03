@@ -34,9 +34,12 @@ setup(
     package_dir={"": "src"},
     cmake_install_dir="src/dpu_kmeans",
     include_package_data=True,
+    install_requires=[
+        "numpy",
+        "importlib_resources;python_version<'3.9'",
+    ],
     extras_require={
         "test": ["pytest"],
-        ':python_version < "3.9"': ["importlib_resources"],
     },
     zip_safe=False,
     cmake_args=[
