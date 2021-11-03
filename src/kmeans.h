@@ -81,32 +81,23 @@ typedef int16_t int_feature;
 #ifndef _KMEANS_DPU_KERNEL_H_
 /** @name rmse.c */
 /**@{*/
-float euclid_dist_2(float *, float *, int);
-int find_nearest_point(float *, int, float **, int);
 float rms_err(float **, int, uint64_t, float **, int);
 /**@}*/
 
 /** @name kmeans.c */
 /**@{*/
 double time_seconds(struct timeval, struct timeval);
-void strip_ext(char *);
-void usage(char *);
-float preprocessing(float **, int, uint64_t, uint64_t, float **, int_feature ***, float *);
-void read_binary_input(const char *, uint64_t *, uint64_t *, int *, uint32_t, float ***);
-void read_text_input(const char *, uint64_t *, uint64_t *, int *, uint32_t, float ***);
-float *kmeans_c(const char *, int, float, int, int, int, int, int, const char *, int *, int *);
+float *kmeans_c(float*, const char *, int, int, float, int, int, int, int, int, const char *, const char *, int *, int *);
 /**@}*/
 
 /** @name cluster.c */
 /**@{*/
-int cluster(uint64_t, uint64_t, int, uint32_t, float **, int_feature **, int, int, float, int *, float ***, float *, int, int, char *, const char *, dpu_set *);
-int get_lcm(int, int);
+int cluster(uint64_t, uint64_t, int, uint32_t, float **, int_feature **, int, int, float, int *, float ***, float *, int, int, const char *, const char *, dpu_set *);
 /**@}*/
 
 /** @name kmeans_clustering.c */
 /**@{*/
 float **kmeans_clustering(int_feature **, float **, int, uint64_t, uint64_t, unsigned int, int, float, uint8_t *, int *, int, dpu_set *);
-void final_reduction(float **, int, uint64_t, uint64_t, unsigned int, int, uint8_t *, float **, dpu_set *);
 /**@}*/
 
 /** @name kmeans_dpu.c */

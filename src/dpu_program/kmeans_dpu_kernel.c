@@ -25,7 +25,7 @@
 /**@{*/
 unsigned int itask_in_features;
 unsigned int itask_in_points;
-unsigned int cluster_transfer_size;
+// unsigned int cluster_transfer_size;
 uint8_t nfeatures;
 uint8_t nclusters;
 uint16_t ncluster_features;

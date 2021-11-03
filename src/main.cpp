@@ -1,5 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
+#include <pybind11/stl.h>
 #include <vector>
 #include <iostream>
 // #include <wordexp.h>
@@ -20,26 +21,34 @@ int array_sum()
 extern "C" char *call_home(char *);
 extern "C" int dpu_test(char *);
 extern "C" int checksum(char *);
-extern "C" float *kmeans_c(const char *, int, float, int, int, int, int, int, const char *, int *, int *);
+extern "C" float *kmeans_c(float *, const char *, int, int, float, int, int, int, int, int, const char *, const char *, int *, int *);
 
 namespace py = pybind11;
 
 py::array_t<float> kmeans_cpp(
-    const char *filename,   /**< path of the data file */
-    int isBinaryFile,       /**< whether or not the data file is serialized */
-    float threshold,        /**< threshold for termination of the algorithm */
-    int max_nclusters,      /**< upper bound of the number of clusters */
-    int min_nclusters,      /**< lower bound of the number of clusters */
-    int isRMSE,             /**< whether or not RMSE is computed */
-    int isOutput,           /**< whether or not to print the centroids */
-    int nloops,             /**< how many times the algorithm will be executed for each number of clusters */
-    const char *DPU_BINARY  /**< path to the dpu kernel */
+    py::array_t<float> data, /**< array holding the points */
+    const char *filename,    /**< path of the data file */
+    bool fileInput,          /**< whether the input is in a file */
+    int isBinaryFile,        /**< whether or not the data file is serialized */
+    float threshold,         /**< threshold for termination of the algorithm */
+    int max_nclusters,       /**< upper bound of the number of clusters */
+    int min_nclusters,       /**< lower bound of the number of clusters */
+    int isRMSE,              /**< whether or not RMSE is computed */
+    int isOutput,            /**< whether or not to print the centroids */
+    int nloops,              /**< how many times the algorithm will be executed for each number of clusters */
+    const char *DPU_BINARY,  /**< path to the dpu kernel */
+    const char *log_name
+    // py::array_t<float> testarray
 )
 {
     int ndim = 2;
     int best_nclusters = max_nclusters, nfeatures;
+
+    float *data_ptr = (float *) data.request().ptr;
     float *clusters = kmeans_c(
+        data_ptr,
         filename,
+        fileInput,
         isBinaryFile,
         threshold,
         max_nclusters,
@@ -48,12 +57,22 @@ py::array_t<float> kmeans_cpp(
         isOutput,
         nloops,
         DPU_BINARY,
+        log_name,
         &best_nclusters,
         &nfeatures
         );
 
+    // int n = sizeof(testarray);
+    // std::cerr << "n: " << n << std::endl;
+    // auto buf = testarray.request(true);
+    // float* ptr =(float*) buf.ptr;
+    // for (int i = 0; i < 25; i++)
+    // {
+    //     ptr[i] = (float)i;
+    // }
+
     std::vector<ssize_t> shape = {best_nclusters, nfeatures};
-    std::vector<ssize_t> strides = {sizeof(float) * nfeatures, sizeof(float)};
+    std::vector<ssize_t> strides = {(int)sizeof(float) * nfeatures, sizeof(float)};
 
     py::capsule free_when_done(clusters, [](void *f) {
         delete reinterpret_cast<float *>(f);
@@ -83,7 +102,6 @@ PYBIND11_MODULE(_core, m)
            call_home
            dpu_test
            checksum
-           kmeans_c
            kmeans_cpp
     )pbdoc";
 
@@ -112,10 +130,6 @@ PYBIND11_MODULE(_core, m)
 
     m.def("checksum", &checksum, R"pbdoc(
         Checksum test on dpus
-    )pbdoc");
-
-    m.def("kmeans_c", &kmeans_c, R"pbdoc(
-        Main kmeans function
     )pbdoc");
 
     m.def("kmeans_cpp", &kmeans_cpp, R"pbdoc(

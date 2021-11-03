@@ -106,7 +106,7 @@ int cluster(
     float *min_rmse,            /**< [out] minimum RMSE */
     int isRMSE,                 /**< calculate RMSE */
     int nloops,                 /**< number of iteration for each number of clusters */
-    char *logname,              /**< name of the log file */
+    const char *logname,        /**< name of the log file */
     const char *DPU_BINARY,     /**< path to the DPU kernel */
     dpu_set *allset)            /**< pointer to the set of all assigned DPUs */
 {

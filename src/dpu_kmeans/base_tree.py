@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+from collections.abc import Iterable
+from typing import Union
+from os.path import basename, dirname, splitext
+from os import PathLike
+from datetime import datetime
 
 try:
     from importlib.resources import files, as_file
@@ -24,20 +29,43 @@ def test_checksum():
 
 
 def test_kmeans(
-    filename: str,
-    isBinaryFile: bool,
+    input: Union[str, PathLike, Iterable],
+    is_binary_file: bool = True,
     threshold: float = 0.0001,
     max_nclusters: int = 5,
     min_nclusters: int = 5,
     isRMSE: bool = False,
     isOutput: bool = True,
     nloops: int = 1,
+    log_name: str = "",
 ):
+    if isinstance(input, (str, PathLike)):
+        filename, file_input, data = input, True, []
+        if not log_name:
+            log_name = (
+                dirname(filename)
+                + "kmeanstime_dpu_"
+                + splitext(basename(filename))[0]
+                + ".log"
+            )
+    else:
+        filename, file_input, data = "", False, input
+        if not log_name:
+            log_name = (
+                "kmeanstime_dpu_"
+                + str(datetime.now().date())
+                + "_"
+                + str(datetime.now().time()).replace(":", ".")
+                + ".log"
+            )
+
     ref = files("dpu_kmeans").joinpath("dpu_program/kmeans_dpu_kernel")
     with as_file(ref) as DPU_BINARY:
         result = kmeans_cpp(
+            data,
             filename,
-            isBinaryFile,
+            file_input,
+            is_binary_file,
             threshold,
             max_nclusters,
             min_nclusters,
@@ -45,5 +73,6 @@ def test_kmeans(
             isOutput,
             nloops,
             str(DPU_BINARY),
+            log_name,
         )
     return result

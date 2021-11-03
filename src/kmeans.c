@@ -52,27 +52,14 @@ void strip_ext(char *fname)
         *end = '\0';
 }
 
-char *get_log_name(const char *filename_in)
-{
-    char *filename = strdup(filename_in);
-    char prefix[] = "/kmeanstime_dpu_", suffix[] = ".log";
-
-    int n = strlen(filename) + strlen(prefix) + strlen(suffix);
-    char *log_name = (char *)malloc(n * sizeof(char));
-    char *dir_name = dirname(filename);
-    char *base_name = basename(filename);
-
-    strip_ext(base_name);
-    strcpy(log_name, dir_name);
-    strcat(log_name, "/kmeanstime_dpu_");
-    strcat(log_name, base_name);
-    strcat(log_name, ".log");
-
-    free(filename);
-
-    return log_name;
-}
-
+/**
+ * @brief Saves the input data in a binary file for faster access next time.
+ *
+ * @param filename_in Name of the input text file.
+ * @param npoints Number of points.
+ * @param nfeatures Number of features.
+ * @param features [npoints][nfeatures] Feature array.
+ */
 void save_dat_file(const char *filename_in, uint64_t npoints, int nfeatures, float **features)
 {
     char *filename = strdup(filename_in);
@@ -84,6 +71,8 @@ void save_dat_file(const char *filename_in, uint64_t npoints, int nfeatures, flo
     strcpy(dat_name, filename);
     strip_ext(dat_name);
     strcat(dat_name, ".dat");
+
+    printf("Writing points in binary format to %s\n", dat_name);
 
     FILE *binfile;
     binfile = fopen(dat_name, "wb");
@@ -435,6 +424,16 @@ float preprocessing(
     return scale_factor;
 }
 
+/**
+ * @brief Checks for errors in the input
+ *
+ * @param npoints Number of points.
+ * @param npadded Number of points with padding.
+ * @param min_nclusters Minimum number of clusters.
+ * @param max_nclusters Maximum number of clusters.
+ * @param nfeatures Number of features.
+ * @param ndpu Number of available DPUs.
+ */
 void error_check(uint64_t npoints, uint64_t npadded, int min_nclusters, int max_nclusters, int nfeatures, uint32_t ndpu)
 {
     if (npoints < min_nclusters)
@@ -460,11 +459,88 @@ void error_check(uint64_t npoints, uint64_t npadded, int min_nclusters, int max_
 }
 
 /**
+ * @brief Output to array.
+ *
+ * @param best_nclusters Best number of clusters according to RMSE.
+ * @param nfeatures Number of features.
+ * @param cluster_centres Coordinate of clusters centres for the best iteration.
+ * @param scale_factor Factor that was used in quantizing the data.
+ * @param mean Mean that was subtracted during preprocessing.
+ * @return float* The return array
+ */
+float *array_output(int best_nclusters, int nfeatures, float **cluster_centres, float scale_factor, float *mean)
+{
+    float *output_clusters = (float *)malloc(best_nclusters * nfeatures * sizeof(float));
+    for (int icluster = 0; icluster < best_nclusters; icluster++)
+        for (int ifeature = 0; ifeature < nfeatures; ifeature++)
+        {
+#ifdef FLT_REDUCE
+            output_clusters[ifeature + icluster * nfeatures] = cluster_centres[icluster][ifeature] + mean[ifeature];
+#else
+            output_clusters[ifeature + icluster * nfeatures] = cluster_centres[icluster][ifeature] / scale_factor + mean[ifeature];
+#endif
+        }
+    return output_clusters;
+}
+
+/**
+ * @brief output to the command line
+ *
+ */
+void cli_output(
+    int min_nclusters,       /**< lower bound of the number of clusters */
+    int max_nclusters,       /**< upper bound of the number of clusters */
+    int isOutput,            /**< whether or not to print the centroids */
+    int nfeatures,           /**< number of features */
+    float **cluster_centres, /**< coordinate of clusters centres for the best iteration */
+    float scale_factor,      /**< factor that was used in quantizing the data */
+    float *mean,             /**< mean that was subtracted during preprocessing */
+    int nloops,              /**< how many times the algorithm will be executed for each number of clusters */
+    int isRMSE,              /**< whether or not RMSE is computed */
+    float rmse,              /**< value of the RMSE for the best iteration */
+    int index)               /**< number of trials for the best RMSE */
+{
+    /* cluster center coordinates
+       :displayed only for when k=1*/
+    if ((min_nclusters == max_nclusters) && (isOutput == 1))
+    {
+        printf("\n================= Centroid Coordinates =================\n");
+        for (int icluster = 0; icluster < max_nclusters; icluster++)
+        {
+            printf("%2d:", icluster);
+            for (int ifeature = 0; ifeature < nfeatures; ifeature++)
+#ifdef FLT_REDUCE
+                printf(" % 10.6f", cluster_centres[icluster][ifeature] + mean[ifeature]);
+#else
+                printf(" % 10.6f", cluster_centres[icluster][ifeature] / scale_factor + mean[ifeature]);
+#endif
+            printf("\n");
+        }
+    }
+
+    printf("Number of Iteration: %d\n", nloops);
+
+    if (min_nclusters == max_nclusters && isRMSE)
+    {
+        if (nloops != 1)
+        { // single k, multiple iteration
+            printf("Number of trials to approach the best RMSE of %.3f is %d\n", rmse, index + 1);
+        }
+        else
+        { // single k, single iteration
+            printf("Root Mean Squared Error: %.3f\n", rmse);
+        }
+    }
+}
+
+/**
  * @brief Main function for the KMeans algorithm.
  *
  */
 float *kmeans_c(
+    float *data,
     const char *filename,   /**< path of the data file */
+    int fileInput,          /**< whether or not the data is to be read from a file */
     int isBinaryFile,       /**< whether or not the data file is serialized */
     float threshold,        /**< threshold for termination of the algorithm */
     int max_nclusters,      /**< upper bound of the number of clusters */
@@ -473,21 +549,21 @@ float *kmeans_c(
     int isOutput,           /**< whether or not to print the centroids */
     int nloops,             /**< how many times the algorithm will be executed for each number of clusters */
     const char *DPU_BINARY, /**< path to the dpu kernel */
+    const char *log_name,   /**< path to the log file */
     int *best_nclusters,    /**< [out] best number of clusters according to RMSE */
-    int *nfeatures_out      /**< [out] number of features in the data file */
+    int *nfeatures_inout    /**< [in,out] number of features in the data file */
 )
 {
     /* Variables for I/O. */
-    char *log_name;
-    float *output_clusters;
+    float *output_clusters; /* return pointer */
 
     /* Size variables. */
-    int nfeatures;    /* number of features */
-    uint64_t npoints; /* number of points */
-    uint64_t npadded; /* number of points with padding */
-    uint32_t ndpu;    /* number of available DPUs */
+    int nfeatures = *nfeatures_inout; /* number of features */
+    uint64_t npoints;                 /* number of points */
+    uint64_t npadded;                 /* number of points with padding */
+    uint32_t ndpu;                    /* number of available DPUs */
 
-    dpu_set allset; /**< Set of all available DPUs. */
+    dpu_set allset; /* Set of all available DPUs. */
 
     /* Data arrays. */
     float **features;               /* array of features */
@@ -497,10 +573,10 @@ float *kmeans_c(
     // int_feature **cluster_centres_int = NULL; /* array of discretized centroid coordinates */
 
     /* Generated values. */
-    int index;              /* number of iterations on the best run */
-    float rmse;             /* RMSE value */
+    int index;  /* number of iterations on the best run */
+    float rmse; /* RMSE value */
     // int best_nclusters = 0; /* best number of clusters according to RMSE */
-    float scale_factor;     /* scaling factor of the input features */
+    float scale_factor; /* scaling factor of the input features */
 
     /* ============== DPUs init ==============*/
     /* necessary to do it first to know the n° of available DPUs */
@@ -509,19 +585,21 @@ float *kmeans_c(
     /* ============== DPUs init end ==========*/
 
     /* ============== I/O begin ==============*/
-    if (isBinaryFile)
-    { //Binary file input
-        read_binary_input(filename, &npoints, &npadded, &nfeatures, ndpu, &features);
-    }
-    else
-    { //Text file input
-        read_text_input(filename, &npoints, &npadded, &nfeatures, ndpu, &features);
+    if (fileInput)
+    {
+        if (isBinaryFile)
+        { //Binary file input
+            read_binary_input(filename, &npoints, &npadded, &nfeatures, ndpu, &features);
+        }
+        else
+        { //Text file input
+            read_text_input(filename, &npoints, &npadded, &nfeatures, ndpu, &features);
 
-        /* Saving features as a binary for next time */
-        save_dat_file(filename, npoints, nfeatures, features);
+            /* Saving features as a binary for next time */
+            save_dat_file(filename, npoints, nfeatures, features);
+        }
     }
 
-    log_name = get_log_name(filename);
     printf("log_name: %s\n", log_name);
 
     printf("\nI/O completed\n");
@@ -557,59 +635,16 @@ float *kmeans_c(
                     nloops,           /* number of iteration for each number of clusters */
                     log_name,         /* name of the log file */
                     DPU_BINARY,       /* path to the DPU kernel */
-                    &allset);
+                    &allset);         /* set of all DPUs */
 
     /* =============== Array Output ====================== */
 
-    printf("best_nclusters: %d\n", *best_nclusters);
-
-    *nfeatures_out = nfeatures;
-
-    output_clusters = (float *) malloc(*best_nclusters * nfeatures * sizeof(float));
-    for(int icluster = 0; icluster < *best_nclusters; icluster++)
-        for(int ifeature = 0; ifeature < nfeatures; ifeature++)
-        {
-#ifdef FLT_REDUCE
-            output_clusters[ifeature + icluster * nfeatures] = cluster_centres[icluster][ifeature] + mean[ifeature];
-#else
-            output_clusters[ifeature + icluster * nfeatures] = cluster_centres[icluster][ifeature] / scale_factor + mean[ifeature];
-#endif
-        }
-    printf("done writing\n");
+    *nfeatures_inout = nfeatures;
+    output_clusters = array_output(*best_nclusters, nfeatures, cluster_centres, scale_factor, mean);
 
     /* =============== Command Line Output =============== */
 
-    /* cluster center coordinates
-       :displayed only for when k=1*/
-    if ((min_nclusters == max_nclusters) && (isOutput == 1))
-    {
-        printf("\n================= Centroid Coordinates =================\n");
-        for (int icluster = 0; icluster < max_nclusters; icluster++)
-        {
-            printf("%2d:", icluster);
-            for (int ifeature = 0; ifeature < nfeatures; ifeature++)
-#ifdef FLT_REDUCE
-                printf(" % 10.6f", cluster_centres[icluster][ifeature] + mean[ifeature]);
-#else
-                printf(" % 10.6f", cluster_centres[icluster][ifeature] / scale_factor + mean[ifeature]);
-#endif
-            printf("\n");
-        }
-    }
-
-    printf("Number of Iteration: %d\n", nloops);
-
-    if (min_nclusters == max_nclusters && isRMSE)
-    {
-        if (nloops != 1)
-        { // single k, multiple iteration
-            printf("Number of trials to approach the best RMSE of %.3f is %d\n", rmse, index + 1);
-        }
-        else
-        { // single k, single iteration
-            printf("Root Mean Squared Error: %.3f\n", rmse);
-        }
-    }
+    cli_output(min_nclusters, max_nclusters, isOutput, nfeatures, cluster_centres, scale_factor, mean, nloops, isRMSE, rmse, index);
 
     /* free up memory */
     free(features[0]);
@@ -621,7 +656,6 @@ float *kmeans_c(
     free(cluster_centres[0]);
     free(cluster_centres);
     free(mean);
-    free(log_name);
     DPU_ASSERT(dpu_free(allset));
 
     return output_clusters;

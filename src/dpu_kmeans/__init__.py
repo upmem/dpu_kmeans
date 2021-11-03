@@ -7,7 +7,6 @@ from ._core import (
     call_home,
     dpu_test,
     checksum,
-    kmeans_c,
 )
 
 # from .base_tree import printbin
