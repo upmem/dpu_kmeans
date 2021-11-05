@@ -192,10 +192,9 @@ int cluster(
         /* iterate nloops times for each number of clusters */
         for (int i_init = 0; i_init < nloops; i_init++)
         {
-            /* initialize initial cluster centers, CUDA calls (@ kmeans_cuda.cu) */
             struct timeval tic, toc;
             int iterations_counter = 0;
-            gettimeofday(&tic, NULL); // timing = omp_get_wtime();
+            gettimeofday(&tic, NULL); // timing = omp_get_wtime(); returns absurd values
 
             tmp_cluster_centres = kmeans_clustering(
                 features_int,

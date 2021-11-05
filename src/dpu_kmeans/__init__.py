@@ -4,13 +4,12 @@ from ._core import (
     __version__,
     add,
     subtract,
-    call_home,
-    dpu_test,
-    checksum,
 )
 
-# from .base_tree import printbin
-from .base_tree import test_dpu_bin, test_checksum
+from ._checksum import test_checksum
+
+from ._kmeans import KMeans
+from ._dimm import DIMM_data
 
 
 def add2(x: int, y: int) -> int:

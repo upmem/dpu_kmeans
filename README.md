@@ -21,6 +21,21 @@ Installation
 - install the [UPMEM SDK](https://sdk.upmem.com/)
 - `pip install dpu-kmeans`
 
+Usage
+-----
+```python
+import numpy as np
+from dpu_kmeans import DIMM_data, KMeans
+
+X = ... your data ...
+dimm_data = DIMM_data(X)
+
+kmeans = KMeans(2)
+
+centroids, iterations, time = kmeans.fit(dimm_data)
+```
+
+
 Development
 -----------
 

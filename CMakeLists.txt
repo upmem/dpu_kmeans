@@ -56,7 +56,7 @@ pybind11_add_module(
   _core
   MODULE
   src/main.cpp
-  src/trees.c
+  src/trivial_checksum_example_host.c
   src/kmeans.c
   src/cluster.c
   src/kmeans_clustering.c

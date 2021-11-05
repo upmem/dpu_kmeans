@@ -4,54 +4,10 @@
 #include <assert.h>
 #include <dpu.h>
 #include <dpu_log.h>
-#include "trees.h"
+#include "trivial_checksum_example_host.h"
 
 #define TEXT_BUFFER_SIZE 1000
 #define BUFFER_SIZE (1 << 16)
-
-char *call_home(char *filename)
-{
-  FILE *fPtr;
-
-  char *out;
-
-  char buffer[TEXT_BUFFER_SIZE];
-  int totalRead = 0;
-
-  fPtr = fopen(filename, "r");
-
-  if (fPtr == NULL)
-  {
-    printf("Unable to open file %s\n", filename);
-    exit(EXIT_FAILURE);
-  }
-
-  out = fgets(buffer, TEXT_BUFFER_SIZE, fPtr);
-
-  fclose(fPtr);
-
-  return out;
-}
-
-int dpu_test(char *filename)
-{
-  struct dpu_set_t set, dpu;
-
-  const char *DPU_BINARY = filename;
-
-  DPU_ASSERT(dpu_alloc(1, NULL, &set));
-  DPU_ASSERT(dpu_load(set, DPU_BINARY, NULL));
-  DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
-
-  DPU_FOREACH(set, dpu)
-  {
-    DPU_ASSERT(dpu_log_read(dpu, stdout));
-  }
-
-  DPU_ASSERT(dpu_free(set));
-
-  return 0;
-}
 
 void populate_mram(struct dpu_set_t set)
 {

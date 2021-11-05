@@ -231,14 +231,6 @@ PYBIND11_MODULE(_core, m)
         Some other explanation about the subtract function.
     )pbdoc");
 
-    m.def("call_home", &call_home, R"pbdoc(
-        Get a number from the c file
-    )pbdoc");
-
-    m.def("dpu_test", &dpu_test, R"pbdoc(
-        Call hello world on dpu
-    )pbdoc");
-
     m.def("checksum", &checksum, R"pbdoc(
         Checksum test on dpus
     )pbdoc");
