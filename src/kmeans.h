@@ -86,26 +86,123 @@ float rms_err(float **, int, uint64_t, float **, int);
 
 /** @name kmeans.c */
 /**@{*/
-double time_seconds(struct timeval, struct timeval);
-float *kmeans_c(float*, const char *, int, int, float, int, int, int, int, int, const char *, const char *, int *, int *, uint64_t *);
+double time_seconds(struct timeval tic, struct timeval toc);
+void read_bin_input(
+    const char *filename,
+    uint64_t *npoints_out,
+    uint64_t *npadded_out,
+    int *nfeatures_out,
+    uint32_t ndpu,
+    float ***features_out);
+void read_txt_input(
+    const char *filename,
+    uint64_t *npoints_out,
+    uint64_t *npadded_out,
+    int *nfeatures_out,
+    uint32_t ndpu,
+    float ***features_out);
+void save_dat_file(const char *filename_in, uint64_t npoints, int nfeatures, float **features);
+void format_array_input(
+    uint64_t npoints,
+    uint64_t *npadded_out,
+    int nfeatures,
+    uint32_t ndpu,
+    float *data,
+    float ***features_out);
+float preprocessing(
+    float **mean_out,
+    int nfeatures,
+    uint64_t npoints,
+    uint64_t npadded,
+    float **features,
+    int_feature ***features_int_out,
+    float *threshold,
+    int verbose);
+void postprocessing(uint64_t npoints, int nfeatures, float **features, float *mean);
+float *kmeans_c(
+    float **features_float,
+    int_feature **features_int,
+    int nfeatures,
+    uint64_t npoints,
+    uint64_t npadded,
+    float scale_factor,
+    float threshold,
+    float *mean,
+    int max_nclusters,
+    int min_nclusters,
+    int isRMSE,
+    int isOutput,
+    int nloops,
+    int *log_iterations,
+    double *log_time,
+    uint32_t ndpu,
+    dpu_set *allset,
+    int *best_nclusters);
 /**@}*/
 
 /** @name cluster.c */
 /**@{*/
-int cluster(uint64_t, uint64_t, int, uint32_t, float **, int_feature **, int, int, float, int *, float ***, float *, int, int, const char *, const char *, dpu_set *);
+void load_kernel(dpu_set *allset, const char *DPU_BINARY, uint32_t *ndpu);
+void free_dpus(dpu_set *allset);
+int cluster(
+    uint64_t npoints,
+    uint64_t npadded,
+    int nfeatures,
+    uint32_t ndpu,
+    float **features_float,
+    int_feature **features_int,
+    int min_nclusters,
+    int max_nclusters,
+    float threshold,
+    int *best_nclusters,
+    float ***cluster_centres,
+    float *min_rmse,
+    int isRMSE,
+    int isOutput,
+    int nloops,
+    int *log_iterations,
+    double *log_time,
+    dpu_set *allset);
 /**@}*/
 
 /** @name kmeans_clustering.c */
 /**@{*/
-float **kmeans_clustering(int_feature **, float **, int, uint64_t, uint64_t, unsigned int, int, float, uint8_t *, int *, int, dpu_set *);
+float **kmeans_clustering(
+    int_feature **features_int,
+    float **features_float,
+    int nfeatures,
+    uint64_t npoints,
+    uint64_t npadded,
+    unsigned int nclusters,
+    int ndpu,
+    float threshold,
+    int isOutput,
+    uint8_t *membership,
+    int *loop,
+    int iteration,
+    dpu_set *allset);
 /**@}*/
 
 /** @name kmeans_dpu.c */
 /**@{*/
-void allocateMemory(uint64_t, int);
+void allocateMemory(uint64_t npadded, int ndpu);
 void deallocateMemory();
-void populateDpu(int_feature **, int, uint64_t, uint64_t, int, dpu_set *);
-void kmeansDpu(int, uint64_t, uint64_t, int, int, int64_t[ASSUMED_NR_CLUSTERS], int64_t[ASSUMED_NR_CLUSTERS][ASSUMED_NR_FEATURES], dpu_set *);
+void populateDpu(
+    int_feature **feature,
+    int nfeatures,
+    uint64_t npoints,
+    uint64_t npadded,
+    int ndpu,
+    dpu_set *allset);
+void kmeansDpu(
+    int nfeatures,
+    uint64_t npoints,
+    uint64_t npadded,
+    int ndpu,
+    int nclusters,
+    int64_t new_centers_len[ASSUMED_NR_CLUSTERS],
+    int64_t new_centers[ASSUMED_NR_CLUSTERS][ASSUMED_NR_FEATURES],
+    dpu_set *allset);
 /**@}*/
 #endif // ifndef _KMEANS_DPU_KERNEL_H_
 

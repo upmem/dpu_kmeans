@@ -22,7 +22,7 @@ static int64_t new_centers[ASSUMED_NR_CLUSTERS][ASSUMED_NR_FEATURES]; /**< coord
  * @brief Performs a final reduction of the centroids coordinates in float format.
  */
 void final_reduction(
-    float **feature_float,  /**< array: [npadded][nfeatures] */
+    float **features_float,  /**< array: [npadded][nfeatures] */
     int nfeatures,          /**< number of attributes for each point */
     uint64_t npoints,       /**< number of data points */
     uint64_t npadded,       /**< number of data points with padding */
@@ -68,7 +68,7 @@ void final_reduction(
 #pragma omp for schedule(static) collapse(2)
         for (int ipoint = 0; ipoint < npoints; ipoint++)
             for (int ifeature = 0; ifeature < nfeatures; ifeature++)
-                clusters_thread[membership[ipoint]][ifeature] += feature_float[ipoint][ifeature];
+                clusters_thread[membership[ipoint]][ifeature] += features_float[ipoint][ifeature];
 
 #pragma omp critical
         for (int icluster = 0; icluster < nclusters; icluster++)
@@ -96,13 +96,14 @@ void final_reduction(
  */
 float **kmeans_clustering(
     int_feature **features_int, /**< array: [npadded][nfeatures] */
-    float **feature_float,      /**< array: [npadded][nfeatures] */
+    float **features_float,      /**< array: [npadded][nfeatures] */
     int nfeatures,              /**< number of attributes for each point */
     uint64_t npoints,           /**< number of data points */
     uint64_t npadded,           /**< number of data points with padding */
     unsigned int nclusters,     /**< number of clusters in this iteration */
     int ndpu,                   /**< number of available DPUs */
     float threshold,            /**< loop terminating factor */
+    int isOutput,               /**< [in] whether or not to print runtime information */
     uint8_t *membership,        /**< [out] cluster membership of each point */
     int *loop,                  /**< [out] number of inner iterations */
     int iteration,              /**< index of current outer iteration */
@@ -214,10 +215,11 @@ float **kmeans_clustering(
 
     } while (((*loop)++ < 500) && (frob > threshold)); /* makes sure loop terminates */
 
-    printf("iterated %d times\n", *loop);
+    if (isOutput)
+        printf("iterated %d times\n", *loop);
 
 #ifdef FLT_REDUCE
-    final_reduction(feature_float,
+    final_reduction(features_float,
                     nfeatures,
                     npoints,
                     npadded,

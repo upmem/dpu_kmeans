@@ -261,23 +261,21 @@ void task_reduce(
 
     uint16_t cluster_base_index = cluster_base_indices[icluster];
 
+#ifdef PERF_COUNTER
+    tasklet_counters[ARITH_TIC] = perfcounter_get();
+#endif
+    mutex_lock(write_mutex);
 #pragma unroll(ASSUMED_NR_FEATURES)
 #pragma must_iterate(1, ASSUMED_NR_FEATURES, 1)
     for (uint8_t idim = 0; idim < nfeatures; idim++)
     {
-#ifdef PERF_COUNTER
-        tasklet_counters[ARITH_TIC] = perfcounter_get();
-#endif
-
         // centers_sum_tasklets[tasklet_id][cluster_base_indices[icluster] + idim] += w_features[point_base_index + idim];
-        mutex_lock(write_mutex);
         centers_sum[cluster_base_index + idim] += w_features[point_base_index + idim];
-        mutex_unlock(write_mutex);
-
-#ifdef PERF_COUNTER
-        tasklet_counters[REDUCE_ARITH_CTR] += perfcounter_get() - tasklet_counters[ARITH_TIC];
-#endif
     }
+    mutex_unlock(write_mutex);
+#ifdef PERF_COUNTER
+    tasklet_counters[REDUCE_ARITH_CTR] += perfcounter_get() - tasklet_counters[ARITH_TIC];
+#endif
 
 #ifdef PERF_COUNTER
     tasklet_counters[REDUCE_LOOP_CTR] += perfcounter_get() - tasklet_counters[LOOP_TIC];

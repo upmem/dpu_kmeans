@@ -36,6 +36,7 @@ setup(
     include_package_data=True,
     install_requires=[
         "numpy",
+        "scikit-learn",
         "importlib_resources;python_version<'3.9'",
     ],
     extras_require={

@@ -79,7 +79,7 @@ void populateDpu(
     uint64_t npoints,      /**< number of real data points */
     uint64_t npadded,      /**< number of padded data points */
     int ndpu,              /**< number of available DPUs */
-    dpu_set *allset)
+    dpu_set *allset)       /**< set of assigned DPUs */
 {
     /**@{*/
     /** Iteration variables for the DPUs. */

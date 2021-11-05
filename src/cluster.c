@@ -87,30 +87,51 @@ unsigned int get_task_size(int nfeatures, unsigned int npointperdpu)
 }
 
 /**
+ * @brief Loads a binary in the DPUs.
+ *
+ * @param allset set of all assigned DPUs
+ * @param DPU_BINARY path to the binary
+ * @param ndpu number of DPUs
+ */
+void load_kernel(dpu_set *allset, const char *DPU_BINARY, uint32_t *ndpu)
+{
+    DPU_ASSERT(dpu_alloc(DPU_ALLOCATE_ALL, NULL, allset));
+    DPU_ASSERT(dpu_get_nr_dpus(*allset, ndpu));
+    DPU_ASSERT(dpu_load(*allset, DPU_BINARY, NULL));
+}
+
+void free_dpus(dpu_set *allset)
+{
+    DPU_ASSERT(dpu_free(*allset));
+}
+
+/**
  * @brief Performs the KMeans algorithm over all values of nclusters.
  *
  * @return Number of iterations to reach the best RMSE.
  */
 int cluster(
-    uint64_t npoints,           /**< number of data points */
-    uint64_t npadded,           /**< number of data points with padding */
-    int nfeatures,              /**< number of attributes for each point */
-    uint32_t ndpu,              /**< number of available DPUs */
-    float **features_float,     /**< array: [npadded][nfeatures] */
-    int_feature **features_int, /**< array: [npadded][nfeatures] */
-    int min_nclusters,          /**< range of min to max number of clusters */
-    int max_nclusters,          /**< range of min to max number of clusters */
-    float threshold,            /**< loop terminating factor */
+    uint64_t npoints,           /**< [in] number of data points */
+    uint64_t npadded,           /**< [in] number of data points with padding */
+    int nfeatures,              /**< [in] number of attributes for each point */
+    uint32_t ndpu,              /**< [in] number of available DPUs */
+    float **features_float,     /**< [in] array: [npadded][nfeatures] */
+    int_feature **features_int, /**< [in] array: [npadded][nfeatures] */
+    int min_nclusters,          /**< [in] min to max number of clusters */
+    int max_nclusters,          /**< [in] max number of clusters */
+    float threshold,            /**< [in] loop terminating factor */
     int *best_nclusters,        /**< [out] number between min and max with lowest RMSE */
     float ***cluster_centres,   /**< [out] [best_nclusters][nfeatures] */
     float *min_rmse,            /**< [out] minimum RMSE */
-    int isRMSE,                 /**< calculate RMSE */
-    int nloops,                 /**< number of iteration for each number of clusters */
-    const char *logname,        /**< name of the log file */
-    const char *DPU_BINARY,     /**< path to the DPU kernel */
-    dpu_set *allset)            /**< pointer to the set of all assigned DPUs */
+    int isRMSE,                 /**< [in] calculate RMSE */
+    int isOutput,               /**< [in] whether or not to print runtime information */
+    int nloops,                 /**< [in] number of iteration for each number of clusters */
+    int *log_iterations,        /**< [out] log of the number of iterations */
+    double *log_time,           /**< [out] log of the time taken */
+    dpu_set *allset)            /**< [in] pointer to the set of all assigned DPUs */
 {
     unsigned int nclusters;                     /* number of clusters k */
+    unsigned int log_index = 0;                 /* index of the current nclusters iteration */
     int index = 0;                              /* number of iteration to reach the best RMSE */
     float rmse;                                 /* RMSE for each clustering */
     uint8_t *membership;                        /* which cluster a data point belongs to */
@@ -121,20 +142,6 @@ int cluster(
     unsigned int task_size_in_points;
     unsigned int task_size_in_bytes;
     unsigned int task_size_in_features;
-
-    /* open log file */
-    FILE *fp;
-    fp = fopen(logname, "w");
-    fprintf(fp, "npoints : %lu, nfeatures : %d\n", npoints, nfeatures);
-    fprintf(fp, "nclusters, iterations, time in seconds\n");
-
-    printf("Possible break point\n");
-    printf("loading %s\n", DPU_BINARY);
-    /* load DPU binary */
-    // DPU_ASSERT(dpu_load(*allset,"/home/upmemstaff/sbrocard/new_kmeans/DPU/kmeans/kmeans_dpu_kernel", NULL));
-    // DPU_ASSERT(dpu_load(*allset, "src/dpu_kmeans/dpu_program/kmeans_dpu_kernel", NULL));
-    DPU_ASSERT(dpu_load(*allset, DPU_BINARY, NULL));
-    printf("Wasn't load\n");
 
     /* allocate memory for membership */
     membership = (uint8_t *)malloc(npadded * sizeof(uint8_t));
@@ -156,25 +163,20 @@ int cluster(
     DPU_ASSERT(dpu_broadcast_to(*allset, "task_size_in_bytes_host", 0, &task_size_in_bytes, sizeof(task_size_in_bytes), DPU_XFER_DEFAULT));
     DPU_ASSERT(dpu_broadcast_to(*allset, "task_size_in_features_host", 0, &task_size_in_features, sizeof(task_size_in_features), DPU_XFER_DEFAULT));
 
-    printf("points per DPU : %d\n", npointperdpu);
-    printf("tasks per DPU: %d\n", npointperdpu / task_size_in_points);
-    printf("task size in points : %d\n", task_size_in_points);
-    printf("task size in bytes : %d\n", task_size_in_bytes);
-
-    /* fill DPUs with the data points */
-    populateDpu(
-        features_int, /* array: [npoints][nfeatures] */
-        nfeatures,    /* number of attributes for each point */
-        npoints,      /* number of real data points */
-        npadded,      /* number of padded data points */
-        ndpu,         /* number of available DPUs */
-        allset);
+    if (isOutput)
+    {
+        printf("points per DPU : %d\n", npointperdpu);
+        printf("tasks per DPU: %d\n", npointperdpu / task_size_in_points);
+        printf("task size in points : %d\n", task_size_in_points);
+        printf("task size in bytes : %d\n", task_size_in_bytes);
+    }
 
     /* allocate memory for device communication */
     allocateMemory(npadded, ndpu);
     /* =============== end DPUs initialization =============== */
 
-    printf("\nStarting calculation\n\n");
+    if (isOutput)
+        printf("\nStarting calculation\n\n");
 
     /* sweep k from min to max_nclusters to find the best number of clusters */
     for (nclusters = min_nclusters; nclusters <= max_nclusters; nclusters++)
@@ -204,6 +206,7 @@ int cluster(
                 nclusters,
                 ndpu,
                 threshold,
+                isOutput,
                 membership,
                 &iterations_counter,
                 i_init,
@@ -244,7 +247,8 @@ int cluster(
                     tmp_cluster_centres,
                     nclusters);
 
-                printf("RMSE for nclusters = %d : %f\n", nclusters, rmse);
+                if (isOutput)
+                    printf("RMSE for nclusters = %d : %f\n", nclusters, rmse);
                 if (rmse < min_rmse_ref)
                 {
                     min_rmse_ref = rmse;         //update reference min RMSE
@@ -255,14 +259,16 @@ int cluster(
             }
         }
 
+        /* logging number of iterations and time taken */
         double cluster_time = ((double)(cluster_timing.tv_sec * 1000000 + cluster_timing.tv_usec)) / 1000000;
-        fprintf(fp, "%9d, %10d, %15f\n", nclusters, total_iterations, cluster_time);
+        log_iterations[log_index] = total_iterations;
+        log_time[log_index] = cluster_time;
+        log_index++;
     }
 
     deallocateMemory();
 
     free(membership);
-    fclose(fp);
 
     return index;
 }
