@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu-latest]
-        python-version: ["3.6", "3.8", "3.9", "3.10-dev"]
+        python-version: ["3.6", "3.8", "3.9", "3.10"]
 
     runs-on: ${{ matrix.platform }}
 
@@ -43,7 +43,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu-latest]
-        python-version: ["3.6", "3.8", "3.9", "3.10-dev"]
+        python-version: ["3.6", "3.8", "3.9", "3.10"]
 
     runs-on: ${{ matrix.platform }}
 
