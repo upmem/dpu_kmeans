@@ -23,18 +23,26 @@ Installation
 
 Usage
 -----
+
 ```python
 import numpy as np
 from dpu_kmeans import DIMM_data, KMeans
 
-X = ... your data ...
+X = np.array([[1, 2], [1, 4], [1, 0],[10, 2], [10, 4], [10, 0]])
 dimm_data = DIMM_data(X)
 
 kmeans = KMeans(2)
 
 centroids, iterations, time = kmeans.fit(dimm_data)
+print(centroids)
 ```
 
+Output:
+
+```python
+[[ 0.9998627  2.       ]
+ [10.000137   2.       ]]
+```
 
 Development
 -----------
@@ -82,6 +90,7 @@ Test call
 import dpu_kmeans
 dpu_kmeans.test_checksum()
 ```
+
 Expected return: `0x007f8000`
 
 [`cibuildwheel`]:          https://cibuildwheel.readthedocs.io
