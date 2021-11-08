@@ -50,7 +50,7 @@ class KMeans(BaseEstimator):
             self.n_clusters,
             False,
             self.verbose,
-            1,
+            self.n_init,
             log_iterations,
             log_time,
         )
