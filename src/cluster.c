@@ -17,9 +17,6 @@
 
 #include "kmeans.h"
 
-static struct timeval cluster_timing; /**< Total clustering time */
-static float min_rmse_ref = FLT_MAX;  /**< reference min_rmse value */
-
 // #ifndef DPU_BINARY
 // #define DPU_BINARY "src/dpu_kmeans/dpu_program/kmeans_dpu_kernel" /**< filename of the binary sent to the kernel */
 // #end
@@ -119,6 +116,7 @@ int cluster(
     int_feature **features_int, /**< [in] array: [npadded][nfeatures] */
     int min_nclusters,          /**< [in] min to max number of clusters */
     int max_nclusters,          /**< [in] max number of clusters */
+    float scale_factor,         /**< [in] scale factor used in preprocessing */
     float threshold,            /**< [in] loop terminating factor */
     int *best_nclusters,        /**< [out] number between min and max with lowest RMSE */
     float ***cluster_centres,   /**< [out] [best_nclusters][nfeatures] */
@@ -137,6 +135,8 @@ int cluster(
     uint8_t *membership;                        /* which cluster a data point belongs to */
     float **tmp_cluster_centres;                /* hold coordinates of cluster centers */
     unsigned int npointperdpu = npadded / ndpu; /* number of points per DPU */
+    float min_rmse_ref = FLT_MAX;               /* reference min_rmse value */
+    struct timeval cluster_timing;              /* clustering time for a given nclusters */
 
     /* parameters to calculate once here and send to the DPUs. */
     unsigned int task_size_in_points;
@@ -157,7 +157,7 @@ int cluster(
 
     /* send computation parameters to the DPUs */
     DPU_ASSERT(dpu_broadcast_to(*allset, "nfeatures_host", 0, &nfeatures, sizeof(nfeatures), DPU_XFER_DEFAULT));
-    DPU_ASSERT(dpu_broadcast_to(*allset, "npoints", 0, &npointperdpu, sizeof(npointperdpu), DPU_XFER_DEFAULT));
+    // DPU_ASSERT(dpu_broadcast_to(*allset, "npoints", 0, &npointperdpu, sizeof(npointperdpu), DPU_XFER_DEFAULT));
 
     DPU_ASSERT(dpu_broadcast_to(*allset, "task_size_in_points_host", 0, &task_size_in_points, sizeof(task_size_in_points), DPU_XFER_DEFAULT));
     DPU_ASSERT(dpu_broadcast_to(*allset, "task_size_in_bytes_host", 0, &task_size_in_bytes, sizeof(task_size_in_bytes), DPU_XFER_DEFAULT));
@@ -194,7 +194,7 @@ int cluster(
         {
             struct timeval tic, toc;
             int iterations_counter = 0;
-            gettimeofday(&tic, NULL); // timing = omp_get_wtime(); returns absurd values
+            gettimeofday(&tic, NULL); // `timing = omp_get_wtime();` returns absurd values
 
             tmp_cluster_centres = kmeans_clustering(
                 features_int,
@@ -204,6 +204,7 @@ int cluster(
                 npadded,
                 nclusters,
                 ndpu,
+                scale_factor,
                 threshold,
                 isOutput,
                 membership,
@@ -217,27 +218,20 @@ int cluster(
 
             total_iterations += iterations_counter;
 
-            if (*cluster_centres)
-            {
-                free((*cluster_centres)[0]);
-                free(*cluster_centres);
-            }
-            *cluster_centres = tmp_cluster_centres;
-
             /* DEBUG : print cluster centers */
-            // printf("cluster centers:\n");
+            // printf("\ncluster centers:\n");
             // for(int icluster = 0; icluster<nclusters; icluster++)
             // {
             //     for(int ifeature = 0; ifeature<nfeatures; ifeature++)
             //     {
-            //         printf("%8.4f ", (*cluster_centres)[icluster][ifeature]);
+            //         printf("%8.4f ", tmp_cluster_centres[icluster][ifeature]);
             //     }
             //     printf("\n");
             // }
             // printf("\n");
 
             /* find the number of clusters with the best RMSE */
-            if (isRMSE)
+            if (isRMSE || min_nclusters != max_nclusters || nloops > 1)
             {
                 rmse = rms_err(
                     features_float,
@@ -248,13 +242,30 @@ int cluster(
 
                 if (isOutput)
                     printf("RMSE for nclusters = %d : %f\n", nclusters, rmse);
+
                 if (rmse < min_rmse_ref)
                 {
-                    min_rmse_ref = rmse;         //update reference min RMSE
-                    *min_rmse = min_rmse_ref;    //update return min RMSE
-                    *best_nclusters = nclusters; //update optimum number of clusters
-                    index = i_init;              //update number of iteration to reach best RMSE
+                    min_rmse_ref = rmse;         // update reference min RMSE
+                    *min_rmse = min_rmse_ref;    // update return min RMSE
+                    *best_nclusters = nclusters; // update optimum number of clusters
+                    index = i_init;              // update number of iteration to reach best RMSE
+                    /* update best cluster centres */
+                    if (*cluster_centres)
+                    {
+                        free((*cluster_centres)[0]);
+                        free(*cluster_centres);
+                    }
+                    *cluster_centres = tmp_cluster_centres;
                 }
+            }
+            else
+            {
+                if (*cluster_centres)
+                {
+                    free((*cluster_centres)[0]);
+                    free(*cluster_centres);
+                }
+                *cluster_centres = tmp_cluster_centres;
             }
         }
 
@@ -268,6 +279,16 @@ int cluster(
     deallocateMemory();
 
     free(membership);
+
+    /* DEBUG: print best clusters */
+    // printf("best nclusters: %d\n", *best_nclusters);
+    // printf("trying\n");
+    // for (int icluster = 0; icluster < *best_nclusters; icluster++)
+    // {
+    //     for (int ifeature = 0; ifeature < nfeatures; ifeature++)
+    //         printf("%f ",(*cluster_centres)[icluster][ifeature]);
+    //     printf("\n");
+    // }
 
     return index;
 }

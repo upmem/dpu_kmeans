@@ -247,7 +247,7 @@ float preprocessing(
     int nfeatures,                   /**< [in] Number of features. */
     uint64_t npoints,                /**< [in] Number of points. */
     uint64_t npadded,                /**< [in] Number of points with padding. */
-    float **features,                /**< [in] Features as floats. */
+    float **features_float,          /**< [in] Features as floats. */
     int_feature ***features_int_out, /**< [out] Features as integers. */
     float *threshold,                /**< [in,out] Termination criterion for the algorithm. */
     int verbose)                     /**< [in] Whether or not to print runtime information. */
@@ -285,23 +285,25 @@ float preprocessing(
               : mean[:nfeatures])
     for (ifeature = 0; ifeature < nfeatures; ifeature++)
         for (ipoint = 0; ipoint < npoints; ipoint++)
-            mean[ifeature] += features[ipoint][ifeature];
+            mean[ifeature] += features_float[ipoint][ifeature];
 
 #pragma omp parallel for
     for (ifeature = 0; ifeature < nfeatures; ifeature++)
         mean[ifeature] /= npoints;
 
-    /* DEBUG : print the means per feature */
-    // printf("means = ");
-    // for (ifeature = 0; ifeature < nfeatures; ifeature++)
-    //     printf(" %.4f",mean[ifeature]);
-    // printf("\n");
+    if (verbose)
+    {
+        printf("means = ");
+        for (ifeature = 0; ifeature < nfeatures; ifeature++)
+            printf(" %.4f",mean[ifeature]);
+        printf("\n");
+    }
 
     /* subtract mean from each feature */
 #pragma omp parallel for collapse(2)
     for (ipoint = 0; ipoint < npoints; ipoint++)
         for (ifeature = 0; ifeature < nfeatures; ifeature++)
-            features[ipoint][ifeature] -= mean[ifeature];
+            features_float[ipoint][ifeature] -= mean[ifeature];
 
     /* ****** discretization ****** */
 
@@ -311,8 +313,8 @@ float preprocessing(
               : max_feature)
     for (ipoint = 0; ipoint < npoints; ipoint++)
         for (ifeature = 0; ifeature < nfeatures; ifeature++)
-            if (fabsf(features[ipoint][ifeature]) > max_feature)
-                max_feature = fabsf(features[ipoint][ifeature]);
+            if (fabsf(features_float[ipoint][ifeature]) > max_feature)
+                max_feature = fabsf(features_float[ipoint][ifeature]);
     switch (sizeof(int_feature))
     {
     case 1UL:
@@ -351,11 +353,11 @@ float preprocessing(
 #pragma omp parallel for collapse(2)
     for (ipoint = 0; ipoint < npoints; ipoint++)
         for (ifeature = 0; ifeature < nfeatures; ifeature++)
-            features_int[ipoint][ifeature] = lroundf(features[ipoint][ifeature] * scale_factor);
+            features_int[ipoint][ifeature] = lroundf(features_float[ipoint][ifeature] * scale_factor);
 
     /* DEBUG : print features head */
     // printf("features head:\n");
-    // for (int ipoint = 0; ipoint < 10; ipoint++)
+    // for (int ipoint = 0; ipoint < (npoints >= 10 ? 10 : npoints); ipoint++)
     // {
     //     for (int ifeature = 0; ifeature < nfeatures; ifeature++)
     //         printf("%8d ", features_int[ipoint][ifeature]);
@@ -383,7 +385,7 @@ float preprocessing(
               : variance[:nfeatures])
     for (ipoint = 0; ipoint < npoints; ipoint++)
         for (ifeature = 0; ifeature < nfeatures; ifeature++)
-            variance[ifeature] += (double)features_int[ipoint][ifeature] * features_int[ipoint][ifeature];
+            variance[ifeature] += features_float[ipoint][ifeature] * features_float[ipoint][ifeature];
 
 #pragma omp parallel for
     for (ifeature = 0; ifeature < nfeatures; ifeature++)
@@ -500,13 +502,7 @@ static float *array_output(int best_nclusters, int nfeatures, float **cluster_ce
     float *output_clusters = (float *)malloc(best_nclusters * nfeatures * sizeof(float));
     for (int icluster = 0; icluster < best_nclusters; icluster++)
         for (int ifeature = 0; ifeature < nfeatures; ifeature++)
-        {
-#ifdef FLT_REDUCE
             output_clusters[ifeature + icluster * nfeatures] = cluster_centres[icluster][ifeature] + mean[ifeature];
-#else
-            output_clusters[ifeature + icluster * nfeatures] = cluster_centres[icluster][ifeature] / scale_factor + mean[ifeature];
-#endif
-        }
     return output_clusters;
 }
 
@@ -535,11 +531,7 @@ static void cli_output(
         {
             printf("%2d:", icluster);
             for (int ifeature = 0; ifeature < nfeatures; ifeature++)
-#ifdef FLT_REDUCE
                 printf(" % 10.6f", cluster_centres[icluster][ifeature] + mean[ifeature]);
-#else
-                printf(" % 10.6f", cluster_centres[icluster][ifeature] / scale_factor + mean[ifeature]);
-#endif
             printf("\n");
         }
     }
@@ -655,6 +647,7 @@ float *kmeans_c(
                     features_int,     /* array: [npoints][nfeatures] */
                     min_nclusters,    /* range of min to max number of clusters */
                     max_nclusters,    /* range of min to max number of clusters */
+                    scale_factor,     /* scaling factor used in preprocessing */
                     threshold,        /* loop termination factor */
                     best_nclusters,   /* [out] number between min and max */
                     &cluster_centres, /* [out] [best_nclusters][nfeatures] */

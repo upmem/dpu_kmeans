@@ -102,6 +102,7 @@ float **kmeans_clustering(
     uint64_t npadded,           /**< number of data points with padding */
     unsigned int nclusters,     /**< number of clusters in this iteration */
     int ndpu,                   /**< number of available DPUs */
+    float scale_factor,         /**< [in] scale factor used in preprocessing */
     float threshold,            /**< loop terminating factor */
     int isOutput,               /**< [in] whether or not to print runtime information */
     uint8_t *membership,        /**< [out] cluster membership of each point */
@@ -140,19 +141,19 @@ float **kmeans_clustering(
     for (int icluster = 0; icluster < nclusters; icluster++)
         for (int ifeature = 0; ifeature < nfeatures; ifeature++)
         {
-            clusters_int[icluster][ifeature] = features_int[icluster + iteration_base_index][ifeature];
+            clusters_int[icluster][ifeature] = features_int[(icluster + iteration_base_index) % npoints][ifeature];
             clusters_float[icluster][ifeature] = clusters_int[icluster][ifeature];
         }
 
-        /* DEBUG : print initial centroids */
-        // printf("initial centroids:\n");
-        // for (i = 0; i < nclusters; i++)
-        // {
-        //     for (j = 0; j < nfeatures; j++)
-        //         printf("% d ", clusters_int[i][j]);
-        //     printf("\n");
-        // }
-        // printf("\n");
+    /* DEBUG : print initial centroids */
+    // printf("initial centroids:\n");
+    // for (int icluster = 0; icluster < nclusters; icluster++)
+    // {
+    //     for (int ifeature = 0; ifeature < nfeatures; ifeature++)
+    //         printf("% d ", clusters_int[icluster][ifeature]);
+    //     printf("\n");
+    // }
+    // printf("\n");
 
 #ifdef CPU_REDUCE
     /* initialize the membership to -1 for all */
@@ -201,10 +202,12 @@ float **kmeans_clustering(
             for (int j = 0; j < nfeatures; j++)
                 if (new_centers_len[i] > 0)
                 {
-                    double new_coordinate = (double)new_centers[i][j] / new_centers_len[i]; /* take average i.e. sum/n */
-                    frob += (clusters_float[i][j] - new_coordinate) * (clusters_float[i][j] - new_coordinate);
-                    clusters_float[i][j] = new_coordinate;
+                    float new_coordinate = (float)new_centers[i][j] / new_centers_len[i]; /* take average i.e. sum/n */
                     clusters_int[i][j] = lround(new_coordinate);
+                    new_coordinate /= scale_factor;
+                    clusters_float[i][j] = new_coordinate;
+                    float diff = clusters_float[i][j] - new_coordinate;
+                    frob += diff * diff;
                 }
 
         /* DEBUG : print convergence info */

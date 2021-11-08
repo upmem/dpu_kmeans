@@ -103,7 +103,7 @@ void populateDpu(
     nreal_points = (int *)malloc(ndpu * sizeof(int));
     for (int idpu = 0; idpu < ndpu; idpu++)
     {
-        nreal_points[idpu] = (remaining_points < 0)              ? 0
+        nreal_points[idpu] = (remaining_points <= 0)             ? 0
                              : (remaining_points > npointperdpu) ? npointperdpu
                                                                  : remaining_points;
         remaining_points -= npointperdpu;
@@ -151,14 +151,14 @@ void kmeansDpu(
     DPU_ASSERT(dpu_launch(*allset, DPU_SYNCHRONOUS));
     //================================================================
 
-/* DEBUG : read logs */
-// DPU_FOREACH(*allset, dpu, each_dpu) {
-//     if (each_dpu >= 0)
-//         DPU_ASSERT(dpu_log_read(dpu, stdout));
-// }
-// exit(0);
+    /* DEBUG : read logs */
+    // DPU_FOREACH(*allset, dpu, each_dpu) {
+    //     if (each_dpu == 0)
+    //         DPU_ASSERT(dpu_log_read(dpu, stdout));
+    // }
+    // exit(0);
 
-/* Performance tracking */
+    /* Performance tracking */
 #ifdef PERF_COUNTER
     DPU_FOREACH(*allset, dpu, each_dpu)
     {
