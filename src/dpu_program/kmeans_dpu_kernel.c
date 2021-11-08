@@ -462,16 +462,18 @@ int main()
     // barrier_wait(&sync_barrier);
     // if(tasklet_id==0)
     // {
-    //     printf("maxes: ");
-    //     for(int ifeature = 0; ifeature < nfeatures; ifeature++){
-    //         int64_t max_mean = 0;
-    //         for(int icluster = 0; icluster<nclusters; icluster++){
-    //             if(centers_count[icluster] > 0 && centers_sum[cluster_base_indices[icluster]+ifeature] / centers_count[icluster] > max_mean)
-    //                 max_mean = centers_sum[cluster_base_indices[icluster]+ifeature]/ centers_count[icluster];
-    //         }
-    //         printf("%lld ", max_mean);
-    //     }
-    //     printf("\n");
+    //     printf("nreal_points: %d\n", npoints);
+
+    //     // printf("maxes: ");
+    //     // for(int ifeature = 0; ifeature < nfeatures; ifeature++){
+    //     //     int64_t max_mean = 0;
+    //     //     for(int icluster = 0; icluster<nclusters; icluster++){
+    //     //         if(centers_count[icluster] > 0 && centers_sum[cluster_base_indices[icluster]+ifeature] / centers_count[icluster] > max_mean)
+    //     //             max_mean = centers_sum[cluster_base_indices[icluster]+ifeature]/ centers_count[icluster];
+    //     //     }
+    //     //     printf("%lld ", max_mean);
+    //     // }
+    //     // printf("\n");
 
     //     // for(int ipoint = 0; ipoint<npoints; ipoint++)
     //     // {
