@@ -88,8 +88,6 @@ static unsigned int get_task_size(Params *p)
  */
 void load_kernel(Params *p, const char *DPU_BINARY)
 {
-    DPU_ASSERT(dpu_alloc(DPU_ALLOCATE_ALL, NULL, &p->allset));
-    DPU_ASSERT(dpu_get_nr_dpus(p->allset, &p->ndpu));
     DPU_ASSERT(dpu_load(p->allset, DPU_BINARY, NULL));
 }
 

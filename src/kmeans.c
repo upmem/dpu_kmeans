@@ -20,6 +20,17 @@
 #include "kmeans.h"
 
 /**
+ * @brief Allocates all DPUs
+ *
+ * @param p Algorithm parameters.
+ */
+void allocate(Params *p)
+{
+    DPU_ASSERT(dpu_alloc(DPU_ALLOCATE_ALL, NULL, &p->allset));
+    DPU_ASSERT(dpu_get_nr_dpus(p->allset, &p->ndpu));
+}
+
+/**
  * @brief Returns the seconds elapsed between two timeval structures.
  *
  * @param tic [in] First timeval.

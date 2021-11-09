@@ -17,13 +17,6 @@ int add(int i, int j)
     return i + j;
 }
 
-int array_sum()
-{
-    return 0;
-}
-
-extern "C" char *call_home(char *);
-extern "C" int dpu_test(char *);
 extern "C" int checksum(char *);
 
 namespace py = pybind11;
@@ -42,6 +35,14 @@ private:
     int_feature **features_int;
 
 public:
+    /**
+     * @brief Allocates all DPUs.
+     */
+    void allocate()
+    {
+        ::allocate(&p);
+    }
+
     /**
      * @brief Loads binary into the DPUs
      *
@@ -210,6 +211,7 @@ PYBIND11_MODULE(_core, m)
         Container object to interface with the DPUs
     )pbdoc")
         .def(py::init<>())
+        .def("allocate", &Container::allocate)
         .def("load_kernel", &Container::load_kernel)
         .def("load_array_data", &Container::load_array_data)
         .def("free_data", &Container::free_data)

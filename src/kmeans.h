@@ -107,6 +107,7 @@ float rms_err(Params *p, float **feature, float **cluster_centres, int nclusters
 
 /** @name kmeans.c */
 /**@{*/
+void allocate(Params *p);
 double time_seconds(struct timeval tic, struct timeval toc);
 void read_bin_input(
     Params *p,

@@ -16,8 +16,8 @@ except ImportError:
 
 from ._core import Container
 
+_allocated = False  # whether the DPUs have been allocated
 _kernel = ""  # name of the currently loaded binary
-
 _data_id = None  # ID of the currently loaded data
 
 _kernels_lib = {"kmeans": files("dpu_kmeans").joinpath("dpu_program/kmeans_dpu_kernel")}
@@ -97,6 +97,10 @@ class DIMM_data:
 def load_kernel(kernel: str, verbose: int):
     global ctr
     global _kernel
+    global _allocated
+    if not _allocated:
+        ctr.allocate()
+        _allocated = True
     if not _kernel == kernel:
         if verbose:
             print(f"loading new kernel : {kernel}")
@@ -128,9 +132,10 @@ def load_data(data: DIMM_data, tol: float, verbose: int):
 
 
 def free_dpus():
-    print("freeing dpus")
     global ctr
-    ctr.free_dpus()
+    if _kernel:
+        print("freeing dpus")
+        ctr.free_dpus()
 
 
 atexit.register(free_dpus)
