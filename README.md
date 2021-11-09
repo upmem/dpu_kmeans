@@ -87,7 +87,7 @@ OR
 - start in Dev Container
 - `nox`
 
-*Note:* `nox`, `python setup.py` and `pip` might fail if you executed `pip install .` previously, delete the `_skbuild` cache or run `python setup.py clean` to solve.
+*Note:* `nox`, `python setup.py` and `pip` might fail if you executed `pip install -e .` previously, delete the `_skbuild` cache or run `python setup.py clean` to solve.
 
 Test call
 ---------
