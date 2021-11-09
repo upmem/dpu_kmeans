@@ -86,6 +86,13 @@ class DIMM_data:
             self.npoints, self.nfeatures = self.X.shape
             self.type = "array"
 
+    def __del__(self):
+        global ctr
+        global _data_id
+        if self.data_id == _data_id:
+            _data_id = None
+            ctr.free_data(self.type == "file", False)
+
 
 def load_kernel(kernel: str, verbose: int):
     global ctr
@@ -108,7 +115,7 @@ def load_data(data: DIMM_data, tol: float, verbose: int):
         if _data_id:
             if verbose:
                 print(f"freeing previous data : {_data_id}")
-            ctr.free_data(data.type == "file")
+            ctr.free_data(data.type == "file", True)
         _data_id = data.data_id
         if data.type == "file":
             if verbose:
