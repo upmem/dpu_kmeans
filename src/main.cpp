@@ -37,17 +37,9 @@ namespace py = pybind11;
 class Container
 {
 private:
-    float *mean;
-    int nfeatures;
-    uint64_t npoints;
-    uint64_t npadded;
-    uint32_t ndpu;
-    dpu_set allset;
-    float scale_factor;
-    float threshold;
+    Params p;
     float **features_float;
     int_feature **features_int;
-    bool from_file = false;
 
 public:
     /**
@@ -57,7 +49,7 @@ public:
      */
     void load_kernel(const char *DPU_BINARY)
     {
-        ::load_kernel(&allset, DPU_BINARY, &ndpu);
+        ::load_kernel(&p, DPU_BINARY);
     }
     /**
      * @brief Loads data into the DPU from a file.
@@ -67,61 +59,73 @@ public:
      */
     void load_file_data(const char *filename, bool is_binary_file, float threshold_in, int verbose)
     {
-        from_file = true;
+        p.from_file = true;
         if (is_binary_file)
-            read_bin_input(filename, &npoints, &npadded, &nfeatures, ndpu, &features_float);
+            read_bin_input(&p, filename, &features_float);
         else
-            read_txt_input(filename, &npoints, &npadded, &nfeatures, ndpu, &features_float);
-            save_dat_file(filename, npoints, nfeatures, features_float);
+            read_txt_input(&p, filename, &features_float);
+            save_dat_file(&p, filename, features_float);
         transfer_data(threshold_in, verbose);
     }
     /**
      * @brief Loads data into the DPUs from a python array
      *
      * @param data A python ndarray.
-     * @param npoints_in Number of points.
-     * @param nfeatures_in Number of features.
+     * @param npoints Number of points.
+     * @param nfeatures Number of features.
+     * @param threshold Parameter to declare convergence.
+     * @param verbose Verbosity level.
      */
-    void load_array_data(py::array_t<float> data, uint64_t npoints_in, int nfeatures_in, float threshold_in, int verbose)
+    void load_array_data(py::array_t<float> data, uint64_t npoints, int nfeatures, float threshold, int verbose)
     {
         float *data_ptr = (float *)data.request().ptr;
 
-        npoints = npoints_in;
-        nfeatures = nfeatures_in;
-        format_array_input(npoints, &npadded, nfeatures, ndpu, data_ptr, &features_float);
-        transfer_data(threshold_in, verbose);
+        p.from_file = false;
+
+        p.npoints = npoints;
+        p.nfeatures = nfeatures;
+        format_array_input(&p, data_ptr, &features_float);
+        transfer_data(threshold, verbose);
     }
     /**
      * @brief Preprocesses and transfers quantized data to the DPUs
      *
      */
-    void transfer_data(float threshold_in, int verbose)
+    void transfer_data(float threshold, int verbose)
     {
-        threshold = threshold_in;
-        scale_factor = preprocessing(&mean, nfeatures, npoints, npadded, features_float, &features_int, &threshold, verbose);
-        populateDpu(features_int, nfeatures, npoints, npadded, ndpu, &allset);
+        p.threshold = threshold;
+        preprocessing(&p, features_float, &features_int, verbose);
+        populateDpu(&p, features_int);
+        allocateMemory(&p);
+        #ifdef FLT_REDUCE
+        allocateMembershipTable(&p);
+        #endif
     }
     /**
      * @brief Frees the data.
      */
-    void free_data(bool from_file)
+    void free_data(bool from_file, bool restore_features)
     {
         /* We are NOT freeing the underlying float array if it is managed by python */
         if (from_file)
             free(features_float[0]);
-        else
-            postprocessing(npoints, nfeatures, features_float, mean);
+        else if (restore_features)
+            postprocessing(&p, features_float);
         free(features_float);
         free(features_int[0]);
         free(features_int);
-        free(mean);
+        free(p.mean);
+        #ifdef FLT_REDUCE
+        deallocateMembershipTable();
+        #endif
     }
     /**
      * @brief Frees the DPUs
      */
     void free_dpus()
     {
-        ::free_dpus(&allset);
+        ::free_dpus(&p);
+        deallocateMemory();
     }
 
     py::array_t<float> kmeans_cpp(
@@ -130,6 +134,7 @@ public:
         int isRMSE,
         int isOutput,
         int nloops,
+        int max_iter,
         py::array_t<int> log_iterations,
         py::array_t<double> log_time);
 };
@@ -145,6 +150,7 @@ py::array_t<float> Container ::kmeans_cpp(
     int isRMSE,                      /**< whether or not RMSE is computed */
     int isOutput,                    /**< whether or not to print the centroids */
     int nloops,                      /**< how many times the algorithm will be executed for each number of clusters */
+    int max_iter,                    /**< upper bound of the number of iterations */
     py::array_t<int> log_iterations, /**< array logging the iterations per nclusters */
     py::array_t<double> log_time)    /**< array logging the time taken per nclusters */
 {
@@ -153,28 +159,23 @@ py::array_t<float> Container ::kmeans_cpp(
     int *log_iter_ptr = (int *)log_iterations.request().ptr;
     double *log_time_ptr = (double *)log_time.request().ptr;
 
+    p.max_nclusters = max_nclusters;
+    p.min_nclusters = min_nclusters;
+    p.isRMSE = isRMSE;
+    p.isOutput = isOutput;
+    p.nloops = nloops;
+    p.max_iter = max_iter;
+
     float *clusters = kmeans_c(
+        &p,
         features_float,
         features_int,
-        nfeatures,
-        npoints,
-        npadded,
-        scale_factor,
-        threshold,
-        mean,
-        max_nclusters,
-        min_nclusters,
-        isRMSE,
-        isOutput,
-        nloops,
         log_iter_ptr,
         log_time_ptr,
-        ndpu,
-        &allset,
         &best_nclusters);
 
-    std::vector<ssize_t> shape = {best_nclusters, nfeatures};
-    std::vector<ssize_t> strides = {(int)sizeof(float) * nfeatures, sizeof(float)};
+    std::vector<ssize_t> shape = {best_nclusters, p.nfeatures};
+    std::vector<ssize_t> strides = {(int)sizeof(float) * p.nfeatures, sizeof(float)};
 
     py::capsule free_when_done(clusters, [](void *f)
                                { delete reinterpret_cast<float *>(f); });

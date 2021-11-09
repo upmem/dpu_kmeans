@@ -51,6 +51,7 @@ class KMeans(BaseEstimator):
             False,
             self.verbose,
             self.n_init,
+            self.max_iter,
             log_iterations,
             log_time,
         )

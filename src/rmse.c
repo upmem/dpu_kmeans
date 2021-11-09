@@ -62,9 +62,8 @@ __inline int find_nearest_point(float *pt,     /**< array:[nfeatures] */
  *
  * @return the RMSE
  */
-float rms_err(float **feature,         /**< array:[npoints][nfeatures] */
-              int nfeatures,           /**< number of features */
-              uint64_t npoints,        /**< number of points */
+float rms_err(Params *p,
+              float **feature,         /**< array:[npoints][nfeatures] */
               float **cluster_centres, /**< array:[nclusters][nfeatures] */
               int nclusters)           /**< number of clusters */
 {
@@ -72,6 +71,8 @@ float rms_err(float **feature,         /**< array:[npoints][nfeatures] */
     int nearest_cluster_index; /* cluster center id with min distance to pt */
     float sum_euclid = 0.0;    /* sum of Euclidean distance squares */
     float ret;                 /* return value */
+    uint64_t npoints = p->npoints;
+    int nfeatures = p->nfeatures;
 
 /* calculate and sum the square of euclidean distance*/
 #pragma omp parallel for shared(feature, cluster_centres)                         \
@@ -91,7 +92,7 @@ float rms_err(float **feature,         /**< array:[npoints][nfeatures] */
                                     nfeatures);
     }
     /* divide by n, then take sqrt */
-    ret = sqrt(sum_euclid / npoints);
+    ret = sqrt(sum_euclid / p->npoints);
 
     return (ret);
 }

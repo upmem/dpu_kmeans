@@ -28,16 +28,16 @@ uint64_t (*counters)[HOST_COUNTERS]; /**< performance counters from every DPU */
  * @param npadded Number of points with padding.
  * @param ndpu Number of available DPUs.
  */
-void allocateMemory(uint64_t npadded, int ndpu)
+void allocateMemory(Params *p)
 {
-    centers_psum = (int64_t *)malloc(ndpu * ASSUMED_NR_CLUSTERS * ASSUMED_NR_FEATURES * sizeof(int64_t));
-    centers_pcount = (int **)malloc(ndpu * sizeof(int *));
-    centers_pcount[0] = (int *)malloc(ndpu * ASSUMED_NR_CLUSTERS * sizeof(int));
-    for (int i = 1; i < ndpu; i++)
+    centers_psum = (int64_t *)malloc(p->ndpu * ASSUMED_NR_CLUSTERS * ASSUMED_NR_FEATURES * sizeof(*centers_psum));
+    centers_pcount = (int **)malloc(p->ndpu * sizeof(*centers_pcount));
+    centers_pcount[0] = (int *)malloc(p->ndpu * ASSUMED_NR_CLUSTERS * sizeof(**centers_pcount));
+    for (int i = 1; i < p->ndpu; i++)
         centers_pcount[i] = centers_pcount[i - 1] + ASSUMED_NR_CLUSTERS;
 
 #ifdef PERF_COUNTER
-    counters = malloc(ndpu * sizeof(uint64_t[HOST_COUNTERS]));
+    counters = malloc(p->ndpu * sizeof(uint64_t[HOST_COUNTERS]));
 #endif
 }
 
@@ -74,39 +74,32 @@ int offset(int feature, int cluster, int dpu, int nfeatures, int nclusters)
  * @brief Fills the DPUs with their assigned points.
  */
 void populateDpu(
-    int_feature **feature, /**< array: [npoints][nfeatures] */
-    int nfeatures,         /**< number of attributes for each point */
-    uint64_t npoints,      /**< number of real data points */
-    uint64_t npadded,      /**< number of padded data points */
-    int ndpu,              /**< number of available DPUs */
-    dpu_set *allset)       /**< set of assigned DPUs */
+    Params *p,             /**< Algorithm parameters */
+    int_feature **feature) /**< array: [npoints][nfeatures] */
 {
-    /**@{*/
-    /** Iteration variables for the DPUs. */
+    /* Iteration variables for the DPUs. */
     struct dpu_set_t dpu;
     uint32_t each_dpu;
-    /**@{*/
 
-    uint64_t npointperdpu = npadded / ndpu; /**< number of points per DPU */
-    int *nreal_points;                      /**< number of real data points on each dpu */
-    int64_t remaining_points = npoints;     /**< number of yet unassigned points */
+    int *nreal_points;                     /* number of real data points on each dpu */
+    int64_t remaining_points = p->npoints; /* number of yet unassigned points */
 
-    DPU_FOREACH(*allset, dpu, each_dpu)
+    DPU_FOREACH(p->allset, dpu, each_dpu)
     {
         int next;
-        next = each_dpu * npointperdpu;
+        next = each_dpu * p->npointperdpu;
         DPU_ASSERT(dpu_prepare_xfer(dpu, feature[next]));
     }
-    DPU_ASSERT(dpu_push_xfer(*allset, DPU_XFER_TO_DPU, "t_features", 0, npointperdpu * nfeatures * sizeof(int_feature), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_push_xfer(p->allset, DPU_XFER_TO_DPU, "t_features", 0, p->npointperdpu * p->nfeatures * sizeof(int_feature), DPU_XFER_DEFAULT));
 
     // telling each DPU how many real points it has to process
-    nreal_points = (int *)malloc(ndpu * sizeof(int));
-    for (int idpu = 0; idpu < ndpu; idpu++)
+    nreal_points = (int *)malloc(p->ndpu * sizeof(*nreal_points));
+    for (int idpu = 0; idpu < p->ndpu; idpu++)
     {
-        nreal_points[idpu] = (remaining_points <= 0)             ? 0
-                             : (remaining_points > npointperdpu) ? npointperdpu
-                                                                 : remaining_points;
-        remaining_points -= npointperdpu;
+        nreal_points[idpu] = (remaining_points <= 0)                ? 0
+                             : (remaining_points > p->npointperdpu) ? p->npointperdpu
+                                                                    : remaining_points;
+        remaining_points -= p->npointperdpu;
     }
 
     /* DEBUG : print the number of non-padding points assigned to each DPU */
@@ -117,11 +110,11 @@ void populateDpu(
     // }
     // printf("\n");
 
-    DPU_FOREACH(*allset, dpu, each_dpu)
+    DPU_FOREACH(p->allset, dpu, each_dpu)
     {
         DPU_ASSERT(dpu_prepare_xfer(dpu, &nreal_points[each_dpu]));
     }
-    DPU_ASSERT(dpu_push_xfer(*allset, DPU_XFER_TO_DPU, "npoints", 0, sizeof(int), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_push_xfer(p->allset, DPU_XFER_TO_DPU, "npoints", 0, sizeof(int), DPU_XFER_DEFAULT));
     free(nreal_points);
 }
 
@@ -129,26 +122,20 @@ void populateDpu(
  * @brief Performs one iteration of the Lloyd algorithm on DPUs and gets the results.
  */
 void kmeansDpu(
-    int nfeatures,                                                 /**< number of attributes for each point */
-    uint64_t npoints,                                              /**< number of data points */
-    uint64_t npadded,                                              /**< number of data points with padding */
-    int ndpu,                                                      /**< number of available DPUs */
+    Params *p,                                                     /**< Algorithm parameters */
     int nclusters,                                                 /**< number of clusters k */
     int64_t new_centers_len[ASSUMED_NR_CLUSTERS],                  /**< [out] number of elements in each cluster */
-    int64_t new_centers[ASSUMED_NR_CLUSTERS][ASSUMED_NR_FEATURES], /**< [out] sum of elements in each cluster */
-    dpu_set *allset)                                               /**< pointer to the set of all assigned DPUs */
+    int64_t new_centers[ASSUMED_NR_CLUSTERS][ASSUMED_NR_FEATURES]) /**< [out] sum of elements in each cluster */
 {
     struct dpu_set_t dpu; /* Iteration variable for the DPUs. */
     uint32_t each_dpu;    /* Iteration variable for the DPUs. */
-
-    int npointperdpu = npadded / ndpu; /* number of points per DPU */
 
 #ifdef PERF_COUNTER
     uint64_t counters_mean[HOST_COUNTERS] = {0};
 #endif
 
     //============RUNNING ONE LLOYD ITERATION ON THE DPU==============
-    DPU_ASSERT(dpu_launch(*allset, DPU_SYNCHRONOUS));
+    DPU_ASSERT(dpu_launch(p->allset, DPU_SYNCHRONOUS));
     //================================================================
 
     /* DEBUG : read logs */
@@ -192,12 +179,12 @@ void kmeansDpu(
 #endif
 
     /* copy back membership count per dpu (device to host) */
-    DPU_FOREACH(*allset, dpu, each_dpu)
+    DPU_FOREACH(p->allset, dpu, each_dpu)
     {
         DPU_ASSERT(dpu_prepare_xfer(dpu, &(centers_pcount[each_dpu][0])));
     }
     int nclusters_even = ((nclusters + 1) / 2) * 2;
-    DPU_ASSERT(dpu_push_xfer(*allset, DPU_XFER_FROM_DPU, "centers_count_mram", 0, sizeof(int) * nclusters_even, DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_push_xfer(p->allset, DPU_XFER_FROM_DPU, "centers_count_mram", 0, sizeof(int) * nclusters_even, DPU_XFER_DEFAULT));
 
     /* DEBUG : print outputed centroids counts per DPU */
     // for (int dpu_id = 0; dpu_id < ndpu; dpu_id++)
@@ -210,21 +197,21 @@ void kmeansDpu(
     // }
 
     /* copy back centroids partial averages (device to host) */
-    DPU_FOREACH(*allset, dpu, each_dpu)
+    DPU_FOREACH(p->allset, dpu, each_dpu)
     {
-        DPU_ASSERT(dpu_prepare_xfer(dpu, &centers_psum[offset(0, 0, each_dpu, nfeatures, nclusters)]));
+        DPU_ASSERT(dpu_prepare_xfer(dpu, &centers_psum[offset(0, 0, each_dpu, p->nfeatures, nclusters)]));
     }
-    DPU_ASSERT(dpu_push_xfer(*allset, DPU_XFER_FROM_DPU, "centers_sum_mram", 0, nfeatures * nclusters * sizeof(int64_t), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_push_xfer(p->allset, DPU_XFER_FROM_DPU, "centers_sum_mram", 0, p->nfeatures * nclusters * sizeof(int64_t), DPU_XFER_DEFAULT));
 
-    for (int dpu_id = 0; dpu_id < ndpu; dpu_id++)
+    for (int dpu_id = 0; dpu_id < p->ndpu; dpu_id++)
     {
         for (int cluster_id = 0; cluster_id < nclusters; cluster_id++)
         {
             /* sum membership counts */
             new_centers_len[cluster_id] += centers_pcount[dpu_id][cluster_id];
             /* compute the new centroids sum */
-            for (int feature_id = 0; feature_id < nfeatures; feature_id++)
-                new_centers[cluster_id][feature_id] += centers_psum[offset(feature_id, cluster_id, dpu_id, nfeatures, nclusters)];
+            for (int feature_id = 0; feature_id < p->nfeatures; feature_id++)
+                new_centers[cluster_id][feature_id] += centers_psum[offset(feature_id, cluster_id, dpu_id, p->nfeatures, nclusters)];
         }
     }
 }

@@ -56,15 +56,10 @@ static void strip_ext(char *fname)
  * @brief Reads a binary input file from disk.
  */
 void read_bin_input(
+    Params *p,             /**< Algorithm parameters */
     const char *filename,  /**< [in] The file name. */
-    uint64_t *npoints_out, /**< [out] Number of points. */
-    uint64_t *npadded_out, /**< [out] Number of points with padding added. */
-    int *nfeatures_out,    /**< [out] Number of features. */
-    uint32_t ndpu,         /**< [in] Number of available DPUs. */
     float ***features_out) /**< [out] Vector of features. */
 {
-    uint64_t npoints, npadded;
-    int nfeatures;
     float **features;
 
     FILE *infile;
@@ -75,17 +70,17 @@ void read_bin_input(
     }
 
     /* get nfeatures and npoints */
-    fread(&npoints, sizeof(uint64_t), 1, infile);
-    fread(&nfeatures, sizeof(int), 1, infile);
+    fread(&p->npoints, sizeof(uint64_t), 1, infile);
+    fread(&p->nfeatures, sizeof(int), 1, infile);
 
     /* rounding the size of the input to the smallest multiple of 8*ndpu larger than npoints */
-    npadded = ((npoints + 8 * ndpu - 1) / (8 * ndpu)) * 8 * ndpu;
+    p->npadded = ((p->npoints + 8 * p->ndpu - 1) / (8 * p->ndpu)) * 8 * p->ndpu;
 
     /* allocate space for features[][] and read attributes of all objects */
-    features = (float **)malloc(npadded * sizeof(float *));
-    features[0] = (float *)malloc(npadded * nfeatures * sizeof(float));
-    for (int ipoint = 1; ipoint < npadded; ipoint++)
-        features[ipoint] = features[ipoint - 1] + nfeatures;
+    features = (float **)malloc(p->npadded * sizeof(*features));
+    features[0] = (float *)malloc(p->npadded * p->nfeatures * sizeof(**features));
+    for (int ipoint = 1; ipoint < p->npadded; ipoint++)
+        features[ipoint] = features[ipoint - 1] + p->nfeatures;
 
     /* checking that we managed to assign enough memory */
     if (!features[0])
@@ -94,31 +89,22 @@ void read_bin_input(
         exit(EXIT_FAILURE);
     }
 
-    fread(features[0], sizeof(float), npoints * nfeatures, infile);
+    fread(features[0], sizeof(float), p->npoints * p->nfeatures, infile);
 
     fclose(infile);
 
     *features_out = features;
-    *npoints_out = npoints;
-    *npadded_out = npadded;
-    *nfeatures_out = nfeatures;
 }
 
 /**
  * @brief Reads a text input file from disk.
  */
 void read_txt_input(
+    Params *p,             /**< Algorithm parameters */
     const char *filename,  /**< [in] The file name. */
-    uint64_t *npoints_out, /**< [out] Number of points. */
-    uint64_t *npadded_out, /**< [out] Number of points with padding added. */
-    int *nfeatures_out,    /**< [out] Number of features. */
-    uint32_t ndpu,         /**< [in] Number of available DPUs. */
     float ***features_out) /**< [out] Vector of features. */
 {
     char line[1024];
-    uint64_t npoints = 0;
-    uint64_t npadded;
-    int nfeatures = 0;
     float **features;
 
     FILE *infile;
@@ -129,7 +115,7 @@ void read_txt_input(
     }
     while (fgets(line, 1024, infile) != NULL)
         if (strtok(line, " \t\n") != 0)
-            npoints++;
+            p->npoints++;
     rewind(infile);
     while (fgets(line, 1024, infile) != NULL)
     {
@@ -137,18 +123,18 @@ void read_txt_input(
         {
             /* ignore the id (first attribute): nfeatures = 1; */
             while (strtok(NULL, " ,\t\n") != NULL)
-                nfeatures++;
+                p->nfeatures++;
             break;
         }
     }
     /* rounding the size of the input to the smallest multiple of 8*ndpu larger than npoints */
-    npadded = ((npoints + 8 * ndpu - 1) / (8 * ndpu)) * 8 * ndpu;
+    p->npadded = ((p->npoints + 8 * p->ndpu - 1) / (8 * p->ndpu)) * 8 * p->ndpu;
 
     /* allocate space for features[] and read attributes of all objects */
-    features = (float **)malloc(npadded * sizeof(float *));
-    features[0] = (float *)malloc(npadded * nfeatures * sizeof(float));
-    for (int ipoint = 1; ipoint < npadded; ipoint++)
-        features[ipoint] = features[ipoint - 1] + nfeatures;
+    features = (float **)malloc(p->npadded * sizeof(*features));
+    features[0] = (float *)malloc(p->npadded * p->nfeatures * sizeof(**features));
+    for (int ipoint = 1; ipoint < p->npadded; ipoint++)
+        features[ipoint] = features[ipoint - 1] + p->nfeatures;
 
     /* checking that we managed to assign enough memory */
     if (!features[0])
@@ -162,11 +148,9 @@ void read_txt_input(
         int ifeature_global = 0;
         while (fgets(line, 1024, infile) != NULL)
         {
-            // if(i%10==0)
-            //     printf("line %d\n", i);
             if (strtok(line, " \t\n") == NULL)
                 continue;
-            for (int ifeature = 0; ifeature < nfeatures; ifeature++)
+            for (int ifeature = 0; ifeature < p->nfeatures; ifeature++)
             {
                 features[0][ifeature_global] = atof(strtok(NULL, " ,\t\n"));
                 ifeature_global++;
@@ -176,26 +160,22 @@ void read_txt_input(
     fclose(infile);
 
     *features_out = features;
-    *npoints_out = npoints;
-    *npadded_out = npadded;
-    *nfeatures_out = nfeatures;
 }
 
 /**
  * @brief Saves the input data in a binary file for faster access next time.
  *
+ * @param p Algorithm parameters.
  * @param filename_in [in] Name of the input text file.
- * @param npoints [in] Number of points.
- * @param nfeatures [in] Number of features.
  * @param features [npoints][nfeatures] Feature array.
  */
-void save_dat_file(const char *filename_in, uint64_t npoints, int nfeatures, float **features)
+void save_dat_file(Params *p, const char *filename_in, float **features)
 {
     char *filename = strdup(filename_in);
     char suffix[] = ".dat";
 
     int n = strlen(filename) + strlen(suffix);
-    char *dat_name = (char *)malloc(n * sizeof(char));
+    char *dat_name = (char *)malloc(n * sizeof(*dat_name));
 
     strcpy(dat_name, filename);
     strip_ext(dat_name);
@@ -205,9 +185,9 @@ void save_dat_file(const char *filename_in, uint64_t npoints, int nfeatures, flo
 
     FILE *binfile;
     binfile = fopen(dat_name, "wb");
-    fwrite(&npoints, sizeof(uint64_t), 1, binfile);
-    fwrite(&nfeatures, sizeof(int), 1, binfile);
-    fwrite(features[0], sizeof(float), npoints * nfeatures, binfile);
+    fwrite(&p->npoints, sizeof(p->npoints), 1, binfile);
+    fwrite(&p->nfeatures, sizeof(p->nfeatures), 1, binfile);
+    fwrite(features[0], sizeof(*features[0]), p->npoints * p->nfeatures, binfile);
     fclose(binfile);
 
     free(filename);
@@ -218,22 +198,18 @@ void save_dat_file(const char *filename_in, uint64_t npoints, int nfeatures, flo
  * @brief Formats a flat array into a bidimensional representation
  */
 void format_array_input(
-    uint64_t npoints,      /**< [in] Number of points. */
-    uint64_t *npadded_out, /**< [out] Number of points with padding. */
-    int nfeatures,         /**< [in] Number of features. */
-    uint32_t ndpu,         /**< [in] Number of available DPUs */
+    Params *p,             /**< Algorithm parameters. */
     float *data,           /**< [in] The data as a flat table */
     float ***features_out) /**< [out] The data as two dimensional table */
 {
-    uint64_t npadded;
-    npadded = ((npoints + 8 * ndpu - 1) / (8 * ndpu)) * 8 * ndpu;
+    // uint64_t npadded;
+    p->npadded = ((p->npoints + 8 * p->ndpu - 1) / (8 * p->ndpu)) * 8 * p->ndpu;
 
-    float **features = (float **)malloc(npadded * sizeof(float *));
+    float **features = (float **)malloc(p->npadded * sizeof(*features));
     features[0] = data;
-    for (int ipoint = 1; ipoint < npadded; ipoint++)
-        features[ipoint] = features[ipoint - 1] + nfeatures;
+    for (int ipoint = 1; ipoint < p->npadded; ipoint++)
+        features[ipoint] = features[ipoint - 1] + p->nfeatures;
 
-    *npadded_out = npadded;
     *features_out = features;
 }
 
@@ -242,30 +218,27 @@ void format_array_input(
  *
  * @return float Scaling factor applied to the input data.
  */
-float preprocessing(
-    float **mean_out,                /**< [out] Per-feature average. */
-    int nfeatures,                   /**< [in] Number of features. */
-    uint64_t npoints,                /**< [in] Number of points. */
-    uint64_t npadded,                /**< [in] Number of points with padding. */
+void preprocessing(
+    Params *p,                       /**< Algorithm parameters */
     float **features_float,          /**< [in] Features as floats. */
     int_feature ***features_int_out, /**< [out] Features as integers. */
-    float *threshold,                /**< [in,out] Termination criterion for the algorithm. */
     int verbose)                     /**< [in] Whether or not to print runtime information. */
 {
     uint64_t ipoint;
     int ifeature;
 
     float *mean;
-    double *variance;
+    float *variance;
     int_feature **features_int;
-    double avg_variance;
+    float avg_variance;
     float max_feature = 0;
-    float scale_factor;
 
 #ifdef PERF_COUNTER
     struct timeval tic, toc;
     gettimeofday(&tic, NULL);
 #endif
+
+    p->npointperdpu = p->npadded / p->ndpu;
 
     /* DEBUG : print features head */
     // printf("features head:\n");
@@ -277,33 +250,35 @@ float preprocessing(
     // }
     // printf("\n");
 
-    mean = (float *)calloc(nfeatures, sizeof(float));
-    variance = (double *)calloc(nfeatures, sizeof(double));
+    mean = (float *)calloc(p->nfeatures, sizeof(*p->mean));
+    variance = (float *)calloc(p->nfeatures, sizeof(*variance));
 /* compute mean by feature */
 #pragma omp parallel for collapse(2) \
     reduction(+                      \
-              : mean[:nfeatures])
-    for (ifeature = 0; ifeature < nfeatures; ifeature++)
-        for (ipoint = 0; ipoint < npoints; ipoint++)
+              : mean[:p->nfeatures])
+    for (ifeature = 0; ifeature < p->nfeatures; ifeature++)
+        for (ipoint = 0; ipoint < p->npoints; ipoint++)
             mean[ifeature] += features_float[ipoint][ifeature];
 
 #pragma omp parallel for
-    for (ifeature = 0; ifeature < nfeatures; ifeature++)
-        mean[ifeature] /= npoints;
+    for (ifeature = 0; ifeature < p->nfeatures; ifeature++)
+        mean[ifeature] /= p->npoints;
+
+    p->mean = mean;
 
     if (verbose)
     {
         printf("means = ");
-        for (ifeature = 0; ifeature < nfeatures; ifeature++)
-            printf(" %.4f",mean[ifeature]);
+        for (ifeature = 0; ifeature < p->nfeatures; ifeature++)
+            printf(" %.4f", p->mean[ifeature]);
         printf("\n");
     }
 
     /* subtract mean from each feature */
 #pragma omp parallel for collapse(2)
-    for (ipoint = 0; ipoint < npoints; ipoint++)
-        for (ifeature = 0; ifeature < nfeatures; ifeature++)
-            features_float[ipoint][ifeature] -= mean[ifeature];
+    for (ipoint = 0; ipoint < p->npoints; ipoint++)
+        for (ifeature = 0; ifeature < p->nfeatures; ifeature++)
+            features_float[ipoint][ifeature] -= p->mean[ifeature];
 
     /* ****** discretization ****** */
 
@@ -311,20 +286,20 @@ float preprocessing(
 #pragma omp parallel for collapse(2) \
     reduction(max                    \
               : max_feature)
-    for (ipoint = 0; ipoint < npoints; ipoint++)
-        for (ifeature = 0; ifeature < nfeatures; ifeature++)
+    for (ipoint = 0; ipoint < p->npoints; ipoint++)
+        for (ifeature = 0; ifeature < p->nfeatures; ifeature++)
             if (fabsf(features_float[ipoint][ifeature]) > max_feature)
                 max_feature = fabsf(features_float[ipoint][ifeature]);
     switch (sizeof(int_feature))
     {
     case 1UL:
-        scale_factor = INT8_MAX / max_feature / 2;
+        p->scale_factor = INT8_MAX / max_feature / 2;
         break;
     case 2UL:
-        scale_factor = INT16_MAX / max_feature / 2;
+        p->scale_factor = INT16_MAX / max_feature / 2;
         break;
     case 4UL:
-        scale_factor = INT32_MAX / max_feature / 2;
+        p->scale_factor = INT32_MAX / max_feature / 2;
         break;
     default:
         printf("Error: unsupported type for int_feature.\n");
@@ -334,14 +309,14 @@ float preprocessing(
     if (verbose)
     {
         printf("max absolute value : %f\n", max_feature);
-        printf("scale factor = %.4f\n", scale_factor);
+        printf("scale factor = %.4f\n", p->scale_factor);
     }
 
     /* allocate space for features_int[][] and convert attributes of all objects */
-    features_int = (int_feature **)malloc(npadded * sizeof(int_feature *));
-    features_int[0] = (int_feature *)malloc(npadded * nfeatures * sizeof(int_feature));
-    for (ipoint = 1; ipoint < npadded; ipoint++)
-        features_int[ipoint] = features_int[ipoint - 1] + nfeatures;
+    features_int = (int_feature **)malloc(p->npadded * sizeof(*features_int));
+    features_int[0] = (int_feature *)malloc(p->npadded * p->nfeatures * sizeof(features_int));
+    for (ipoint = 1; ipoint < p->npadded; ipoint++)
+        features_int[ipoint] = features_int[ipoint - 1] + p->nfeatures;
 
     /* checking that we managed to assign enough memory */
     if (!features_int[0])
@@ -351,9 +326,9 @@ float preprocessing(
     }
 
 #pragma omp parallel for collapse(2)
-    for (ipoint = 0; ipoint < npoints; ipoint++)
-        for (ifeature = 0; ifeature < nfeatures; ifeature++)
-            features_int[ipoint][ifeature] = lroundf(features_float[ipoint][ifeature] * scale_factor);
+    for (ipoint = 0; ipoint < p->npoints; ipoint++)
+        for (ifeature = 0; ifeature < p->nfeatures; ifeature++)
+            features_int[ipoint][ifeature] = lroundf(features_float[ipoint][ifeature] * p->scale_factor);
 
     /* DEBUG : print features head */
     // printf("features head:\n");
@@ -382,23 +357,23 @@ float preprocessing(
     /* compute variance by feature */
 #pragma omp parallel for collapse(2) \
     reduction(+                      \
-              : variance[:nfeatures])
-    for (ipoint = 0; ipoint < npoints; ipoint++)
-        for (ifeature = 0; ifeature < nfeatures; ifeature++)
+              : variance[:p->nfeatures])
+    for (ipoint = 0; ipoint < p->npoints; ipoint++)
+        for (ifeature = 0; ifeature < p->nfeatures; ifeature++)
             variance[ifeature] += features_float[ipoint][ifeature] * features_float[ipoint][ifeature];
 
 #pragma omp parallel for
-    for (ifeature = 0; ifeature < nfeatures; ifeature++)
-        variance[ifeature] /= npoints;
+    for (ifeature = 0; ifeature < p->nfeatures; ifeature++)
+        variance[ifeature] /= p->npoints;
 
     /* compute average of variance */
     avg_variance = 0;
 #pragma omp parallel for reduction(+ \
                                    : avg_variance)
-    for (ifeature = 0; ifeature < nfeatures; ifeature++)
+    for (ifeature = 0; ifeature < p->nfeatures; ifeature++)
         avg_variance += variance[ifeature];
-    avg_variance /= nfeatures;
-    *threshold *= avg_variance;
+    avg_variance /= p->nfeatures;
+    p->threshold *= avg_variance;
 
 #ifdef PERF_COUNTER
     /* compute time spent on preprocessing */
@@ -409,7 +384,7 @@ float preprocessing(
     if (verbose)
     {
         printf("avg_variance = %.4f\n", avg_variance);
-        printf("threshold = %.4f\n", *threshold);
+        printf("threshold = %.4f\n", p->threshold);
         printf("\npreprocessing completed\n\n");
     }
 
@@ -431,58 +406,48 @@ float preprocessing(
     //     printf("\n");
     // }
 
-    *mean_out = mean;
     *features_int_out = features_int;
-
-    return scale_factor;
 }
 
 /**
  * @brief Restores the input data to its original state.
  *
- * @param npoints [in] number of points
- * @param nfeatures [in] number of features
+ * @param p [in] Algorithm parameters.
  * @param features [in,out] array of features
- * @param mean [in] average computed during preprocessing
  */
-void postprocessing(uint64_t npoints, int nfeatures, float **features, float *mean)
+void postprocessing(Params *p, float **features_float)
 {
 #pragma omp parallel for collapse(2)
-    for (uint64_t ipoint = 0; ipoint < npoints; ipoint++)
-        for (int ifeature = 0; ifeature < nfeatures; ifeature++)
-            features[ipoint][ifeature] += mean[ifeature];
+    for (uint64_t ipoint = 0; ipoint < p->npoints; ipoint++)
+        for (int ifeature = 0; ifeature < p->nfeatures; ifeature++)
+            features_float[ipoint][ifeature] += p->mean[ifeature];
 }
 
 /**
  * @brief Checks for errors in the input
  *
- * @param npoints [in] Number of points.
- * @param npadded [in] Number of points with padding.
- * @param min_nclusters [in] Minimum number of clusters.
- * @param max_nclusters [in] Maximum number of clusters.
- * @param nfeatures [in] Number of features.
- * @param ndpu [in] Number of available DPUs.
+ * @param p Algorithm parameters.
  */
-static void error_check(uint64_t npoints, uint64_t npadded, int min_nclusters, int max_nclusters, int nfeatures, uint32_t ndpu)
+static void error_check(Params *p)
 {
-    if (npoints < min_nclusters)
+    if (p->npoints < p->min_nclusters)
     {
-        printf("Error: min_nclusters(%d) > npoints(%lu) -- cannot proceed\n", min_nclusters, npoints);
+        printf("Error: min_nclusters(%d) > npoints(%lu) -- cannot proceed\n", p->min_nclusters, p->npoints);
         exit(EXIT_FAILURE);
     }
-    if ((max_nclusters < min_nclusters) || (max_nclusters > ASSUMED_NR_CLUSTERS))
+    if ((p->max_nclusters < p->min_nclusters) || (p->max_nclusters > ASSUMED_NR_CLUSTERS))
     {
-        printf("Error: min_nclusters(%d) > max_nclusters(%lu) or max_nclusters > max clusters allowed(%d) -- cannot proceed\n", min_nclusters, npoints, ASSUMED_NR_CLUSTERS);
+        printf("Error: min_nclusters(%d) > max_nclusters(%lu) or max_nclusters > max clusters allowed(%d) -- cannot proceed\n", p->min_nclusters, p->npoints, ASSUMED_NR_CLUSTERS);
         exit(EXIT_FAILURE);
     }
-    if (ASSUMED_NR_FEATURES < nfeatures)
+    if (ASSUMED_NR_FEATURES < p->nfeatures)
     {
-        printf("Error: nfeatures(%d) > max clusters allowed(%d) -- cannot proceed\n", nfeatures, ASSUMED_NR_FEATURES);
+        printf("Error: nfeatures(%d) > max clusters allowed(%d) -- cannot proceed\n", p->nfeatures, ASSUMED_NR_FEATURES);
         exit(EXIT_FAILURE);
     }
-    if (npadded * nfeatures / ndpu > MAX_FEATURE_DPU)
+    if (p->npadded * p->nfeatures / p->ndpu > MAX_FEATURE_DPU)
     {
-        printf("Error: npadded*nfeatures/ndpu(%lu) > max features allowed per dpu(%d) -- cannot proceed\n", npadded * nfeatures / ndpu, MAX_FEATURE_DPU);
+        printf("Error: npadded*nfeatures/ndpu(%lu) > max features allowed per dpu(%d) -- cannot proceed\n", p->npadded * p->nfeatures / p->ndpu, MAX_FEATURE_DPU);
         exit(EXIT_FAILURE);
     }
 }
@@ -490,57 +455,49 @@ static void error_check(uint64_t npoints, uint64_t npadded, int min_nclusters, i
 /**
  * @brief Output to array.
  *
+ * @param p Algorithm parameters.
  * @param best_nclusters [in] Best number of clusters according to RMSE.
- * @param nfeatures [in] Number of features.
  * @param cluster_centres [in] Coordinate of clusters centres for the best iteration.
- * @param scale_factor [in] Factor that was used in quantizing the data.
- * @param mean [in] Mean that was subtracted during preprocessing.
  * @return float* The return array
  */
-static float *array_output(int best_nclusters, int nfeatures, float **cluster_centres, float scale_factor, float *mean)
+static float *array_output(Params *p, int best_nclusters, float **cluster_centres)
 {
-    float *output_clusters = (float *)malloc(best_nclusters * nfeatures * sizeof(float));
+#pragma omp parallel for collapse(2)
     for (int icluster = 0; icluster < best_nclusters; icluster++)
-        for (int ifeature = 0; ifeature < nfeatures; ifeature++)
-            output_clusters[ifeature + icluster * nfeatures] = cluster_centres[icluster][ifeature] + mean[ifeature];
-    return output_clusters;
+        for (int ifeature = 0; ifeature < p->nfeatures; ifeature++)
+            cluster_centres[icluster][ifeature] = cluster_centres[icluster][ifeature] + p->mean[ifeature];
+
+    return cluster_centres[0];
 }
 
 /**
- * @brief output to the command line
+ * @brief Output to the command line.
  *
  */
 static void cli_output(
-    int min_nclusters,       /**< [in] lower bound of the number of clusters */
-    int max_nclusters,       /**< [in] upper bound of the number of clusters */
-    int nfeatures,           /**< [in] number of features */
+    Params *p,               /**< Algorithm parameters */
     float **cluster_centres, /**< [in] coordinate of clusters centres for the best iteration */
-    float scale_factor,      /**< [in] factor that was used in quantizing the data */
-    float *mean,             /**< [in] mean that was subtracted during preprocessing */
-    int nloops,              /**< [in] how many times the algorithm will be executed for each number of clusters */
-    int isRMSE,              /**< [in] whether or not RMSE is computed */
     float rmse,              /**< [in] value of the RMSE for the best iteration */
     int index)               /**< [in] number of trials for the best RMSE */
 {
-    /* cluster center coordinates
-       :displayed only for when k=1*/
-    if (min_nclusters == max_nclusters)
+    /* print cluster center coordinates */
+    if (p->min_nclusters == p->max_nclusters)
     {
         printf("\n================= Centroid Coordinates =================\n");
-        for (int icluster = 0; icluster < max_nclusters; icluster++)
+        for (int icluster = 0; icluster < p->max_nclusters; icluster++)
         {
             printf("%2d:", icluster);
-            for (int ifeature = 0; ifeature < nfeatures; ifeature++)
-                printf(" % 10.6f", cluster_centres[icluster][ifeature] + mean[ifeature]);
+            for (int ifeature = 0; ifeature < p->nfeatures; ifeature++)
+                printf(" % 10.6f", cluster_centres[icluster][ifeature]);
             printf("\n");
         }
     }
 
-    printf("Number of Iteration: %d\n", nloops);
+    printf("Number of Iteration: %d\n", p->nloops);
 
-    if (min_nclusters == max_nclusters && isRMSE)
+    if (p->min_nclusters == p->max_nclusters && p->isRMSE)
     {
-        if (nloops != 1)
+        if (p->nloops != 1)
         { // single k, multiple iteration
             printf("Number of trials to approach the best RMSE of %.3f is %d\n", rmse, index + 1);
         }
@@ -557,137 +514,58 @@ static void cli_output(
  * @return float* The centroids coordinates found by the algorithm.
  */
 float *kmeans_c(
+    Params *p,                  /**< Algorithm parameters */
     float **features_float,     /**< [in] array of features  */
     int_feature **features_int, /**< [in] array of quantized features */
-    int nfeatures,              /**< [in] number of feature */
-    uint64_t npoints,           /**< [in] number of points */
-    uint64_t npadded,           /**< [in] number of points with padding */
-    float scale_factor,         /**< [in] scale factor used in quantizaton */
-    float threshold,            /**< [in] threshold for termination of the algorithm */
-    float *mean,                /**< [in] feature-wise mean subtracted during preprocessing */
-    int max_nclusters,          /**< [in] upper bound of the number of clusters */
-    int min_nclusters,          /**< [in] lower bound of the number of clusters */
-    int isRMSE,                 /**< [in] whether or not RMSE is computed */
-    int isOutput,               /**< [in] whether or not to print the centroids and runtime information */
-    int nloops,                 /**< [in] how many times the algorithm will be executed for each number of clusters */
     int *log_iterations,        /**< [out] Number of iterations per nclusters */
     double *log_time,           /**< [out] Time taken per nclusters */
-    uint32_t ndpu,              /**< [in] number of assigned DPUs */
-    dpu_set *allset,            /**< [in] set of all assigned DPUs */
     int *best_nclusters)        /**< [out] best number of clusters according to RMSE */
 {
     /* Variables for I/O. */
     float *output_clusters; /* return pointer */
 
-    // dpu_set allset; /* Set of all available DPUs. */
-
     /* Data arrays. */
     float **cluster_centres = NULL; /* array of centroid coordinates */
-    // float *mean;                    /* feature-wise average of points coordinates */
-    // int_feature **cluster_centres_int = NULL; /* array of discretized centroid coordinates */
 
     /* Generated values. */
     int index;  /* number of iterations on the best run */
     float rmse; /* RMSE value */
-    // int best_nclusters = 0; /* best number of clusters according to RMSE */
 
-    /* ============== DPUs init ==============*/
-    /* necessary to do it first to know the n° of available DPUs */
-    // TO REMOVE: refactored to Container class
-    // DPU_ASSERT(dpu_alloc(DPU_ALLOCATE_ALL, NULL, &allset));
-    // DPU_ASSERT(dpu_get_nr_dpus(allset, &ndpu));
-    /* ============== DPUs init end ==========*/
-
-    /* ============== I/O begin ==============*/
-    // TO REMOVE: refactored to Container class
-    // if (fileInput)
-    // {
-    //     if (isBinaryFile)
-    //     { //Binary file input
-    //         read_bin_input(filename, &npoints, &npadded, &nfeatures, ndpu, &features_float);
-    //     }
-    //     else
-    //     { //Text file input
-    //         read_txt_input(filename, &npoints, &npadded, &nfeatures, ndpu, &features_float);
-
-    //         /* Saving features as a binary for next time */
-    //         save_dat_file(filename, npoints, nfeatures, features_float);
-    //     }
-    // }
-    // else
-    // {
-    //     format_array_input(npoints, &npadded, nfeatures, ndpu, data, &features_float);
-    // }
-
-    if (isOutput)
+    if (p->isOutput)
     {
-        printf("\nNumber of objects without padding: %lu\n", npoints);
-        printf("Number of objects with padding: %lu\n", npadded);
-        printf("Number of features: %d\n", nfeatures);
-        printf("Number of DPUs: %d\n", ndpu);
+        printf("\nNumber of objects without padding: %lu\n", p->npoints);
+        printf("Number of objects with padding: %lu\n", p->npadded);
+        printf("Number of features: %d\n", p->nfeatures);
+        printf("Number of DPUs: %d\n", p->ndpu);
     }
-    /* ============== I/O end ==============*/
 
-    // error check for clusters
-    error_check(npoints, npadded, min_nclusters, max_nclusters, nfeatures, ndpu);
-
-    /* ======================= pre-processing ===========================*/
-    // TO REMOVE: refactored to Container class
-    // scale_factor = preprocessing(&mean, nfeatures, npoints, npadded, features_float, &features_int, &threshold);
-    /* ======================= pre-processing end =======================*/
+    /* Error check for clusters. */
+    error_check(p);
 
     /* ======================= core of the clustering ===================*/
 
     cluster_centres = NULL;
-    index = cluster(npoints,          /* number of data points */
-                    npadded,          /* number of data points with padding */
-                    nfeatures,        /* number of features for each point */
-                    ndpu,             /* number of available DPUs */
-                    features_float,   /* array: [npoints][nfeatures] */
-                    features_int,     /* array: [npoints][nfeatures] */
-                    min_nclusters,    /* range of min to max number of clusters */
-                    max_nclusters,    /* range of min to max number of clusters */
-                    scale_factor,     /* scaling factor used in preprocessing */
-                    threshold,        /* loop termination factor */
-                    best_nclusters,   /* [out] number between min and max */
-                    &cluster_centres, /* [out] [best_nclusters][nfeatures] */
-                    &rmse,            /* Root Mean Squared Error */
-                    isRMSE,           /* calculate RMSE */
-                    isOutput,         /* whether or not to print runtime information */
-                    nloops,           /* number of iteration for each number of clusters */
-                    log_iterations,   /* log of the number of iterations */
-                    log_time,         /* log of the time taken */
-                    allset);          /* set of all DPUs */
+    index = cluster(
+        p,                /* Algorithm parameters */
+        features_float,   /* [in] array: [npoints][nfeatures] */
+        features_int,     /* [in] array: [npoints][nfeatures] */
+        best_nclusters,   /* [out] number between min and max */
+        &cluster_centres, /* [out] [best_nclusters][nfeatures] */
+        &rmse,            /* [out] Root Mean Squared Error */
+        log_iterations,   /* [out] log of the number of iterations */
+        log_time          /* [out] log of the time taken */
+    );
 
     /* =============== Array Output ====================== */
 
-    output_clusters = array_output(*best_nclusters, nfeatures, cluster_centres, scale_factor, mean);
+    output_clusters = array_output(p, *best_nclusters, cluster_centres);
 
     /* =============== Command Line Output =============== */
 
-    if (isOutput)
-        cli_output(min_nclusters, max_nclusters, nfeatures, cluster_centres, scale_factor, mean, nloops, isRMSE, rmse, index);
+    if (p->isOutput)
+        cli_output(p, cluster_centres, rmse, index);
 
-    /* =============== Postprocessing ==================== */
-
-    // TO REMOVE: refactored to Container class
-    // if (!fileInput)
-    //     postprocessing(npoints, nfeatures, features_float, mean);
-
-    /* free up memory */
-    // TO REMOVE: refactored to Container class
-    // if (fileInput)
-    //     free(features_float[0]);
-    // free(features_float);
-    // free(features_int[0]);
-    // free(features_int);
-
-    // free(cluster_centres_int[0]);
-    // free(cluster_centres_int);
-    free(cluster_centres[0]);
     free(cluster_centres);
-    // free(mean);
-    // DPU_ASSERT(dpu_free(allset));
 
     return output_clusters;
 }

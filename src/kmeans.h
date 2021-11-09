@@ -11,6 +11,7 @@
 #ifndef _KMEANS_DPU_KERNEL_H_
 #include <stdint.h>
 #include <sys/time.h>
+#include <dpu.h>
 
 typedef struct dpu_set_t dpu_set;
 
@@ -77,134 +78,104 @@ typedef int16_t int_feature;
 // typedef int32_t int_feature;
 // #define FEATURETYPE_32
 
-// Function declarations
 #ifndef _KMEANS_DPU_KERNEL_H_
+// Parameters holding struct
+typedef struct Params{
+    uint64_t npoints;
+    uint64_t npadded;
+    uint64_t npointperdpu;
+    int nfeatures;
+    float scale_factor;
+    float threshold;
+    float *mean;
+    int max_nclusters;
+    int min_nclusters;
+    int isRMSE;
+    int isOutput;
+    int nloops;
+    int max_iter;
+    uint32_t ndpu;
+    dpu_set allset;
+    int from_file;
+} Params;
+
+// Function declarations
 /** @name rmse.c */
 /**@{*/
-float rms_err(float **, int, uint64_t, float **, int);
+float rms_err(Params *p, float **feature, float **cluster_centres, int nclusters);
 /**@}*/
 
 /** @name kmeans.c */
 /**@{*/
 double time_seconds(struct timeval tic, struct timeval toc);
 void read_bin_input(
+    Params *p,
     const char *filename,
-    uint64_t *npoints_out,
-    uint64_t *npadded_out,
-    int *nfeatures_out,
-    uint32_t ndpu,
     float ***features_out);
 void read_txt_input(
+    Params *p,
     const char *filename,
-    uint64_t *npoints_out,
-    uint64_t *npadded_out,
-    int *nfeatures_out,
-    uint32_t ndpu,
     float ***features_out);
-void save_dat_file(const char *filename_in, uint64_t npoints, int nfeatures, float **features);
+void save_dat_file(Params *p, const char *filename_in, float **features);
 void format_array_input(
-    uint64_t npoints,
-    uint64_t *npadded_out,
-    int nfeatures,
-    uint32_t ndpu,
+    Params *p,
     float *data,
     float ***features_out);
-float preprocessing(
-    float **mean_out,
-    int nfeatures,
-    uint64_t npoints,
-    uint64_t npadded,
+void preprocessing(
+    Params *p,
     float **features,
     int_feature ***features_int_out,
-    float *threshold,
     int verbose);
-void postprocessing(uint64_t npoints, int nfeatures, float **features, float *mean);
+void postprocessing(Params *p, float **features);
 float *kmeans_c(
+    Params *p,
     float **features_float,
     int_feature **features_int,
-    int nfeatures,
-    uint64_t npoints,
-    uint64_t npadded,
-    float scale_factor,
-    float threshold,
-    float *mean,
-    int max_nclusters,
-    int min_nclusters,
-    int isRMSE,
-    int isOutput,
-    int nloops,
     int *log_iterations,
     double *log_time,
-    uint32_t ndpu,
-    dpu_set *allset,
     int *best_nclusters);
 /**@}*/
 
 /** @name cluster.c */
 /**@{*/
-void load_kernel(dpu_set *allset, const char *DPU_BINARY, uint32_t *ndpu);
-void free_dpus(dpu_set *allset);
+void load_kernel(Params *p, const char *DPU_BINARY);
+void free_dpus(Params *p);
 int cluster(
-    uint64_t npoints,
-    uint64_t npadded,
-    int nfeatures,
-    uint32_t ndpu,
+    Params *p,
     float **features_float,
     int_feature **features_int,
-    int min_nclusters,
-    int max_nclusters,
-    float scale_factor,
-    float threshold,
     int *best_nclusters,
     float ***cluster_centres,
     float *min_rmse,
-    int isRMSE,
-    int isOutput,
-    int nloops,
     int *log_iterations,
-    double *log_time,
-    dpu_set *allset);
+    double *log_time);
 /**@}*/
 
 /** @name kmeans_clustering.c */
 /**@{*/
+void allocateClusters(Params *p, unsigned int nclusters);
+void deallocateClusters();
 float **kmeans_clustering(
+    Params *p,
     int_feature **features_int,
     float **features_float,
-    int nfeatures,
-    uint64_t npoints,
-    uint64_t npadded,
     unsigned int nclusters,
-    int ndpu,
-    float scale_factor,
-    float threshold,
-    int isOutput,
-    uint8_t *membership,
     int *loop,
-    int iteration,
-    dpu_set *allset);
+    int i_init);
 /**@}*/
 
 /** @name kmeans_dpu.c */
 /**@{*/
-void allocateMemory(uint64_t npadded, int ndpu);
+void allocateMemory(Params *p);
 void deallocateMemory();
 void populateDpu(
-    int_feature **feature,
-    int nfeatures,
-    uint64_t npoints,
-    uint64_t npadded,
-    int ndpu,
-    dpu_set *allset);
+    Params *p,
+    int_feature **feature);
 void kmeansDpu(
-    int nfeatures,
-    uint64_t npoints,
-    uint64_t npadded,
-    int ndpu,
+    Params *p,
     int nclusters,
     int64_t new_centers_len[ASSUMED_NR_CLUSTERS],
-    int64_t new_centers[ASSUMED_NR_CLUSTERS][ASSUMED_NR_FEATURES],
-    dpu_set *allset);
+    int64_t new_centers[ASSUMED_NR_CLUSTERS][ASSUMED_NR_FEATURES]);
 /**@}*/
 #endif // ifndef _KMEANS_DPU_KERNEL_H_
 
