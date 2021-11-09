@@ -5,7 +5,7 @@ dpu_trees
 |----------------------|--------|
 | pip builds           | [![Pip Actions Status][actions-pip-badge]][actions-pip-link] |
 
-A project built with [pybind11](https://github.com/pybind/pybind11) and scikit-build, running DPU programs with the UPMEM SDK.
+A project built with [pybind11](https://github.com/pybind/pybind11) and [scikit-build](https://github.com/scikit-build/scikit-build), running the KMeans algorithm on in-memory processors with the UPMEM SDK.
 
 [actions-badge]:           https://github.com/SylvanBrocard/dpu_trees/workflows/Tests/badge.svg
 [actions-conda-link]:      https://github.com/SylvanBrocard/dpu_trees/actions?query=workflow%3AConda
@@ -42,6 +42,12 @@ Output:
 ```python
 [[ 0.9998627  2.       ]
  [10.000137   2.       ]]
+```
+
+Alternatively you can import data from a CSV file:
+
+```python
+dimm_data = DIMM_data("/path/to/data")
 ```
 
 Development
