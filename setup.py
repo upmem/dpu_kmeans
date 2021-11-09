@@ -20,16 +20,10 @@ version = "".join([c for c in version if c.isdigit() or c == "."])
 
 # compilation of the host library
 setup(
-    name="dpu_kmeans",
     use_scm_version={
         "root": ".",
         "relative_to": __file__,
     },
-    description="a package for the k-means algorithm on DPU",
-    author="Sylvan Brocard",
-    author_email="sylvan.brocard@gmail.com",
-    url="https://github.com/upmem/dpu_kmeans",
-    license="MIT",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     cmake_install_dir="src/dpu_kmeans",
