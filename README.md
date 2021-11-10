@@ -87,6 +87,7 @@ To use this project as a base for your own UPMEM DIMM project:
   - CMakeLists.txt (`project(dpu_kmeans VERSION ${VERSION})`)
   - conda.recipe/meta.yaml (optional)
   - docs (optional)
+- if you intend to use github actions to auto-publish to pypi, update the project secrets as described in [Publishing package distribution releases using GitHub Actions CI/CD workflows](https://packaging.python.org/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/)
 
 Testing
 -------
