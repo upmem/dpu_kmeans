@@ -34,6 +34,10 @@ class DIMM_data:
         The path to the data file, or a numeric iterable containing the data.
         For best performance, provide a contiguous float32 numpy array.
 
+    is_binary_file : bool
+        True if the data is in binary format, False otherwise.
+        Unused if type is "array".
+
     Atrributes
     ----------
     data_id : str or int
@@ -50,10 +54,6 @@ class DIMM_data:
 
     X : numpy.ndarray[np.float32]
         Data as a numpy array usable by the compiled library.
-
-    is_binary_file : bool
-        True if the data is in binary format, False otherwise.
-        Unused if type is "array".
     """
 
     def __init__(self, data, is_binary_file=False):
