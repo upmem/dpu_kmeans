@@ -85,8 +85,8 @@ To use this project as a base for your own UPMEM DIMM project:
   - setup.py (`cmake_install_dir="src/dpu_kmeans"`)
   - .gitignore (`src/dpu_kmeans/dpu_program/`)
   - CMakeLists.txt (`project(dpu_kmeans VERSION ${VERSION})`)
-  - conda.recipe/meta.yaml
-  - docs
+  - conda.recipe/meta.yaml (optional)
+  - docs (optional)
 
 Testing
 -------
