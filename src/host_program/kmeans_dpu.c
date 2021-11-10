@@ -13,7 +13,7 @@
 #include <assert.h>
 #include <omp.h>
 
-#include "kmeans.h"
+#include "../kmeans.h"
 
 static int64_t *centers_psum; /**< partial average performed by individual DPUs for each centroid */
 static int **centers_pcount;  /**< partial count of points membership by each DPU */

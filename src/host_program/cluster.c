@@ -15,7 +15,7 @@
 #include <omp.h>
 #include <sys/time.h>
 
-#include "kmeans.h"
+#include "../kmeans.h"
 
 /**
  * @brief Computes the lowest common multiple of two integers.

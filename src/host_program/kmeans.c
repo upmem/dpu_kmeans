@@ -17,7 +17,7 @@
 #include <libgen.h>
 #include <sys/time.h>
 
-#include "kmeans.h"
+#include "../kmeans.h"
 
 /**
  * @brief Allocates all DPUs

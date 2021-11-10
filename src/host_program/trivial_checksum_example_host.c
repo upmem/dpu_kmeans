@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <dpu.h>
 #include <dpu_log.h>
-#include "trivial_checksum_example_host.h"
+#include "../trivial_checksum_example_host.h"
 
 #define TEXT_BUFFER_SIZE 1000
 #define BUFFER_SIZE (1 << 16)

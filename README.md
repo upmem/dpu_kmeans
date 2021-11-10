@@ -7,13 +7,13 @@ dpu_kmeans
 
 A project built with [pybind11](https://github.com/pybind/pybind11) and [scikit-build](https://github.com/scikit-build/scikit-build), running the KMeans algorithm on in-memory processors with the UPMEM SDK.
 
-[actions-badge]:           https://github.com/SylvanBrocard/dpu_trees/workflows/Tests/badge.svg
-[actions-conda-link]:      https://github.com/SylvanBrocard/dpu_trees/actions?query=workflow%3AConda
-[actions-conda-badge]:     https://github.com/SylvanBrocard/dpu_trees/workflows/Conda/badge.svg
-[actions-pip-link]:        https://github.com/SylvanBrocard/dpu_trees/actions?query=workflow%3APip
-[actions-pip-badge]:       https://github.com/SylvanBrocard/dpu_trees/workflows/Pip/badge.svg
-[actions-wheels-link]:     https://github.com/SylvanBrocard/dpu_trees/actions?query=workflow%3AWheels
-[actions-wheels-badge]:    https://github.com/SylvanBrocard/dpu_trees/workflows/Wheels/badge.svg
+[actions-badge]:           https://github.com/upmem/dpu_kmeans/workflows/Tests/badge.svg
+[actions-conda-link]:      https://github.com/upmem/dpu_kmeans/actions?query=workflow%3AConda
+[actions-conda-badge]:     https://github.com/upmem/dpu_kmeans/workflows/Conda/badge.svg
+[actions-pip-link]:        https://github.com/upmem/dpu_kmeans/actions?query=workflow%3APip
+[actions-pip-badge]:       https://github.com/upmem/dpu_kmeans/workflows/Pip/badge.svg
+[actions-wheels-link]:     https://github.com/upmem/dpu_kmeans/actions?query=workflow%3AWheels
+[actions-wheels-badge]:    https://github.com/upmem/dpu_kmeans/workflows/Wheels/badge.svg
 
 Installation
 ------------
@@ -70,6 +70,23 @@ OR
 to debug: `python setup.py develop --build-type Debug`
 
 *Note:* The dev container is for development only and uses the PIM simulator.
+
+Templating
+----------
+
+To use this project as a base for your own UPMEM DIMM project:
+
+- click on "Use this template" in github
+- create a new project from this one
+- turn off Conda and Wheels workflows in github actions as they are not operational right now
+- change folder `src/dpu_kmeans` to `src/<your_project>`
+- change project name (all instances of `dpu_kmeans`) and info in:
+  - setup.cfg
+  - setup.py (`cmake_install_dir="src/dpu_kmeans"`)
+  - .gitignore (`src/dpu_kmeans/dpu_program/`)
+  - CMakeLists.txt (`project(dpu_kmeans VERSION ${VERSION})`)
+  - conda.recipe/meta.yaml
+  - docs
 
 Testing
 -------

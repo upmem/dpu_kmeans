@@ -13,7 +13,7 @@
 #include <omp.h>
 #include <sys/time.h>
 
-#include "kmeans.h"
+#include "../kmeans.h"
 
 static int64_t new_centers_len[ASSUMED_NR_CLUSTERS];                  /**< [nclusters]: no. of points in each cluster */
 static int64_t new_centers[ASSUMED_NR_CLUSTERS][ASSUMED_NR_FEATURES]; /**< coordinates of the centroids */

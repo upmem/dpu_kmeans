@@ -1,5 +1,5 @@
 package:
-  name: dpu_trees
+  name: dpu_kmeans
   version: 0.0.1
 
 source:
@@ -27,7 +27,7 @@ requirements:
 
 test:
   imports:
-    - dpu_trees
+    - dpu_kmeans
   requires:
     - pytest
   source_files:

@@ -10,7 +10,7 @@
 #include <math.h>
 #include <omp.h>
 
-#include "kmeans.h"
+#include "../kmeans.h"
 
 /**
  * @brief multi-dimensional spatial Euclid distance square
