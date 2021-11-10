@@ -2,7 +2,4 @@ include pyproject.toml
 include README.md
 include LICENSE
 include CMakeLists.txt
-
-graft src
-
-prune src/dpu_trees/dpu_program
+recursive-include src *.py *.c *.cpp *.h *.txt
