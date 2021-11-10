@@ -81,6 +81,7 @@ To use this project as a base for your own UPMEM DIMM project:
 - turn off Conda and Wheels workflows in github actions as they are not operational right now
 - change folder `src/dpu_kmeans` to `src/<your_project>`
 - change project name (all instances of `dpu_kmeans`) and info in:
+  - README.md
   - setup.cfg
   - setup.py (`cmake_install_dir="src/dpu_kmeans"`)
   - .gitignore (`src/dpu_kmeans/dpu_program/`)
