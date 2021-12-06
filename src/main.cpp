@@ -64,8 +64,10 @@ public:
         if (is_binary_file)
             read_bin_input(&p, filename, &features_float);
         else
+        {
             read_txt_input(&p, filename, &features_float);
             save_dat_file(&p, filename, features_float);
+        }
         transfer_data(threshold_in, verbose);
     }
     /**
