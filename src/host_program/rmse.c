@@ -22,9 +22,22 @@ __inline float euclid_dist_2(float *pt1,  /**< first point */
                              int numdims) /**< number of dimensions */
 {
     int i;
+    int n = numdims / 4;
+    int rem = numdims % 4;
     float ans = 0.0;
 
-    for (i = 0; i < numdims; i++)
+    /* We manually unroll the loop for better cache optimization.*/
+    for (i = 0; i < n; i++)
+    {
+        ans += ((pt1[0] - pt2[0]) * (pt1[0] - pt2[0])
+               +(pt1[1] - pt2[1]) * (pt1[1] - pt2[1])
+               +(pt1[2] - pt2[2]) * (pt1[2] - pt2[2])
+               +(pt1[3] - pt2[3]) * (pt1[3] - pt2[3]));
+        pt1 += 4;
+        pt2 += 4;
+    }
+
+    for (i = 0; i < rem; i++)
         ans += (pt1[i] - pt2[i]) * (pt1[i] - pt2[i]);
 
     return (ans);
@@ -75,11 +88,12 @@ float rms_err(Params *p,
     int nfeatures = p->nfeatures;
 
 /* calculate and sum the square of euclidean distance*/
-#pragma omp parallel for shared(feature, cluster_centres)                         \
-    firstprivate(npoints, nfeatures, nclusters) private(i, nearest_cluster_index) \
-        reduction(+                                                               \
-                  : sum_euclid)                                                   \
-            schedule(static)
+#pragma omp parallel for                        \
+    shared(feature, cluster_centres)            \
+    firstprivate(npoints, nfeatures, nclusters) \
+    private(i, nearest_cluster_index)           \
+    reduction(+: sum_euclid)                    \
+    schedule(static)
     for (i = 0; i < npoints; i++)
     {
         nearest_cluster_index = find_nearest_point(feature[i],
