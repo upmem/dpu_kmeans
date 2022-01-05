@@ -1,2 +1,9 @@
+If:
+  PathMatch: .*\/dpu_program/.* # Configuration for dpu binaries
+CompileFlags:
+  Add: [--target=dpu-upmem-dpurte, -DNR_TASKLETS=16]
+---
+If:
+  PathExclude: .*\/dpu_programs/.* # Configuration for host binaries
 CompileFlags: # Tweak the parse settings
-  Add: [-I/usr/local/lib/python3.8/dist-packages/pybind11/include, -I/usr/include/python3.8, -I/usr/include/dpu, -I/usr/share/upmem/include/syslib/, -ldpu, -I/usr/lib/gcc/x86_64-linux-gnu/9/include/]
+  Add: [-I/usr/local/lib/python3.8/dist-packages/pybind11/include, -I/usr/include/python3.8, -I/usr/include/dpu, -I/usr/share/upmem/include/syslib/, -ldpu, -I/usr/lib/gcc/x86_64-linux-gnu/9/include/, -fopenmp, -DNR_TASKLETS=16]
