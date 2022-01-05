@@ -18,85 +18,6 @@
 #include "../kmeans.h"
 
 /**
- * @brief Computes the lowest common multiple of two integers.
- *
- * @param n1 First integer.
- * @param n2 Second integer.
- * @return Their lowest common multiple.
- */
-int get_lcm(int n1, int n2)
-{
-    static int max = 1;
-    if (max % n1 == 0 && max % n2 == 0)
-    {
-        return max;
-    }
-    else
-    {
-        max++;
-        get_lcm(n1, n2);
-        return max;
-    }
-}
-
-/**
- * @brief Computes the appropriate task size for DPU tasklets.
- *
- * @param p Algorithm parameters.
- * @return The task size in bytes.
- */
-static unsigned int get_task_size(Params *p)
-{
-    unsigned int task_size_in_points;
-    unsigned int task_size_in_bytes;
-    unsigned int task_size_in_features;
-
-    /* how many points we can fit in w_features */
-    unsigned int max_task_size = (WRAM_FEATURES_SIZE / sizeof(int_feature)) / p->nfeatures;
-
-    /* number of tasks as the smallest multiple of NR_TASKLETS higher than npointperdu / max_task_size */
-    unsigned int ntasks = (p->npointperdpu + max_task_size - 1) / max_task_size;
-    ntasks = ((ntasks + NR_TASKLETS - 1) / NR_TASKLETS) * NR_TASKLETS;
-
-    /* task size has to be at least 1 */
-    task_size_in_points = (((p->npointperdpu + ntasks - 1) / ntasks) < max_task_size)
-                              ? ((p->npointperdpu + ntasks - 1) / ntasks)
-                              : max_task_size;
-    if (task_size_in_points == 0)
-        task_size_in_points = 1;
-
-    task_size_in_features = task_size_in_points * p->nfeatures;
-    task_size_in_bytes = task_size_in_features * sizeof(int_feature);
-
-    /* task size in bytes must be a multiple of 8 for DMA alignment and also a multiple of number of features x byte size of integers */
-    int lcm = get_lcm(sizeof(int_feature) * p->nfeatures, 8);
-    task_size_in_bytes = (task_size_in_bytes + lcm - 1) / lcm * lcm;
-    if (task_size_in_bytes > WRAM_FEATURES_SIZE)
-    {
-        printf("error: tasks will not fit in WRAM");
-        exit(EXIT_FAILURE);
-    }
-
-    return task_size_in_bytes;
-}
-
-/**
- * @brief Loads a binary in the DPUs.
- *
- * @param p Algorithm parameters.
- * @param DPU_BINARY path to the binary
- */
-void load_kernel(Params *p, const char *DPU_BINARY)
-{
-    DPU_ASSERT(dpu_load(p->allset, DPU_BINARY, NULL));
-}
-
-void free_dpus(Params *p)
-{
-    DPU_ASSERT(dpu_free(p->allset));
-}
-
-/**
  * @brief Performs the KMeans algorithm over all values of nclusters.
  *
  * @return Number of iterations to reach the best RMSE.
@@ -118,37 +39,6 @@ int cluster(
     float **tmp_cluster_centres;   /* hold coordinates of cluster centers */
     float min_rmse_ref = FLT_MAX;  /* reference min_rmse value */
     struct timeval cluster_timing; /* clustering time for a given nclusters */
-
-    /* parameters to calculate once here and send to the DPUs. */
-    unsigned int task_size_in_points;
-    unsigned int task_size_in_bytes;
-    unsigned int task_size_in_features;
-
-    /* =============== DPUs initialization =============== */
-    /* compute the iteration variables for the DPUs */
-
-    task_size_in_bytes = get_task_size(p);
-
-    /* realign task size in features and points */
-    task_size_in_features = task_size_in_bytes / sizeof(int_feature);
-    task_size_in_points = task_size_in_features / p->nfeatures;
-
-    /* send computation parameters to the DPUs */
-    DPU_ASSERT(dpu_broadcast_to(p->allset, "nfeatures_host", 0, &p->nfeatures, sizeof(p->nfeatures), DPU_XFER_DEFAULT));
-
-    DPU_ASSERT(dpu_broadcast_to(p->allset, "task_size_in_points_host", 0, &task_size_in_points, sizeof(task_size_in_points), DPU_XFER_DEFAULT));
-    DPU_ASSERT(dpu_broadcast_to(p->allset, "task_size_in_bytes_host", 0, &task_size_in_bytes, sizeof(task_size_in_bytes), DPU_XFER_DEFAULT));
-    DPU_ASSERT(dpu_broadcast_to(p->allset, "task_size_in_features_host", 0, &task_size_in_features, sizeof(task_size_in_features), DPU_XFER_DEFAULT));
-
-    if (p->isOutput)
-    {
-        printf("points per DPU : %d\n", p->npointperdpu);
-        printf("tasks per DPU: %d\n", p->npointperdpu / task_size_in_points);
-        printf("task size in points : %d\n", task_size_in_points);
-        printf("task size in bytes : %d\n", task_size_in_bytes);
-    }
-
-    /* =============== end DPUs initialization =============== */
 
     if (p->isOutput)
         printf("\nStarting calculation\n\n");

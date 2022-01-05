@@ -99,6 +99,7 @@ public:
         p.threshold = threshold;
         preprocessing(&p, features_float, &features_int, verbose);
         populateDpu(&p, features_int);
+        broadcastParameters(&p);
         allocateMemory(&p);
         #ifdef FLT_REDUCE
         allocateMembershipTable(&p);

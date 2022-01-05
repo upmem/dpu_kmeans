@@ -23,6 +23,75 @@ uint64_t (*counters)[HOST_COUNTERS]; /**< performance counters from every DPU */
 #endif
 
 /**
+ * @brief Allocates all DPUs
+ *
+ * @param p Algorithm parameters.
+ */
+void allocate(Params *p)
+{
+    DPU_ASSERT(dpu_alloc(DPU_ALLOCATE_ALL, NULL, &p->allset));
+    DPU_ASSERT(dpu_get_nr_dpus(p->allset, &p->ndpu));
+}
+
+/**
+ * @brief Loads a binary in the DPUs.
+ *
+ * @param p Algorithm parameters.
+ * @param DPU_BINARY path to the binary
+ */
+void load_kernel(Params *p, const char *DPU_BINARY)
+{
+    DPU_ASSERT(dpu_load(p->allset, DPU_BINARY, NULL));
+}
+
+/**
+ * @brief Frees the DPUs.
+ *
+ * @param p Algorithm parameters.
+ */
+void free_dpus(Params *p)
+{
+    DPU_ASSERT(dpu_free(p->allset));
+}
+
+/**
+ * @brief Utility function for three dimensional arrays.
+ *
+ * @param feature current feature
+ * @param cluster current cleaster
+ * @param dpu current dpu
+ * @param nfeatures number of features
+ * @param nclusters number of clusters
+ * @return array index
+ */
+int offset(int feature, int cluster, int dpu, int nfeatures, int nclusters)
+{
+    return (dpu * nclusters * nfeatures) + (cluster * nfeatures) + feature;
+}
+
+/**
+ * @brief Computes the lowest common multiple of two integers.
+ *
+ * @param n1 First integer.
+ * @param n2 Second integer.
+ * @return Their lowest common multiple.
+ */
+static int get_lcm(int n1, int n2)
+{
+    static int max = 1;
+    if (max % n1 == 0 && max % n2 == 0)
+    {
+        return max;
+    }
+    else
+    {
+        max++;
+        get_lcm(n1, n2);
+        return max;
+    }
+}
+
+/**
  * @brief Allocates memory for DPU communication.
  *
  * @param npadded Number of points with padding.
@@ -55,20 +124,7 @@ void deallocateMemory()
 #endif
 }
 
-/**
- * @brief Utility function for three dimensional arrays.
- *
- * @param feature current feature
- * @param cluster current cleaster
- * @param dpu current dpu
- * @param nfeatures number of features
- * @param nclusters number of clusters
- * @return array index
- */
-int offset(int feature, int cluster, int dpu, int nfeatures, int nclusters)
-{
-    return (dpu * nclusters * nfeatures) + (cluster * nfeatures) + feature;
-}
+
 
 /**
  * @brief Fills the DPUs with their assigned points.
@@ -116,6 +172,83 @@ void populateDpu(
     }
     DPU_ASSERT(dpu_push_xfer(p->allset, DPU_XFER_TO_DPU, "npoints", 0, sizeof(int), DPU_XFER_DEFAULT));
     free(nreal_points);
+}
+
+/**
+ * @brief Computes the appropriate task size for DPU tasklets.
+ *
+ * @param p Algorithm parameters.
+ * @return The task size in bytes.
+ */
+static unsigned int get_task_size(Params *p)
+{
+    unsigned int task_size_in_points;
+    unsigned int task_size_in_bytes;
+    unsigned int task_size_in_features;
+
+    /* how many points we can fit in w_features */
+    unsigned int max_task_size = (WRAM_FEATURES_SIZE / sizeof(int_feature)) / p->nfeatures;
+
+    /* number of tasks as the smallest multiple of NR_TASKLETS higher than npointperdu / max_task_size */
+    unsigned int ntasks = (p->npointperdpu + max_task_size - 1) / max_task_size;
+    ntasks = ((ntasks + NR_TASKLETS - 1) / NR_TASKLETS) * NR_TASKLETS;
+
+    /* task size has to be at least 1 */
+    task_size_in_points = (((p->npointperdpu + ntasks - 1) / ntasks) < max_task_size)
+                              ? ((p->npointperdpu + ntasks - 1) / ntasks)
+                              : max_task_size;
+    if (task_size_in_points == 0)
+        task_size_in_points = 1;
+
+    task_size_in_features = task_size_in_points * p->nfeatures;
+    task_size_in_bytes = task_size_in_features * sizeof(int_feature);
+
+    /* task size in bytes must be a multiple of 8 for DMA alignment and also a multiple of number of features x byte size of integers */
+    int lcm = get_lcm(sizeof(int_feature) * p->nfeatures, 8);
+    task_size_in_bytes = (task_size_in_bytes + lcm - 1) / lcm * lcm;
+    if (task_size_in_bytes > WRAM_FEATURES_SIZE)
+    {
+        printf("error: tasks will not fit in WRAM");
+        exit(EXIT_FAILURE);
+    }
+
+    return task_size_in_bytes;
+}
+
+/**
+ * @brief Broadcasts iteration parameters to the DPUs.
+ *
+ * @param p Algorithm parameters.
+ */
+void broadcastParameters(Params *p)
+{
+    /* parameters to calculate once here and send to the DPUs. */
+    unsigned int task_size_in_points;
+    unsigned int task_size_in_bytes;
+    unsigned int task_size_in_features;
+
+    /* compute the iteration variables for the DPUs */
+
+    task_size_in_bytes = get_task_size(p);
+
+    /* realign task size in features and points */
+    task_size_in_features = task_size_in_bytes / sizeof(int_feature);
+    task_size_in_points = task_size_in_features / p->nfeatures;
+
+    /* send computation parameters to the DPUs */
+    DPU_ASSERT(dpu_broadcast_to(p->allset, "nfeatures_host", 0, &p->nfeatures, sizeof(p->nfeatures), DPU_XFER_DEFAULT));
+
+    DPU_ASSERT(dpu_broadcast_to(p->allset, "task_size_in_points_host", 0, &task_size_in_points, sizeof(task_size_in_points), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_broadcast_to(p->allset, "task_size_in_bytes_host", 0, &task_size_in_bytes, sizeof(task_size_in_bytes), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_broadcast_to(p->allset, "task_size_in_features_host", 0, &task_size_in_features, sizeof(task_size_in_features), DPU_XFER_DEFAULT));
+
+    if (p->isOutput)
+    {
+        printf("points per DPU : %lu\n", p->npointperdpu);
+        printf("tasks per DPU: %lu\n", p->npointperdpu / task_size_in_points);
+        printf("task size in points : %d\n", task_size_in_points);
+        printf("task size in bytes : %d\n", task_size_in_bytes);
+    }
 }
 
 /**

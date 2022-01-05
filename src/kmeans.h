@@ -107,7 +107,6 @@ float rms_err(Params *p, float **feature, float **cluster_centres, int nclusters
 
 /** @name kmeans.c */
 /**@{*/
-void allocate(Params *p);
 double time_seconds(struct timeval tic, struct timeval toc);
 void read_bin_input(
     Params *p,
@@ -139,8 +138,6 @@ float *kmeans_c(
 
 /** @name cluster.c */
 /**@{*/
-void load_kernel(Params *p, const char *DPU_BINARY);
-void free_dpus(Params *p);
 int cluster(
     Params *p,
     float **features_float,
@@ -167,11 +164,15 @@ float **kmeans_clustering(
 
 /** @name kmeans_dpu.c */
 /**@{*/
+void load_kernel(Params *p, const char *DPU_BINARY);
+void free_dpus(Params *p);
+void allocate(Params *p);
 void allocateMemory(Params *p);
 void deallocateMemory();
 void populateDpu(
     Params *p,
     int_feature **feature);
+void broadcastParameters(Params *p);
 void kmeansDpu(
     Params *p,
     int nclusters,
