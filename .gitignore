@@ -147,3 +147,6 @@ _skbuild/
 
 # built dpu binaries
 src/dpu_kmeans/dpu_program/
+
+# benchmarks results
+*.pkl

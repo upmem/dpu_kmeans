@@ -41,9 +41,10 @@ for i_npoints, npoints_str in enumerate(test_set):
         inertia = np.inf
 
         for iloop in range(loops):
+            tic = time.perf_counter()
+
             init = data[iloop * n_clusters : (iloop + 1) * n_clusters]
 
-            tic = time.perf_counter()
             results = k_means(
                 data,
                 n_clusters,
@@ -56,14 +57,15 @@ for i_npoints, npoints_str in enumerate(test_set):
                 verbose=False,
                 copy_x=False,
             )
-            toc = time.perf_counter()
-
-            timer += toc - tic
-            iter_counter += results[3]
 
             if results[2] < inertia:
                 centroids = results[0]
                 inertia = results[2]
+
+            iter_counter += results[3]
+
+            toc = time.perf_counter()
+            timer += toc - tic
 
         n_clusters_time.append(timer / loops)
         n_clusters_iter.append(iter_counter / loops)

@@ -18,8 +18,8 @@ min_nclusters = 3
 max_nclusters = 32
 loops = 10
 
-npoints = int(1e7)
-n_dim_set = list(range(3, 33))
+npoints = int(1e6)
+n_dim_set = [4, 8, 16, 32]  # list(range(3, 33))
 n_cluster_set = list(range(min_nclusters, max_nclusters + 1))
 times = []
 iter = []
@@ -42,9 +42,10 @@ for i_ndim, ndim in enumerate(n_dim_set):
         inertia = np.inf
 
         for iloop in range(loops):
+            tic = time.perf_counter()
+
             init = data[iloop * n_clusters : (iloop + 1) * n_clusters]
 
-            tic = time.perf_counter()
             results = k_means(
                 data,
                 n_clusters,
@@ -57,14 +58,15 @@ for i_ndim, ndim in enumerate(n_dim_set):
                 verbose=False,
                 copy_x=False,
             )
-            toc = time.perf_counter()
-
-            timer += toc - tic
-            iter_counter += results[3]
 
             if results[2] < inertia:
                 centroids = results[0]
                 inertia = results[2]
+
+            iter_counter += results[3]
+
+            toc = time.perf_counter()
+            timer += toc - tic
 
         n_clusters_time.append(timer / loops)
         n_clusters_iter.append(iter_counter / loops)

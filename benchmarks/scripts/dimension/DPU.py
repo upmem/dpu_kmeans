@@ -17,8 +17,8 @@ loops = 10
 verbose = False
 tol = 1e-4
 
-npoints = int(1e7)
-n_dim_set = list(range(3, 33))
+npoints = int(1e6)
+n_dim_set = [4, 8, 16, 32]  # list(range(3, 33))
 n_cluster_set = list(range(min_nclusters, max_nclusters + 1))
 times = []
 inner_times = []
