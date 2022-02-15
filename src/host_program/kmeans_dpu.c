@@ -205,7 +205,7 @@ static unsigned int get_task_size(Params *p)
 
     /* task size in bytes must be a multiple of 8 for DMA alignment and also a multiple of number of features x byte size of integers */
     int lcm = get_lcm(sizeof(int_feature) * p->nfeatures, 8);
-    task_size_in_bytes = (task_size_in_bytes + lcm - 1) / lcm * lcm;
+    task_size_in_bytes = task_size_in_bytes / lcm * lcm;
     if (task_size_in_bytes > WRAM_FEATURES_SIZE)
     {
         printf("error: tasks will not fit in WRAM");
