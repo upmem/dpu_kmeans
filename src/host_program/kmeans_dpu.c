@@ -280,16 +280,16 @@ void kmeansDpu(
 
     /* Performance tracking */
 #ifdef PERF_COUNTER
-    DPU_FOREACH(*allset, dpu, each_dpu)
+    DPU_FOREACH(p->allset, dpu, each_dpu)
     {
         DPU_ASSERT(dpu_prepare_xfer(dpu, &counters[each_dpu]));
     }
-    DPU_ASSERT(dpu_push_xfer(*allset, DPU_XFER_FROM_DPU, "host_counters", 0, sizeof(uint64_t[HOST_COUNTERS]), DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_push_xfer(p->allset, DPU_XFER_FROM_DPU, "host_counters", 0, sizeof(uint64_t[HOST_COUNTERS]), DPU_XFER_DEFAULT));
 
     for (int icounter = 0; icounter < HOST_COUNTERS; icounter++)
     {
         int nonzero_dpus = 0;
-        for (int idpu = 0; idpu < ndpu; idpu++)
+        for (int idpu = 0; idpu < p->ndpu; idpu++)
             if (counters[idpu][MAIN_LOOP_CTR] != 0)
             {
                 counters_mean[icounter] += counters[idpu][icounter];
