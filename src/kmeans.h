@@ -43,7 +43,7 @@ typedef struct dpu_set_t dpu_set;
 // #define FLT_REDUCE /**< Instruction to perform a float reduction on the CPU
 
 // Performance tracking
-// #define PERF_COUNTER 0 /* 0 for cycles, 1 for instructions, comment for no counter */
+// #define PERF_COUNTER 1 /* 0 for cycles, 1 for instructions, comment for no counter */
 
 #ifdef PERF_COUNTER
 #define HOST_COUNTERS 8

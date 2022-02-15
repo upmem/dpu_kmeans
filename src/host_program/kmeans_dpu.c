@@ -29,7 +29,7 @@ uint64_t (*counters)[HOST_COUNTERS]; /**< performance counters from every DPU */
  */
 void allocate(Params *p)
 {
-    DPU_ASSERT(dpu_alloc(DPU_ALLOCATE_ALL, NULL, &p->allset));
+    DPU_ASSERT(dpu_alloc(8, NULL, &p->allset));
     DPU_ASSERT(dpu_get_nr_dpus(p->allset, &p->ndpu));
 }
 
