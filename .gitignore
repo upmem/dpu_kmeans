@@ -150,3 +150,6 @@ src/dpu_kmeans/dpu_program/
 
 # benchmarks results
 *.pkl
+
+# ignoring local .clangd config file
+.clangd
