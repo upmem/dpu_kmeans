@@ -58,15 +58,15 @@ class KMeans(BaseEstimator):
         n_init: int = 10,
         max_iter: int = 300,
         tol: float = 1e-4,
-        verbose: int = 0
+        verbose: int = 0,
+        n_dpu=0,
     ):
         self.n_clusters = n_clusters
         self.n_init = n_init
         self.max_iter = max_iter
         self.tol = tol
         self.verbose = verbose
-
-        _dimm.load_kernel("kmeans", self.verbose)
+        self.n_dpu = n_dpu
 
     def fit(self, X: DIMM_data):
         """Compute k-means clustering.
@@ -87,6 +87,8 @@ class KMeans(BaseEstimator):
         time : float
             Total clustering time.
         """
+        if self.n_dpu:
+            _dimm.set_n_dpu(self.n_dpu)
         _dimm.load_kernel("kmeans", self.verbose)
         _dimm.load_data(X, self.tol, self.verbose)
         result, iterations, time = self._kmeans()
