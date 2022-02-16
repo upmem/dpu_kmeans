@@ -43,6 +43,16 @@ public:
         ::allocate(&p);
     }
 
+    uint32_t get_ndpu()
+    {
+        return p.ndpu;
+    }
+
+    void set_ndpu(uint32_t ndpu)
+    {
+        p.ndpu = ndpu;
+    }
+
     /**
      * @brief Loads binary into the DPUs
      *
@@ -215,6 +225,8 @@ PYBIND11_MODULE(_core, m)
     )pbdoc")
         .def(py::init<>())
         .def("allocate", &Container::allocate)
+        .def("get_nr_dpus", &Container::get_ndpu)
+        .def("set_nr_dpus", &Container::set_ndpu)
         .def("load_kernel", &Container::load_kernel)
         .def("load_array_data", &Container::load_array_data)
         .def("free_data", &Container::free_data)

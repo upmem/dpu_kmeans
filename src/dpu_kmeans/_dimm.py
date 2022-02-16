@@ -23,6 +23,7 @@ _data_id = None  # ID of the currently loaded data
 _kernels_lib = {"kmeans": files("dpu_kmeans").joinpath("dpu_program/kmeans_dpu_kernel")}
 
 ctr = Container()
+ctr.set_nr_dpus(0)
 
 
 class DIMM_data:
@@ -92,6 +93,18 @@ class DIMM_data:
         if self.data_id == _data_id:
             _data_id = None
             ctr.free_data(self.type == "file", False)
+
+
+def set_n_dpu(n_dpu: int):
+    global _allocated
+    if _allocated and ctr.get_nr_dpus() != n_dpu:
+        raise ValueError(
+            f"{ctr.get_nr_dpus()} DPUs have already been allocated and you asked for {n_dpu}."
+        )
+    elif not _allocated:
+        ctr.set_nr_dpus(n_dpu)
+        ctr.allocate()
+        _allocated = True
 
 
 def load_kernel(kernel: str, verbose: int):
