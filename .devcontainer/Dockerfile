@@ -8,10 +8,10 @@ FROM mcr.microsoft.com/vscode/devcontainers/base:0-${VARIANT}
 # RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
 #     && apt-get -y install --no-install-recommends <your-package-list-here>
 
-RUN wget http://sdk-releases.upmem.com/2021.3.0/ubuntu_20.04/upmem_2021.3.0_amd64.deb \
-    && sudo apt update \
-    && sudo apt install -y ./upmem_2021.3.0_amd64.deb \
-    && rm upmem_2021.3.0_amd64.deb
 RUN sudo apt update \
-    && sudo apt install -y build-essential cmake ninja-build python-is-python3 cppcheck pip \
+    && sudo apt -y install python-is-python3 pip \
+    && wget http://sdk-releases.upmem.com/2021.3.0/ubuntu_20.04/upmem_2021.3.0_amd64.deb \
+    && sudo apt install -y ./upmem_2021.3.0_amd64.deb
+RUN sudo apt update \
+    && sudo apt install -y build-essential cmake ninja-build cppcheck \
     && sudo apt full-upgrade -y
