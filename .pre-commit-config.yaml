@@ -41,7 +41,7 @@ repos:
   rev: v1.3.5
   hooks:
     - id: clang-format
-      args: [--style=Google]
+      args: ["--style=Google", "-i"]
     - id: cppcheck
 
 # Changes tabs to spaces
