@@ -13,5 +13,5 @@ RUN wget http://sdk-releases.upmem.com/2021.3.0/ubuntu_20.04/upmem_2021.3.0_amd6
     && sudo apt install -y ./upmem_2021.3.0_amd64.deb \
     && rm upmem_2021.3.0_amd64.deb
 RUN sudo apt update \
-    && sudo apt install -y build-essential cmake ninja-build python-is-python3 \
+    && sudo apt install -y build-essential cmake ninja-build python-is-python3 cppcheck pip \
     && sudo apt full-upgrade -y
