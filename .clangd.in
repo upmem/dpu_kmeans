@@ -1,0 +1,19 @@
+If:
+  PathMatch: .*\/dpu_program/.* # Configuration for dpu binaries
+CompileFlags:
+  Add: [--target=dpu-upmem-dpurte, -DNR_TASKLETS=16, -fno-unroll-loops]
+---
+If:
+  PathExclude: .*\/dpu_program/.* # Configuration for host binaries
+CompileFlags: # Tweak the parse settings
+  Add:
+    [
+      -I@PYBIND11_INCLUDE@,
+      -I@PYTHON_INCLUDE@,
+      -I@DPU_INCLUDE_DIRS@,
+      -ldpu,
+      -I@GCC_INCLUDE@,
+      -I@OpenMP_C_INCLUDE_DIRS@,
+      -fopenmp,
+      -DNR_TASKLETS=@NR_TASKLETS@
+    ]
