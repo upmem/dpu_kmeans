@@ -20,7 +20,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 set(CMAKE_C_FLAGS_DEBUG "-g -Og")
-set(CMAKE_C_FLAGS_RELEASE "-g0 -O3 -flto=thin")
+set(CMAKE_C_FLAGS_RELEASE "-g0 -O3")
 
 add_executable(trivial_checksum_example trivial_checksum_example.c)
 add_executable(kmeans_dpu_kernel kmeans_dpu_kernel.c)
