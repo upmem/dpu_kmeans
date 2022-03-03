@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
-"""DIMM memory manager module"""
+"""DIMM memory manager module
+This module is intended to work like a singleton class, hence the use of global variables."""
 
 # Author: Sylvan Brocard <sbrocard@upmem.com>
 # License: MIT
+
+# pylint: disable=global-statement
 
 import atexit
 import numpy as np
@@ -62,6 +65,7 @@ class DimmData:
         self.type = ""
         self.X = data
         self.is_binary_file = is_binary_file
+        self._X_int = None
 
     @property
     def X(self):
@@ -79,7 +83,8 @@ class DimmData:
                 X.flags.c_contiguous and X.flags.aligned and X.dtype == np.float32
             ):
                 print(
-                    "Converting input data. Provide a contiguous float32 ndarray to avoid this extra step."
+                    "Converting input data. "
+                    + "Provide a contiguous float32 ndarray to avoid this extra step."
                 )
                 self._X = np.require(X, dtype=np.float32, requirements=["A", "C"])
             else:
@@ -88,8 +93,10 @@ class DimmData:
             self.npoints, self.nfeatures = self.X.shape
             self.type = "array"
 
+            self._X_int = np.zeros_like(self._X, dtype=np.int32)
+            np.rint(self._X, order="C", out=self._X_int, casting="unsafe")
+
     def __del__(self):
-        global ctr
         global _data_id
         if self.data_id == _data_id:
             _data_id = None
@@ -111,7 +118,6 @@ def set_n_dpu(n_dpu: int):
 
 def load_kernel(kernel: str, verbose: int = False):
     """Loads a given kernel into the allocated DPUs."""
-    global ctr
     global _kernel
     global _allocated
     if not _allocated:
@@ -122,13 +128,12 @@ def load_kernel(kernel: str, verbose: int = False):
             print(f"loading new kernel : {kernel}")
         _kernel = kernel
         ref = _kernels_lib[kernel]
-        with as_file(ref) as DPU_BINARY:
-            ctr.load_kernel(str(DPU_BINARY))
+        with as_file(ref) as dpu_binary:
+            ctr.load_kernel(str(dpu_binary))
 
 
 def load_data(data: DimmData, tol: float = 1e-4, verbose: int = False):
     """Loads a dataset into the allocated DPUs."""
-    global ctr
     global _data_id
     if _data_id != data.data_id:
         if verbose:
@@ -150,7 +155,6 @@ def load_data(data: DimmData, tol: float = 1e-4, verbose: int = False):
 
 def free_dpus(verbose: int = False):
     """Frees all allocated DPUs."""
-    global ctr
     if _kernel:
         if verbose:
             print("freeing dpus")

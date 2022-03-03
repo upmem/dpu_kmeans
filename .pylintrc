@@ -1,4 +1,4 @@
 [BASIC]
 
 # Good variable names which should always be accepted, separated by a comma.
-good-names=X, _allocated, _kernel, _data_id, ctr
+good-names=X, _X, X_int, _X_int, _allocated, _kernel, _data_id, ctr

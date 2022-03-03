@@ -5,13 +5,13 @@
 # License: MIT
 
 import numpy as np
-from sklearn.base import BaseEstimator
+from sklearn.base import TransformerMixin, ClusterMixin, BaseEstimator
 
 from . import _dimm
 from ._dimm import DimmData
 
 
-class KMeans(BaseEstimator):
+class KMeans(TransformerMixin, ClusterMixin, BaseEstimator):
     """KMeans estimator object
 
     Parameters
@@ -67,6 +67,9 @@ class KMeans(BaseEstimator):
         self.tol = tol
         self.verbose = verbose
         self.n_dpu = n_dpu
+        self.n_iter_ = None
+        self.time = None
+        self.cluster_centers_ = None
 
     def fit(self, X: DimmData):
         """Compute k-means clustering.
@@ -93,10 +96,14 @@ class KMeans(BaseEstimator):
         _dimm.load_data(X, self.tol, self.verbose)
         result, iterations, time = self._kmeans()
 
+        self.n_iter_ = iterations
+        self.time = time
+        self.cluster_centers_ = result
+
         return result, iterations, time
 
-    def fit_predict(self, X):
-        pass
+    def fit_predict(self, X, y=None):
+        """TODO: return clusterization labels"""
 
     def _kmeans(self):
         log_iterations = np.require(

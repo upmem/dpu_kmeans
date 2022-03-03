@@ -153,3 +153,6 @@ src/dpu_kmeans/dpu_program/
 
 # ignoring local .clangd config file
 .clangd
+
+# ignoring local compile_commands files
+**/compile_commands.json

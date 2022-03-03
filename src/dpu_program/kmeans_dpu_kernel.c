@@ -416,7 +416,7 @@ int main() {
         for (uint8_t idim = 0; idim < nfeatures; idim++) {
           volatile int_feature diff = (w_features[point_base_index + idim] -
                                        c_clusters[cluster_base_index + idim]);
-#ifdef FEATURETYPE_32
+#if FEATURETYPE == 32
           dist += (int64_t)diff * diff; /* sum of squares */
 #else
           dist += diff * diff; /* sum of squares */

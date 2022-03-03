@@ -195,7 +195,6 @@ float **kmeans_clustering(
       clusters_int[icluster][ifeature] =
           features_int[(icluster + iteration_base_index) % p->npoints]
                       [ifeature];
-      clusters_float[icluster][ifeature] = clusters_int[icluster][ifeature];
     }
 
     /* DEBUG : print initial centroids */
@@ -213,7 +212,7 @@ float **kmeans_clustering(
   for (i = 0; i < npoints; i++) membership[i] = -1;
 #endif
 
-  /* inform DPUs of the current number of cluters */
+  /* inform DPUs of the current number of clusters */
   DPU_ASSERT(dpu_broadcast_to(p->allset, "nclusters_host", 0, &nclusters,
                               sizeof(nclusters), DPU_XFER_DEFAULT));
 

@@ -73,14 +73,15 @@ enum perfcounter_names {
 };
 #endif  // ifdef PERF_COUNTER
 
-// Define the size of discretized features (choose one):
+// Define the size of discretized features (chosen in setup.py):
 
-// typedef int8_t int_feature;
-////////// OR
+#if FEATURE_TYPE == 8
+typedef int8_t int_feature;
+#elif FEATURE_TYPE == 16
 typedef int16_t int_feature;
-////////// OR
-// typedef int32_t int_feature;
-// #define FEATURETYPE_32
+#elif FEATURE_TYPE == 32
+typedef int32_t int_feature;
+#endif
 
 #ifndef _KMEANS_DPU_KERNEL_H_
 // Parameters holding struct

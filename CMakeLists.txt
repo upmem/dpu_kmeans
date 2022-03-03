@@ -20,7 +20,8 @@ ExternalProject_Add(
   SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/dpu_program
   INSTALL_DIR ./dpu_program
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
-             -DNR_TASKLETS=${NR_TASKLETS} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+             -DNR_TASKLETS=${NR_TASKLETS} -DFEATURE_TYPE=${FEATURE_TYPE}
+             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
   BUILD_ALWAYS TRUE
   USES_TERMINAL_BUILD TRUE)
 
@@ -69,7 +70,8 @@ target_include_directories(_core PUBLIC PkgConfig::DPU)
 target_compile_definitions(
   _core
   PUBLIC VERSION_INFO=${PROJECT_VERSION}
-  PUBLIC NR_TASKLETS=${NR_TASKLETS})
+  PUBLIC NR_TASKLETS=${NR_TASKLETS}
+  PUBLIC FEATURE_TYPE=${FEATURE_TYPE})
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED TRUE)
@@ -77,6 +79,12 @@ set(CMAKE_C_STANDARD_REQUIRED TRUE)
 set(CMAKE_C_FLAGS_RELEASE "-Ofast")
 
 install(TARGETS _core DESTINATION .)
+
+message(STATUS "hello")
+message(STATUS ${CMAKE_BINARY_DIR})
+# install(FILES ${CMAKE_BINARY_DIR}/compile_commands.json DESTINATION src)
+configure_file(${CMAKE_BINARY_DIR}/compile_commands.json
+               ${CMAKE_SOURCE_DIR}/src/compile_commands.json COPYONLY)
 
 # writing configuration file for clangd
 list(GET pybind11_INCLUDE_DIRS 0 PYBIND11_INCLUDE)
