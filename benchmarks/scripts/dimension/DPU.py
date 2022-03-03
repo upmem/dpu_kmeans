@@ -8,7 +8,7 @@ import time
 import pandas as pd
 from hurry.filesize import size
 from tqdm import tqdm
-from dpu_kmeans import DIMM_data, KMeans, _dimm
+from dpu_kmeans import DimmData, KMeans, _dimm
 
 nfeatures = 8
 min_nclusters = 3
@@ -34,7 +34,7 @@ for i_ndim, ndim in enumerate(n_dim_set):
     data = data.astype(np.float32)
     print("data size for {} dimensions : {}".format(ndim, size(sys.getsizeof(data))))
 
-    dimm_data = DIMM_data(data)
+    dimm_data = DimmData(data)
 
     _dimm.load_data(dimm_data, tol, verbose)
 
