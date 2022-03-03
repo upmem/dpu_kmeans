@@ -8,7 +8,7 @@ import numpy as np
 from sklearn.base import BaseEstimator
 
 from . import _dimm
-from ._dimm import DIMM_data
+from ._dimm import DimmData
 
 
 class KMeans(BaseEstimator):
@@ -68,7 +68,7 @@ class KMeans(BaseEstimator):
         self.verbose = verbose
         self.n_dpu = n_dpu
 
-    def fit(self, X: DIMM_data):
+    def fit(self, X: DimmData):
         """Compute k-means clustering.
 
         Parameters

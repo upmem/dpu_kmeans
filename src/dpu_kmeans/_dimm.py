@@ -4,9 +4,8 @@
 # Author: Sylvan Brocard <sbrocard@upmem.com>
 # License: MIT
 
-from collections.abc import Iterable
-import numpy as np
 import atexit
+import numpy as np
 
 try:
     from importlib.resources import files, as_file
@@ -26,7 +25,7 @@ ctr = Container()
 ctr.set_nr_dpus(0)
 
 
-class DIMM_data:
+class DimmData:
     """Holder object for data loaded on the DIMM
 
     Parameters
@@ -66,10 +65,12 @@ class DIMM_data:
 
     @property
     def X(self):
+        """Get X"""
         return self._X
 
     @X.setter
     def X(self, X):
+        """Set X"""
         if isinstance(X, str):
             self._data_id = X
             self.type = "file"
@@ -92,10 +93,11 @@ class DIMM_data:
         global _data_id
         if self.data_id == _data_id:
             _data_id = None
-            ctr.free_data(self.type == "file", False)
+            ctr.free_data(self.type == "file", True)
 
 
 def set_n_dpu(n_dpu: int):
+    """Sets the number of DPUs to ask for during the allocation."""
     global _allocated
     if _allocated and ctr.get_nr_dpus() != n_dpu:
         raise ValueError(
@@ -107,7 +109,8 @@ def set_n_dpu(n_dpu: int):
         _allocated = True
 
 
-def load_kernel(kernel: str, verbose: int):
+def load_kernel(kernel: str, verbose: int = False):
+    """Loads a given kernel into the allocated DPUs."""
     global ctr
     global _kernel
     global _allocated
@@ -123,7 +126,8 @@ def load_kernel(kernel: str, verbose: int):
             ctr.load_kernel(str(DPU_BINARY))
 
 
-def load_data(data: DIMM_data, tol: float, verbose: int):
+def load_data(data: DimmData, tol: float = 1e-4, verbose: int = False):
+    """Loads a dataset into the allocated DPUs."""
     global ctr
     global _data_id
     if _data_id != data.data_id:
@@ -144,10 +148,12 @@ def load_data(data: DIMM_data, tol: float, verbose: int):
             ctr.load_array_data(data.X, data.npoints, data.nfeatures, tol, verbose)
 
 
-def free_dpus():
+def free_dpus(verbose: int = False):
+    """Frees all allocated DPUs."""
     global ctr
     if _kernel:
-        print("freeing dpus")
+        if verbose:
+            print("freeing dpus")
         ctr.free_dpus()
 
 

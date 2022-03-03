@@ -7,16 +7,16 @@ import sys
 import time
 from hurry.filesize import size
 from tqdm import tqdm
-from dpu_kmeans import DIMM_data, KMeans, _dimm
+from dpu_kmeans import DimmData, KMeans, _dimm
 
 nfeatures = 8
 min_nclusters = 15
 max_nclusters = 15
-loops = 10
+loops = 1
 verbose = False
 tol = 1e-4
 
-npoints_str = "1e5"
+npoints_str = "1e4"
 n_cluster_set = list(range(min_nclusters, max_nclusters + 1))
 times = []
 inner_times = []
@@ -32,7 +32,7 @@ data, tags, centers = make_blobs(
 data = data.astype(np.float32)
 print("data size for {} points : {}".format(npoints_str, size(sys.getsizeof(data))))
 
-dimm_data = DIMM_data(data)
+dimm_data = DimmData(data)
 
 _dimm.load_data(dimm_data, tol, verbose)
 
@@ -61,6 +61,6 @@ times.append(n_clusters_time.copy())
 inner_times.append(n_clusters_inner_time.copy())
 iter.append(n_clusters_iter.copy())
 
-if min_nclusters == max_nclusters:
-    print("centroids:")
-    print(centroids)
+# if min_nclusters == max_nclusters:
+#     print("centroids:")
+#     print(centroids)
