@@ -191,17 +191,15 @@ PYBIND11_MODULE(_core, m) {
         DPU kmeans plugin
         -----------------
 
-        .. currentmodule:: dpu_kmeans
+        .. currentmodule:: dpu_kmeans._core
 
         .. autosummary::
            :toctree: _generate
 
            add
            subtract
-           call_home
-           dpu_test
            checksum
-           kmeans_cpp
+           Container
     )pbdoc";
 
   py::class_<Container>(m, "Container", R"pbdoc(
