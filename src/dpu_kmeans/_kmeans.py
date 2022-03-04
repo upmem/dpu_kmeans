@@ -96,6 +96,8 @@ class KMeans(TransformerMixin, ClusterMixin, BaseEstimator):
         _dimm.load_data(X, self.tol, self.verbose)
         result, iterations, time = self._kmeans()
 
+        result += X.feature_means
+
         self.n_iter_ = iterations
         self.time = time
         self.cluster_centers_ = result

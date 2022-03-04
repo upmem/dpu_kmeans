@@ -77,7 +77,7 @@ int cluster(Params *p,
       // printf("\ncluster centers:\n");
       // for(int icluster = 0; icluster<nclusters; icluster++)
       // {
-      //     for(int ifeature = 0; ifeature<nfeatures; ifeature++)
+      //     for(int ifeature = 0; ifeature<p->nfeatures; ifeature++)
       //     {
       //         printf("%8.4f ", tmp_cluster_centres[icluster][ifeature]);
       //     }

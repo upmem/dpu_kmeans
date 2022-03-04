@@ -1,5 +1,6 @@
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/pytypes.h>
 #include <pybind11/stl.h>
 
 #include <iostream>
@@ -69,6 +70,7 @@ class Container {
       save_dat_file(&p, filename, features_float);
     }
     transfer_data(threshold_in, verbose);
+    preprocessing(&p, features_float, &features_int, verbose);
   }
   /**
    * @brief Loads data into the DPUs from a python array
@@ -79,15 +81,20 @@ class Container {
    * @param threshold Parameter to declare convergence.
    * @param verbose Verbosity level.
    */
-  void load_array_data(py::array_t<float> data, uint64_t npoints, int nfeatures,
-                       float threshold, int verbose) {
+  void load_array_data(py::array_t<float> data,
+                       py::array_t<int_feature> data_int, uint64_t npoints,
+                       int nfeatures, float threshold, float scale_factor,
+                       int verbose) {
     float *data_ptr = (float *)data.request().ptr;
+    int_feature *data_int_ptr = (int_feature *)data_int.request().ptr;
 
     p.from_file = false;
 
     p.npoints = npoints;
     p.nfeatures = nfeatures;
+    p.scale_factor = scale_factor;
     format_array_input(&p, data_ptr, &features_float);
+    format_array_input_int(&p, data_int_ptr, &features_int);
     transfer_data(threshold, verbose);
   }
   /**
@@ -96,7 +103,7 @@ class Container {
    */
   void transfer_data(float threshold, int verbose) {
     p.threshold = threshold;
-    preprocessing(&p, features_float, &features_int, verbose);
+    p.npointperdpu = p.npadded / p.ndpu;
     populateDpu(&p, features_int);
     broadcastParameters(&p);
     allocateMemory(&p);
@@ -108,14 +115,14 @@ class Container {
    * @brief Frees the data.
    */
   void free_data(bool from_file, bool restore_features) {
-    /* We are NOT freeing the underlying float array if it is managed by python
+    /* We are NOT freeing the underlying arrays if they are managed by python
      */
-    if (from_file)
+    if (from_file) {
       free(features_float[0]);
-    else if (restore_features)
+      free(features_int[0]);
+    } else if (restore_features)
       postprocessing(&p, features_float);
     free(features_float);
-    free(features_int[0]);
     free(features_int);
     free(p.mean);
 #ifdef FLT_REDUCE
@@ -227,6 +234,8 @@ PYBIND11_MODULE(_core, m) {
   m.def("checksum", &checksum, R"pbdoc(
         Checksum test on dpus
     )pbdoc");
+
+  m.attr("FEATURE_TYPE") = py::int_(FEATURE_TYPE);
 
 #ifdef VERSION_INFO
   m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);

@@ -1,7 +1,7 @@
 If:
   PathMatch: .*\/dpu_program/.* # Configuration for dpu binaries
 CompileFlags:
-  Add: [--target=dpu-upmem-dpurte, -DNR_TASKLETS=16, -DFEATURE_TYPE=@FEATURE_TYPE@]
+  Add: [--target=dpu-upmem-dpurte, -DNR_TASKLETS=16]
 ---
 If:
   PathExclude: .*\/dpu_program/.* # Configuration for host binaries
@@ -15,5 +15,4 @@ CompileFlags: # Tweak the parse settings
       -I@GCC_INCLUDE@,
       -fopenmp,
       -DNR_TASKLETS=@NR_TASKLETS@
-      -DFEATURE_TYPE=@FEATURE_TYPE@
     ]

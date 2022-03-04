@@ -201,7 +201,7 @@ float **kmeans_clustering(
     // printf("initial centroids:\n");
     // for (int icluster = 0; icluster < nclusters; icluster++)
     // {
-    //     for (int ifeature = 0; ifeature < nfeatures; ifeature++)
+    //     for (int ifeature = 0; ifeature < p->nfeatures; ifeature++)
     //         printf("% d ", clusters_int[icluster][ifeature]);
     //     printf("\n");
     // }

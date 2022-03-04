@@ -17,6 +17,7 @@ except ImportError:
     from importlib_resources import files, as_file
 
 from ._core import Container
+from ._core import FEATURE_TYPE
 
 _allocated = False  # whether the DPUs have been allocated
 _kernel = ""  # name of the currently loaded binary
@@ -63,14 +64,22 @@ class DimmData:
         self.data_id = None
         self.npoints, self.nfeatures = None, None
         self.type = ""
-        self.X = data
         self.is_binary_file = is_binary_file
         self._X_int = None
+        self.scale_factor = None
+        self.feature_means = None
+        self.avg_variance = None
+        self.X = data
 
     @property
     def X(self):
         """Get X"""
         return self._X
+
+    @property
+    def X_int(self):
+        """Get X_int"""
+        return self._X_int
 
     @X.setter
     def X(self, X):
@@ -93,14 +102,36 @@ class DimmData:
             self.npoints, self.nfeatures = self.X.shape
             self.type = "array"
 
-            self._X_int = np.zeros_like(self._X, dtype=np.int32)
-            np.rint(self._X, order="C", out=self._X_int, casting="unsafe")
+            self.feature_means = np.mean(self._X, axis=0)
+
+            if FEATURE_TYPE == 8:
+                quantized_data_type = np.int8
+            elif FEATURE_TYPE == 16:
+                quantized_data_type = np.int16
+            elif FEATURE_TYPE == 32:
+                quantized_data_type = np.int32
+
+            # Compute scale factor for quantization
+            max_feature = np.max(np.abs(self._X))
+            self.scale_factor = np.iinfo(quantized_data_type).max / max_feature / 2
+
+            # Compute average of variance
+            variances = np.var(self._X, axis=0)
+            self.avg_variance = np.mean(variances)
+
+            self._X_int = np.zeros_like(self._X, dtype=quantized_data_type)
+            np.rint(
+                (self._X - self.feature_means) * self.scale_factor,
+                order="C",
+                out=self._X_int,
+                casting="unsafe",
+            )
 
     def __del__(self):
         global _data_id
         if self.data_id == _data_id:
             _data_id = None
-            ctr.free_data(self.type == "file", True)
+            ctr.free_data(self.type == "file", False)
 
 
 def set_n_dpu(n_dpu: int):
@@ -150,7 +181,15 @@ def load_data(data: DimmData, tol: float = 1e-4, verbose: int = False):
         elif data.type == "array":
             if verbose:
                 print("reading data from array")
-            ctr.load_array_data(data.X, data.npoints, data.nfeatures, tol, verbose)
+            ctr.load_array_data(
+                data.X,
+                data.X_int,
+                data.npoints,
+                data.nfeatures,
+                tol * data.avg_variance,
+                data.scale_factor,
+                verbose,
+            )
 
 
 def free_dpus(verbose: int = False):

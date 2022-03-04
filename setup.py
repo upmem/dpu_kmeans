@@ -18,8 +18,6 @@ from setuptools_scm import get_version
 version = get_version(local_scheme="no-local-version")
 version = "".join([c for c in version if c.isdigit() or c == "."])
 
-FEATURE_TYPE = 16  # can be set to 8, 16 or 32
-
 # compilation of the host library
 setup(
     use_scm_version={
@@ -42,6 +40,5 @@ setup(
     cmake_args=[
         "-DNR_TASKLETS=16",  # number of parallel tasklets on each DPU
         f"-DVERSION={version}",
-        f"-DFEATURE_TYPE={FEATURE_TYPE}",
     ],
 )

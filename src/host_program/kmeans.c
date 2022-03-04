@@ -64,8 +64,9 @@ void read_bin_input(Params *p,             /**< Algorithm parameters */
   }
 
   /* get nfeatures and npoints */
-  fread(&p->npoints, sizeof(uint64_t), 1, infile);
-  fread(&p->nfeatures, sizeof(int), 1, infile);
+  if (fread(&p->npoints, sizeof(uint64_t), 1, infile) < 1 ||
+      fread(&p->nfeatures, sizeof(int), 1, infile) < 1)
+    fprintf(stderr, "Cannot read blocks in file\n");
 
   /* rounding the size of the input to the smallest multiple of 8*ndpu larger
    * than npoints */
@@ -83,7 +84,9 @@ void read_bin_input(Params *p,             /**< Algorithm parameters */
     exit(EXIT_FAILURE);
   }
 
-  fread(features[0], sizeof(float), p->npoints * p->nfeatures, infile);
+  if (fread(features[0], sizeof(float), p->npoints * p->nfeatures, infile) <
+      p->npoints * p->nfeatures)
+    fprintf(stderr, "Cannot read blocks in file\n");
 
   fclose(infile);
 
@@ -186,10 +189,28 @@ void format_array_input(
     float *data,           /**< [in] The data as a flat table */
     float ***features_out) /**< [out] The data as two dimensional table */
 {
-  // uint64_t npadded;
   p->npadded = ((p->npoints + 8 * p->ndpu - 1) / (8 * p->ndpu)) * 8 * p->ndpu;
 
   float **features = (float **)malloc(p->npadded * sizeof(*features));
+  features[0] = data;
+  for (int ipoint = 1; ipoint < p->npadded; ipoint++)
+    features[ipoint] = features[ipoint - 1] + p->nfeatures;
+
+  *features_out = features;
+}
+
+/**
+ * @brief Formats a flat integer array into a bidimensional representation
+ */
+void format_array_input_int(
+    Params *p,                   /**< Algorithm parameters. */
+    int_feature *data,           /**< [in] The data as a flat table */
+    int_feature ***features_out) /**< [out] The data as two dimensional table */
+{
+  p->npadded = ((p->npoints + 8 * p->ndpu - 1) / (8 * p->ndpu)) * 8 * p->ndpu;
+
+  int_feature **features =
+      (int_feature **)malloc(p->npadded * sizeof(*features));
   features[0] = data;
   for (int ipoint = 1; ipoint < p->npadded; ipoint++)
     features[ipoint] = features[ipoint - 1] + p->nfeatures;
@@ -465,7 +486,9 @@ static void cli_output(
 {
   /* print cluster center coordinates */
   if (p->min_nclusters == p->max_nclusters) {
-    printf("\n================= Centroid Coordinates =================\n");
+    printf(
+        "\n================= Centroid Coordinates (after mean removal) "
+        "=================\n");
     for (int icluster = 0; icluster < p->max_nclusters; icluster++) {
       printf("%2d:", icluster);
       for (int ifeature = 0; ifeature < p->nfeatures; ifeature++)
@@ -534,7 +557,10 @@ float *kmeans_c(
 
   /* =============== Array Output ====================== */
 
-  output_clusters = array_output(p, *best_nclusters, cluster_centres);
+  if (p->from_file)
+    output_clusters = array_output(p, *best_nclusters, cluster_centres);
+  else
+    output_clusters = cluster_centres[0];
 
   /* =============== Command Line Output =============== */
 

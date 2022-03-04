@@ -73,7 +73,9 @@ enum perfcounter_names {
 };
 #endif  // ifdef PERF_COUNTER
 
-// Define the size of discretized features (chosen in setup.py):
+// Define the size of discretized features
+// choose the value here, which is then propagated to the rest of the build
+#define FEATURE_TYPE 16
 
 #if FEATURE_TYPE == 8
 typedef int8_t int_feature;
@@ -118,6 +120,8 @@ void read_bin_input(Params *p, const char *filename, float ***features_out);
 void read_txt_input(Params *p, const char *filename, float ***features_out);
 void save_dat_file(Params *p, const char *filename_in, float **features);
 void format_array_input(Params *p, float *data, float ***features_out);
+void format_array_input_int(Params *p, int_feature *data,
+                            int_feature ***features_out);
 void preprocessing(Params *p, float **features, int_feature ***features_int_out,
                    int verbose);
 void postprocessing(Params *p, float **features);
