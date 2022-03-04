@@ -99,7 +99,7 @@ class KMeans(TransformerMixin, ClusterMixin, BaseEstimator):
         result += X.feature_means
 
         self.n_iter_ = iterations
-        self.time = time
+        self.time = _dimm.ctr.dpu_run_time()
         self.cluster_centers_ = result
 
         return result, iterations, time

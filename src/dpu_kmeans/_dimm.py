@@ -194,10 +194,14 @@ def load_data(data: DimmData, tol: float = 1e-4, verbose: int = False):
 
 def free_dpus(verbose: int = False):
     """Frees all allocated DPUs."""
-    if _kernel:
+    global _allocated
+    global _kernel
+    if _allocated:
         if verbose:
             print("freeing dpus")
         ctr.free_dpus()
+        _allocated = False
+        _kernel = ""
 
 
 atexit.register(free_dpus)

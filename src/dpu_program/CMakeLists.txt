@@ -34,5 +34,5 @@ target_link_options(kmeans_dpu_kernel PUBLIC -DNR_TASKLETS=${NR_TASKLETS})
 install(TARGETS trivial_checksum_example DESTINATION .)
 install(TARGETS kmeans_dpu_kernel DESTINATION .)
 
-configure_file(${CMAKE_BINARY_DIR}/compile_commands.json
-               ${CMAKE_SOURCE_DIR}/compile_commands.json COPYONLY)
+# configure_file(${CMAKE_BINARY_DIR}/compile_commands.json
+# ${CMAKE_SOURCE_DIR}/compile_commands.json COPYONLY)

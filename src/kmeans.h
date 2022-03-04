@@ -33,9 +33,6 @@ typedef struct dpu_set_t dpu_set;
  * @brief Data size constraints
  */
 /**@{*/
-#define MAX_FEATURE_DPU                                                       \
-  5000000 /**< How many features we fit into one DPU's MRAM. Can be increased \
-             further. */
 #define ASSUMED_NR_CLUSTERS 32 /**< Maximum number of clusters */
 #define ASSUMED_NR_FEATURES 34 /**< Maximum number of features */
 #define WRAM_FEATURES_SIZE \
@@ -85,6 +82,10 @@ typedef int16_t int_feature;
 typedef int32_t int_feature;
 #endif
 
+#define MAX_FEATURE_DPU                                                   \
+  MRAM_SIZE / FEATURE_TYPE * 8 / 2 /**< How many features we fit into one \
+                                      DPU's MRAM. Can be increased further. */
+
 #ifndef _KMEANS_DPU_KERNEL_H_
 // Parameters holding struct
 typedef struct Params {
@@ -104,6 +105,7 @@ typedef struct Params {
   uint32_t ndpu;
   dpu_set allset;
   int from_file;
+  double time_seconds;
 } Params;
 
 // Function declarations

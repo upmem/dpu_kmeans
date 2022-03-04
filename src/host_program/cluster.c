@@ -121,7 +121,7 @@ int cluster(Params *p,
         1000000;
     log_iterations[log_index] = total_iterations;
     log_time[log_index] = cluster_time;
-    log_index++;
+    // log_index++;
   }
 
   /* DEBUG: print best clusters */

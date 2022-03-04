@@ -265,14 +265,22 @@ void kmeansDpu(
 {
   struct dpu_set_t dpu; /* Iteration variable for the DPUs. */
   uint32_t each_dpu;    /* Iteration variable for the DPUs. */
+  struct timeval dpu_timing, tic;
 
 #ifdef PERF_COUNTER
   uint64_t counters_mean[HOST_COUNTERS] = {0};
 #endif
 
+  gettimeofday(&tic, NULL);
   //============RUNNING ONE LLOYD ITERATION ON THE DPU==============
   DPU_ASSERT(dpu_launch(p->allset, DPU_SYNCHRONOUS));
   //================================================================
+  gettimeofday(&dpu_timing, NULL);
+  dpu_timing.tv_sec -= tic.tv_sec;
+  dpu_timing.tv_usec -= tic.tv_usec;
+  double dpu_run_time =
+      ((double)(dpu_timing.tv_sec * 1000000 + dpu_timing.tv_usec)) / 1000000;
+  p->time_seconds += dpu_run_time;
 
   /* DEBUG : read logs */
   // DPU_FOREACH(*allset, dpu, each_dpu) {

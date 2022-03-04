@@ -137,6 +137,8 @@ class Container {
     deallocateMemory();
   }
 
+  double get_dpu_run_time() { return p.time_seconds; }
+
   py::array_t<float> kmeans_cpp(int max_nclusters, int min_nclusters,
                                 int isRMSE, int isOutput, int nloops,
                                 int max_iter, py::array_t<int> log_iterations,
@@ -213,7 +215,8 @@ PYBIND11_MODULE(_core, m) {
       .def("load_array_data", &Container::load_array_data)
       .def("free_data", &Container::free_data)
       .def("free_dpus", &Container::free_dpus)
-      .def("kmeans", &Container::kmeans_cpp);
+      .def("kmeans", &Container::kmeans_cpp)
+      .def("dpu_run_time", &Container::get_dpu_run_time);
 
   m.def("add", &add, R"pbdoc(
         Add two numbers
