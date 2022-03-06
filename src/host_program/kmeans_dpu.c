@@ -9,6 +9,8 @@
 #include <dpu_log.h>
 #include <math.h>
 #include <omp.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -248,6 +250,42 @@ void broadcastParameters(Params *p) {
     printf("task size in points : %u\n", task_size_in_points);
     printf("task size in bytes : %u\n", task_size_in_bytes);
   }
+}
+
+/**
+ * @brief Broadcast current number of clusters to the DPUs
+ *
+ * @param p Algorithm parameters.
+ * @param nclusters Number of clusters.
+ */
+void broadcastNumberOfClusters(Params *p, size_t nclusters) {
+  /* making sure we are sending cluster data in multiple of 8 */
+  size_t features_in_8bytes = 8 / sizeof(int_feature);
+  p->nclusters_round =
+      ((nclusters + features_in_8bytes - 1) / features_in_8bytes) *
+      features_in_8bytes;
+
+  /* inform DPUs of the current number of clusters */
+  unsigned int nclusters_short = nclusters;
+  DPU_ASSERT(dpu_broadcast_to(p->allset, "nclusters_host", 0, &nclusters_short,
+                              sizeof(nclusters_short), DPU_XFER_DEFAULT));
+}
+
+/**
+ * @brief Formats a flat integer array into a bidimensional representation.
+ */
+void build_jagged_array_int(
+    uint64_t x_size,             /**< [in] Size of the first dimension. */
+    size_t y_size,               /**< [in] Size of the second dimension. */
+    int_feature *data,           /**< [in] The data as a flat table */
+    int_feature ***features_out) /**< [out] The data as two dimensional table */
+{
+  int_feature **features = (int_feature **)malloc(x_size * sizeof(*features));
+  features[0] = data;
+  for (int ipoint = 1; ipoint < x_size; ipoint++)
+    features[ipoint] = features[ipoint - 1] + y_size;
+
+  *features_out = features;
 }
 
 /**

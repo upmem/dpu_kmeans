@@ -1,0 +1,170 @@
+/**
+ * @file lloy_iter.c
+ * @author Sylvan Brocard (sbrocard@upmem.com)
+ * @brief Performs one iteration of the Lloyd K-Means algorithm.
+ */
+
+#include <dpu.h>
+#include <stddef.h>
+
+#include "../kmeans.h"
+
+/**
+ * @brief Utility function for three dimensional arrays.
+ *
+ * @param feature current feature
+ * @param cluster current cleaster
+ * @param dpu current dpu
+ * @param nfeatures number of features
+ * @param nclusters number of clusters
+ * @return array index
+ */
+static int offset(int feature, int cluster, int dpu, int nfeatures,
+                  int nclusters) {
+  return (dpu * nclusters * nfeatures) + (cluster * nfeatures) + feature;
+}
+
+/**
+ * @brief Performs one iteration of the Lloyd algorithm on DPUs and gets the
+ * results.
+ */
+void lloydIter(
+    Params *p, /**< Algorithm parameters */
+    int_feature *old_centers, int_feature *new_centers,
+    size_t *new_centers_len, /**< [out] number of elements in each cluster */
+    size_t *centers_pcount, int64_t *centers_psum) {
+  struct dpu_set_t dpu; /* Iteration variable for the DPUs. */
+  uint32_t each_dpu;    /* Iteration variable for the DPUs. */
+  struct timeval dpu_timing, tic;
+
+#ifdef PERF_COUNTER
+  uint64_t counters_mean[HOST_COUNTERS] = {0};
+#endif
+
+  DPU_ASSERT(
+      dpu_broadcast_to(p->allset, "c_clusters", 0, old_centers,
+                       p->nclusters_round * p->nfeatures * sizeof(int_feature),
+                       DPU_XFER_DEFAULT));
+
+  gettimeofday(&tic, NULL);
+  //============RUNNING ONE LLOYD ITERATION ON THE DPU==============
+  DPU_ASSERT(dpu_launch(p->allset, DPU_SYNCHRONOUS));
+  //================================================================
+  gettimeofday(&dpu_timing, NULL);
+  dpu_timing.tv_sec -= tic.tv_sec;
+  dpu_timing.tv_usec -= tic.tv_usec;
+  double dpu_run_time =
+      ((double)(dpu_timing.tv_sec * 1000000 + dpu_timing.tv_usec)) / 1000000;
+  p->time_seconds += dpu_run_time;
+
+  /* DEBUG : read logs */
+  // DPU_FOREACH(*allset, dpu, each_dpu) {
+  //     if (each_dpu == 0)
+  //         DPU_ASSERT(dpu_log_read(dpu, stdout));
+  // }
+  // exit(0);
+
+  /* Performance tracking */
+#ifdef PERF_COUNTER
+  DPU_FOREACH(p->allset, dpu, each_dpu) {
+    DPU_ASSERT(dpu_prepare_xfer(dpu, &counters[each_dpu]));
+  }
+  DPU_ASSERT(dpu_push_xfer(p->allset, DPU_XFER_FROM_DPU, "host_counters", 0,
+                           sizeof(uint64_t[HOST_COUNTERS]), DPU_XFER_DEFAULT));
+
+  for (int icounter = 0; icounter < HOST_COUNTERS; icounter++) {
+    int nonzero_dpus = 0;
+    for (int idpu = 0; idpu < p->ndpu; idpu++)
+      if (counters[idpu][MAIN_LOOP_CTR] != 0) {
+        counters_mean[icounter] += counters[idpu][icounter];
+        nonzero_dpus++;
+      }
+    counters_mean[icounter] /= nonzero_dpus;
+  }
+  printf("number of %s for this iteration : %ld\n",
+         (PERF_COUNTER) ? "instructions" : "cycles", counters_mean[TOTAL_CTR]);
+  printf("%s in main loop : %ld\n", (PERF_COUNTER) ? "instructions" : "cycles",
+         counters_mean[MAIN_LOOP_CTR]);
+  printf("%s in initialization : %ld\n",
+         (PERF_COUNTER) ? "instructions" : "cycles", counters_mean[INIT_CTR]);
+  printf("%s in critical loop arithmetic : %ld\n",
+         (PERF_COUNTER) ? "instructions" : "cycles",
+         counters_mean[CRITLOOP_ARITH_CTR]);
+  printf("%s in reduction arithmetic + implicit access : %ld\n",
+         (PERF_COUNTER) ? "instructions" : "cycles",
+         counters_mean[REDUCE_ARITH_CTR]);
+  printf("%s in reduction loop : %ld\n",
+         (PERF_COUNTER) ? "instructions" : "cycles",
+         counters_mean[REDUCE_LOOP_CTR]);
+  printf("%s in dispatch function : %ld\n",
+         (PERF_COUNTER) ? "instructions" : "cycles",
+         counters_mean[DISPATCH_CTR]);
+  printf("%s in mutexed implicit access : %ld\n",
+         (PERF_COUNTER) ? "instructions" : "cycles", counters_mean[MUTEX_CTR]);
+
+  printf("\ntotal %s in arithmetic : %ld\n",
+         (PERF_COUNTER) ? "instructions" : "cycles",
+         counters_mean[CRITLOOP_ARITH_CTR] + counters_mean[REDUCE_ARITH_CTR]);
+  printf("percent %s in arithmetic : %.2f%%\n",
+         (PERF_COUNTER) ? "instructions" : "cycles",
+         100.0 *
+             (float)(counters_mean[CRITLOOP_ARITH_CTR] +
+                     counters_mean[REDUCE_ARITH_CTR]) /
+             counters_mean[TOTAL_CTR]);
+  printf("\n");
+#endif
+
+  /* copy back membership count per dpu (device to host) */
+  DPU_FOREACH(p->allset, dpu, each_dpu) {
+    DPU_ASSERT(dpu_prepare_xfer(
+        dpu, &(centers_pcount[each_dpu * p->nclusters_round])));
+  }
+  DPU_ASSERT(dpu_push_xfer(p->allset, DPU_XFER_FROM_DPU, "centers_count_mram",
+                           0, sizeof(int) * p->nclusters_round,
+                           DPU_XFER_DEFAULT));
+
+  /* DEBUG : print outputed centroids counts per DPU */
+  // for (int dpu_id = 0; dpu_id < ndpu; dpu_id++)
+  // {
+  //     for (int cluster_id = 0; cluster_id < nclusters; cluster_id++)
+  //     {
+  //         printf("%d ",centers_pcount[dpu_id][cluster_id]);
+  //     }
+  //     printf("\n");
+  // }
+
+  /* copy back centroids partial averages (device to host) */
+  DPU_FOREACH(p->allset, dpu, each_dpu) {
+    DPU_ASSERT(dpu_prepare_xfer(
+        dpu,
+        &centers_psum[offset(0, 0, each_dpu, p->nfeatures, p->nclusters)]));
+  }
+  DPU_ASSERT(dpu_push_xfer(p->allset, DPU_XFER_FROM_DPU, "centers_sum_mram", 0,
+                           p->nfeatures * p->nclusters * sizeof(int64_t),
+                           DPU_XFER_DEFAULT));
+
+  memset(new_centers, 0, p->nclusters * p->nfeatures * sizeof(*new_centers));
+  memset(new_centers_len, 0, p->nclusters * sizeof(*new_centers_len));
+
+  for (int dpu_id = 0; dpu_id < p->ndpu; dpu_id++) {
+    for (int cluster_id = 0; cluster_id < p->nclusters; cluster_id++) {
+      /* sum membership counts */
+      new_centers_len[cluster_id] +=
+          centers_pcount[dpu_id * p->nclusters_round + cluster_id];
+      /* compute the new centroids sum */
+      for (int feature_id = 0; feature_id < p->nfeatures; feature_id++)
+        new_centers[cluster_id * p->nclusters + feature_id] +=
+            centers_psum[offset(feature_id, cluster_id, dpu_id, p->nfeatures,
+                                p->nclusters)];
+    }
+  }
+
+  /* average the new centers */
+  for (int cluster_id = 0; cluster_id < p->nclusters; cluster_id++) {
+    if (new_centers[cluster_id])
+      for (int feature_id = 0; feature_id < p->nfeatures; feature_id++) {
+        new_centers[cluster_id * p->nclusters + feature_id] /=
+            new_centers_len[cluster_id];
+      }
+  }
+}

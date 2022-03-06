@@ -98,6 +98,8 @@ typedef struct Params {
   float *mean;
   int max_nclusters;
   int min_nclusters;
+  size_t nclusters;
+  size_t nclusters_round;
   int isRMSE;
   int isOutput;
   int nloops;
@@ -156,9 +158,19 @@ void allocateMemory(Params *p);
 void deallocateMemory();
 void populateDpu(Params *p, int_feature **feature);
 void broadcastParameters(Params *p);
+void broadcastNumberOfClusters(Params *p, size_t nclusters);
+void build_jagged_array_int(uint64_t x_size, size_t y_size, int_feature *data,
+                            int_feature ***features_out);
 void kmeansDpu(Params *p, int nclusters,
                int64_t new_centers_len[ASSUMED_NR_CLUSTERS],
                int64_t new_centers[ASSUMED_NR_CLUSTERS][ASSUMED_NR_FEATURES]);
+/**@}*/
+
+/** @name lloyd_iter.c */
+/**@{*/
+void lloydIter(Params *p, int_feature *old_centers, int_feature *new_centers,
+               size_t *new_centers_len, size_t *centers_pcount,
+               int64_t *centers_psum);
 /**@}*/
 #endif  // ifndef _KMEANS_DPU_KERNEL_H_
 

@@ -33,9 +33,19 @@ _kernels_lib = {"kmeans": files("dpu_kmeans").joinpath("dpu_program/kmeans_dpu_k
 ctr = Container()
 ctr.set_nr_dpus(0)
 
+_requested_dpus = 0
+
 
 class LinearDiscretizer(TransformerMixin, BaseEstimator):
     """Transformer to quantize data for DIMMs."""
+
+    def __init__(self) -> None:
+        if FEATURE_TYPE == 8:
+            self.dtype = np.int8
+        elif FEATURE_TYPE == 16:
+            self.dtype = np.int16
+        elif FEATURE_TYPE == 32:
+            self.dtype = np.int32
 
     def fit(self, X, y=None):
         """
@@ -54,13 +64,6 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
             Returns the instance itself.
         """
         X = self._validate_data(X, dtype="numeric")
-
-        if FEATURE_TYPE == 8:
-            self.dtype = np.int8
-        elif FEATURE_TYPE == 16:
-            self.dtype = np.int16
-        elif FEATURE_TYPE == 32:
-            self.dtype = np.int32
 
         # Compute scale factor for quantization
         max_feature = np.max(np.abs(X))
@@ -83,10 +86,11 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
         """
         check_is_fitted(self)
 
+        Xt = np.empty_like(X, dtype=self.dtype)
         return np.rint(
             X * self.scale_factor,
             order="C",
-            dtype=self.dtype,
+            out=Xt,
             casting="unsafe",
         )
 
@@ -114,7 +118,7 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
 
 ld = LinearDiscretizer()  # linear discretization transformer
 
-
+'''
 class DimmData:
     """Holder object for data loaded on the DIMM
 
@@ -218,16 +222,17 @@ class DimmData:
         if self.data_id == _data_id:
             _data_id = None
             ctr.free_data(self.type == "file", False)
+'''
 
 
 def set_n_dpu(n_dpu: int):
     """Sets the number of DPUs to ask for during the allocation."""
     global _allocated
-    if _allocated and ctr.get_nr_dpus() != n_dpu:
-        raise ValueError(
-            f"{ctr.get_nr_dpus()} DPUs have already been allocated and you asked for {n_dpu}."
-        )
-    elif not _allocated:
+    global _requested_dpus
+    if _allocated and _requested_dpus != n_dpu:
+        free_dpus()
+    if not _allocated:
+        _requested_dpus = n_dpu
         ctr.set_nr_dpus(n_dpu)
         ctr.allocate()
         _allocated = True
@@ -272,10 +277,9 @@ def load_data(X, verbose: int = False):
         _data_checksum = X_checksum
         Xt = ld.fit_transform(X)
         ctr.load_array_data(
-            X,
             Xt,
-            X.shape[0],
-            X.shape[1],
+            Xt.shape[0],
+            Xt.shape[1],
             verbose,
         )
     elif verbose:

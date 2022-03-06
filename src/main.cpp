@@ -2,6 +2,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 #include <pybind11/stl.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #include <iostream>
 
@@ -31,6 +33,8 @@ class Container {
   Params p;
   float **features_float;
   int_feature **features_int;
+  // int_feature **clusters_old_int;
+  // int_feature **clusters_new_int;
 
  public:
   /**
@@ -44,7 +48,8 @@ class Container {
    */
   void allocate() { ::allocate(&p); }
 
-  uint32_t get_ndpu() { return p.ndpu; }
+  size_t get_ndpu() { return p.ndpu; }
+  size_t get_nclusters_round() { return p.nclusters_round; }
 
   void set_ndpu(uint32_t ndpu) { p.ndpu = ndpu; }
 
@@ -69,7 +74,7 @@ class Container {
       read_txt_input(&p, filename, &features_float);
       save_dat_file(&p, filename, features_float);
     }
-    transfer_data(threshold_in, verbose);
+    transfer_data(verbose);
     preprocessing(&p, features_float, &features_int, verbose);
   }
   /**
@@ -81,28 +86,38 @@ class Container {
    * @param threshold Parameter to declare convergence.
    * @param verbose Verbosity level.
    */
-  void load_array_data(py::array_t<float> data,
-                       py::array_t<int_feature> data_int, uint64_t npoints,
-                       int nfeatures, float threshold, float scale_factor,
-                       int verbose) {
-    float *data_ptr = (float *)data.request().ptr;
+  void load_array_data(py::array_t<int_feature> data_int, uint64_t npoints,
+                       int nfeatures, int verbose) {
     int_feature *data_int_ptr = (int_feature *)data_int.request().ptr;
 
     p.from_file = false;
 
     p.npoints = npoints;
     p.nfeatures = nfeatures;
-    p.scale_factor = scale_factor;
-    format_array_input(&p, data_ptr, &features_float);
+    p.npadded = ((p.npoints + 8 * p.ndpu - 1) / (8 * p.ndpu)) * 8 * p.ndpu;
+
     format_array_input_int(&p, data_int_ptr, &features_int);
-    transfer_data(threshold, verbose);
+    transfer_data(verbose);
   }
+
+  void load_nclusters(unsigned int nclusters) {
+    // int_feature *centers_old_int_ptr = (int_feature
+    // *)centers_old_int.request().ptr; int_feature *centers_new_int_ptr =
+    // (int_feature *)centers_new_int.request().ptr;
+
+    p.nclusters = nclusters;
+
+    // build_jagged_array_int(nclusters, p.nfeatures, centers_old_int_ptr,
+    // &clusters_old_int); build_jagged_array_int(nclusters, p.nfeatures,
+    // centers_new_int_ptr, &clusters_new_int);
+    broadcastNumberOfClusters(&p, nclusters);
+  }
+
   /**
    * @brief Preprocesses and transfers quantized data to the DPUs
    *
    */
-  void transfer_data(float threshold, int verbose) {
-    p.threshold = threshold;
+  void transfer_data(int verbose) {
     p.npointperdpu = p.npadded / p.ndpu;
     populateDpu(&p, features_int);
     broadcastParameters(&p);
@@ -137,6 +152,21 @@ class Container {
   }
 
   double get_dpu_run_time() { return p.time_seconds; }
+
+  void lloyd_iter(py::array_t<int_feature> centers_old_int,
+                  py::array_t<int_feature> centers_new_int,
+                  py::array_t<size_t> points_in_clusters,
+                  py::array_t<size_t> points_in_clusters_per_dpu,
+                  py::array_t<int64_t> partial_sums) {
+    int_feature *old_centers = (int_feature *)centers_old_int.request().ptr;
+    int_feature *new_centers = (int_feature *)centers_new_int.request().ptr;
+    size_t *new_centers_len = (size_t *)points_in_clusters.request().ptr;
+    size_t *centers_pcount = (size_t *)points_in_clusters_per_dpu.request().ptr;
+    int64_t *centers_psum = (int64_t *)partial_sums.request().ptr;
+
+    lloydIter(&p, old_centers, new_centers, new_centers_len, centers_pcount,
+              centers_psum);
+  }
 
   py::array_t<float> kmeans_cpp(int max_nclusters, int min_nclusters,
                                 int isRMSE, int isOutput, int nloops,
@@ -209,12 +239,15 @@ PYBIND11_MODULE(_core, m) {
       .def(py::init<>())
       .def("allocate", &Container::allocate)
       .def("get_nr_dpus", &Container::get_ndpu)
+      .def("get_nclusters_round", &Container::get_nclusters_round)
       .def("set_nr_dpus", &Container::set_ndpu)
       .def("load_kernel", &Container::load_kernel)
       .def("load_array_data", &Container::load_array_data)
+      .def("load_n_clusters", &Container::load_nclusters)
       .def("free_data", &Container::free_data)
       .def("free_dpus", &Container::free_dpus)
       .def("kmeans", &Container::kmeans_cpp)
+      .def("lloyd_iter", &Container::lloyd_iter)
       .def("dpu_run_time", &Container::get_dpu_run_time);
 
   m.def("add", &add, R"pbdoc(

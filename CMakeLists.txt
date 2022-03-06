@@ -62,7 +62,8 @@ pybind11_add_module(
   src/host_program/cluster.c
   src/host_program/kmeans_clustering.c
   src/host_program/kmeans_dpu.c
-  src/host_program/rmse.c)
+  src/host_program/rmse.c
+  src/host_program/lloyd_iter.c)
 target_link_libraries(_core PRIVATE PkgConfig::DPU OpenMP::OpenMP_CXX
                                     OpenMP::OpenMP_C)
 target_include_directories(_core PUBLIC PkgConfig::DPU)
@@ -70,8 +71,7 @@ target_include_directories(_core PUBLIC PkgConfig::DPU)
 target_compile_definitions(
   _core
   PUBLIC VERSION_INFO=${PROJECT_VERSION}
-  PUBLIC NR_TASKLETS=${NR_TASKLETS}
-  PUBLIC FEATURE_TYPE=${FEATURE_TYPE})
+  PUBLIC NR_TASKLETS=${NR_TASKLETS})
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED TRUE)
