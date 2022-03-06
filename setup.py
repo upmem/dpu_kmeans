@@ -32,6 +32,7 @@ setup(
         "numpy",
         "scikit-learn",
         "importlib_resources;python_version<'3.9'",
+        "xxhash",
     ],
     extras_require={
         "test": ["pytest"],

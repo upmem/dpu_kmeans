@@ -114,14 +114,13 @@ class Container {
   /**
    * @brief Frees the data.
    */
-  void free_data(bool from_file, bool restore_features) {
+  void free_data() {
     /* We are NOT freeing the underlying arrays if they are managed by python
      */
-    if (from_file) {
+    if (p.from_file) {
       free(features_float[0]);
       free(features_int[0]);
-    } else if (restore_features)
-      postprocessing(&p, features_float);
+    }
     free(features_float);
     free(features_int);
     free(p.mean);
