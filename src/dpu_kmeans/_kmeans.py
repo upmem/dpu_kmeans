@@ -60,7 +60,9 @@ def _lloyd_iter_dpu(
     """
     dpu_iter = _dimm.ctr.lloyd_iter
 
+    print(f"old centers: {centers_old}")
     centers_old_int[:] = _dimm.ld.transform(centers_old)
+    print(f"old centers int: {centers_old_int}")
 
     dpu_iter(
         centers_old_int,
@@ -70,7 +72,9 @@ def _lloyd_iter_dpu(
         partial_sums,
     )
 
-    centers_new[:] = _dimm.ld.inverse_transform(centers_new_int)
+    print(f"new centers int: {centers_new_int}")
+    centers_new[:, :] = _dimm.ld.inverse_transform(centers_new_int)
+    print(f"new centers: {centers_new}")
 
     center_shift_tot = np.linalg.norm(centers_new - centers_old, ord="fro") ** 2
     return center_shift_tot
@@ -148,11 +152,11 @@ def _kmeans_single_lloyd_dpu(
     # Buffers to avoid new allocations at each iteration.
     centers = centers_init
     centers_int = np.empty_like(centers, dtype=dtype)
-    centers_new = np.empty_like(centers)
+    centers_new = np.empty_like(centers, dtype=float)
     centers_new_int = np.empty_like(centers, dtype=np.int64)
     points_in_clusters = np.empty(n_clusters, dtype=int)
     points_in_clusters_per_dpu = np.empty((n_dpu, n_clusters_round), dtype=np.uint32)
-    partial_sums = np.empty((n_clusters, n_dpu, n_features), dtype=np.uint64)
+    partial_sums = np.empty((n_clusters, n_dpu, n_features), dtype=np.int64)
 
     if sp.issparse(X):
         raise ValueError("Sparse matrix not supported")
@@ -165,8 +169,8 @@ def _kmeans_single_lloyd_dpu(
         for i in range(max_iter):
             center_shift_tot = lloyd_iter(
                 centers,
-                centers_new,
                 centers_int,
+                centers_new,
                 centers_new_int,
                 points_in_clusters,
                 points_in_clusters_per_dpu,
