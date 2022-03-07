@@ -83,8 +83,9 @@ typedef int32_t int_feature;
 #endif
 
 #define MAX_FEATURE_DPU                                                   \
-  MRAM_SIZE / FEATURE_TYPE * 8 / 2 /**< How many features we fit into one \
-                                      DPU's MRAM. Can be increased further. */
+  (MRAM_SIZE / FEATURE_TYPE * 8 /                                         \
+   2) /**< How many features we fit into one DPU's MRAM. Can be increased \
+         further. */
 
 #ifndef _KMEANS_DPU_KERNEL_H_
 // Parameters holding struct
@@ -168,8 +169,8 @@ void kmeansDpu(Params *p, int nclusters,
 
 /** @name lloyd_iter.c */
 /**@{*/
-void lloydIter(Params *p, int_feature *old_centers, int_feature *new_centers,
-               size_t *new_centers_len, size_t *centers_pcount,
+void lloydIter(Params *p, int_feature *old_centers, int64_t *new_centers,
+               int *new_centers_len, int *centers_pcount,
                int64_t *centers_psum);
 /**@}*/
 #endif  // ifndef _KMEANS_DPU_KERNEL_H_

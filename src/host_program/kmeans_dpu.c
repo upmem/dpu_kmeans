@@ -207,6 +207,8 @@ static unsigned int get_task_size(Params *p) {
     printf("error: tasks will not fit in WRAM");
     exit(EXIT_FAILURE);
   }
+  /* minimal size */
+  if (task_size_in_bytes < lcm) task_size_in_bytes = lcm;
 
   return task_size_in_bytes;
 }
@@ -246,9 +248,9 @@ void broadcastParameters(Params *p) {
 
   if (p->isOutput) {
     printf("points per DPU : %lu\n", p->npointperdpu);
-    printf("tasks per DPU: %lu\n", p->npointperdpu / task_size_in_points);
     printf("task size in points : %u\n", task_size_in_points);
     printf("task size in bytes : %u\n", task_size_in_bytes);
+    printf("tasks per DPU: %lu\n", p->npointperdpu / task_size_in_points);
   }
 }
 

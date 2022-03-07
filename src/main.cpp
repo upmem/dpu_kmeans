@@ -41,7 +41,9 @@ class Container {
    * @brief Construct a new Container object
    *
    */
-  Container() : p(), features_float(nullptr), features_int(nullptr) {}
+  Container() : p(), features_float(nullptr), features_int(nullptr) {
+    p.isOutput = 1;
+  }
 
   /**
    * @brief Allocates all DPUs.
@@ -154,14 +156,14 @@ class Container {
   double get_dpu_run_time() { return p.time_seconds; }
 
   void lloyd_iter(py::array_t<int_feature> centers_old_int,
-                  py::array_t<int_feature> centers_new_int,
-                  py::array_t<size_t> points_in_clusters,
-                  py::array_t<size_t> points_in_clusters_per_dpu,
+                  py::array_t<int64_t> centers_new_int,
+                  py::array_t<int> points_in_clusters,
+                  py::array_t<int> points_in_clusters_per_dpu,
                   py::array_t<int64_t> partial_sums) {
     int_feature *old_centers = (int_feature *)centers_old_int.request().ptr;
-    int_feature *new_centers = (int_feature *)centers_new_int.request().ptr;
-    size_t *new_centers_len = (size_t *)points_in_clusters.request().ptr;
-    size_t *centers_pcount = (size_t *)points_in_clusters_per_dpu.request().ptr;
+    int64_t *new_centers = (int64_t *)centers_new_int.request().ptr;
+    int *new_centers_len = (int *)points_in_clusters.request().ptr;
+    int *centers_pcount = (int *)points_in_clusters_per_dpu.request().ptr;
     int64_t *centers_psum = (int64_t *)partial_sums.request().ptr;
 
     lloydIter(&p, old_centers, new_centers, new_centers_len, centers_pcount,

@@ -30,9 +30,9 @@ static int offset(int feature, int cluster, int dpu, int nfeatures,
  */
 void lloydIter(
     Params *p, /**< Algorithm parameters */
-    int_feature *old_centers, int_feature *new_centers,
-    size_t *new_centers_len, /**< [out] number of elements in each cluster */
-    size_t *centers_pcount, int64_t *centers_psum) {
+    int_feature *old_centers, int64_t *new_centers,
+    int *new_centers_len, /**< [out] number of elements in each cluster */
+    int *centers_pcount, int64_t *centers_psum) {
   struct dpu_set_t dpu; /* Iteration variable for the DPUs. */
   uint32_t each_dpu;    /* Iteration variable for the DPUs. */
   struct timeval dpu_timing, tic;
@@ -41,10 +41,9 @@ void lloydIter(
   uint64_t counters_mean[HOST_COUNTERS] = {0};
 #endif
 
-  DPU_ASSERT(
-      dpu_broadcast_to(p->allset, "c_clusters", 0, old_centers,
-                       p->nclusters_round * p->nfeatures * sizeof(int_feature),
-                       DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(p->allset, "c_clusters", 0, old_centers,
+                              p->nclusters * p->nfeatures * sizeof(int_feature),
+                              DPU_XFER_DEFAULT));
 
   gettimeofday(&tic, NULL);
   //============RUNNING ONE LLOYD ITERATION ON THE DPU==============
@@ -58,8 +57,8 @@ void lloydIter(
   p->time_seconds += dpu_run_time;
 
   /* DEBUG : read logs */
-  // DPU_FOREACH(*allset, dpu, each_dpu) {
-  //     if (each_dpu == 0)
+  // DPU_FOREACH(p->allset, dpu, each_dpu) {
+  //     if (each_dpu >= 0)
   //         DPU_ASSERT(dpu_log_read(dpu, stdout));
   // }
   // exit(0);
@@ -120,18 +119,16 @@ void lloydIter(
         dpu, &(centers_pcount[each_dpu * p->nclusters_round])));
   }
   DPU_ASSERT(dpu_push_xfer(p->allset, DPU_XFER_FROM_DPU, "centers_count_mram",
-                           0, sizeof(int) * p->nclusters_round,
+                           0, sizeof(*centers_pcount) * p->nclusters_round,
                            DPU_XFER_DEFAULT));
 
   /* DEBUG : print outputed centroids counts per DPU */
-  // for (int dpu_id = 0; dpu_id < ndpu; dpu_id++)
-  // {
-  //     for (int cluster_id = 0; cluster_id < nclusters; cluster_id++)
-  //     {
-  //         printf("%d ",centers_pcount[dpu_id][cluster_id]);
-  //     }
-  //     printf("\n");
-  // }
+  for (int dpu_id = 0; dpu_id < p->ndpu; dpu_id++) {
+    for (int cluster_id = 0; cluster_id < p->nclusters; cluster_id++) {
+      printf("%d ", centers_pcount[dpu_id * p->nclusters + cluster_id]);
+    }
+    printf("\n");
+  }
 
   /* copy back centroids partial averages (device to host) */
   DPU_FOREACH(p->allset, dpu, each_dpu) {
@@ -161,10 +158,18 @@ void lloydIter(
 
   /* average the new centers */
   for (int cluster_id = 0; cluster_id < p->nclusters; cluster_id++) {
-    if (new_centers[cluster_id])
+    if (new_centers_len[cluster_id])
       for (int feature_id = 0; feature_id < p->nfeatures; feature_id++) {
-        new_centers[cluster_id * p->nclusters + feature_id] /=
+        new_centers[cluster_id * p->nfeatures + feature_id] /=
             new_centers_len[cluster_id];
       }
   }
+
+  /* DEBUG: print new clusters */
+  // printf("new clusters :\n");
+  // for (int cluster_id = 0; cluster_id < p->nclusters; cluster_id++) {
+  //   for (int feature_id = 0; feature_id < p->nfeatures; feature_id++) {
+  //     printf(new_centers[cluster_id * p->nclusters + feature_id])
+  //   }
+  // }
 }

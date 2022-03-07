@@ -154,8 +154,8 @@ def _kmeans_single_lloyd_dpu(
     centers_int = np.empty_like(centers, dtype=dtype)
     centers_new = np.empty_like(centers, dtype=float)
     centers_new_int = np.empty_like(centers, dtype=np.int64)
-    points_in_clusters = np.empty(n_clusters, dtype=int)
-    points_in_clusters_per_dpu = np.empty((n_dpu, n_clusters_round), dtype=np.uint32)
+    points_in_clusters = np.empty(n_clusters, dtype=np.int32)
+    points_in_clusters_per_dpu = np.empty((n_dpu, n_clusters_round), dtype=np.int32)
     partial_sums = np.empty((n_clusters, n_dpu, n_features), dtype=np.int64)
 
     if sp.issparse(X):
