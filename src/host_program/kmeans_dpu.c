@@ -261,12 +261,6 @@ void broadcastParameters(Params *p) {
  * @param nclusters Number of clusters.
  */
 void broadcastNumberOfClusters(Params *p, size_t nclusters) {
-  /* making sure we are sending cluster data in multiple of 8 */
-  size_t features_in_8bytes = 8 / sizeof(int_feature);
-  p->nclusters_round =
-      ((nclusters + features_in_8bytes - 1) / features_in_8bytes) *
-      features_in_8bytes;
-
   /* inform DPUs of the current number of clusters */
   unsigned int nclusters_short = nclusters;
   DPU_ASSERT(dpu_broadcast_to(p->allset, "nclusters_host", 0, &nclusters_short,

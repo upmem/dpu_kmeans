@@ -60,7 +60,6 @@ class Container {
   void allocate() { ::allocate(&p); }
 
   size_t get_ndpu() { return p.ndpu; }
-  size_t get_nclusters_round() { return p.nclusters_round; }
 
   void set_ndpu(uint32_t ndpu) { p.ndpu = ndpu; }
 
@@ -70,6 +69,7 @@ class Container {
    * @param DPU_BINARY Path to the binary.
    */
   void load_kernel(const char *DPU_BINARY) { ::load_kernel(&p, DPU_BINARY); }
+
   /**
    * @brief Loads data into the DPU from a file.
    *
@@ -107,7 +107,7 @@ class Container {
     p.nfeatures = nfeatures;
     p.npadded = ((p.npoints + 8 * p.ndpu - 1) / (8 * p.ndpu)) * 8 * p.ndpu;
 
-    format_array_input_int(&p, data_int_ptr, &features_int);
+    build_jagged_array_int(p.npadded, p.nfeatures, data_int_ptr, &features_int);
     transfer_data(verbose);
   }
 
@@ -128,10 +128,17 @@ class Container {
   void allocateHostMemory() {
     if (host_memory_allocated) deallocateHostMemory();
 
+    /* allocate array to read coordinates sums from the DPUs */
     partial_sums_per_dpu = (int64_t *)malloc(
         p.nclusters * p.ndpu * p.nfeatures * sizeof(*partial_sums_per_dpu));
+
+    /* allocate array to read clusters counts from the DPUs */
+    size_t count_in_8bytes = 8 / sizeof(*points_in_clusters_per_dpu);
+    size_t nclusters_aligned =
+        ((p.nclusters + count_in_8bytes - 1) / count_in_8bytes) *
+        count_in_8bytes;
     points_in_clusters_per_dpu = (int *)malloc(
-        p.ndpu * p.nclusters_round * sizeof(*points_in_clusters_per_dpu));
+        p.ndpu * nclusters_aligned * sizeof(*points_in_clusters_per_dpu));
 
     host_memory_allocated = true;
   }
@@ -265,7 +272,6 @@ PYBIND11_MODULE(_core, m) {
       .def(py::init<>())
       .def("allocate", &Container::allocate)
       .def("get_nr_dpus", &Container::get_ndpu)
-      .def("get_nclusters_round", &Container::get_nclusters_round)
       .def("set_nr_dpus", &Container::set_ndpu)
       .def("load_kernel", &Container::load_kernel)
       .def("load_array_data", &Container::load_array_data)

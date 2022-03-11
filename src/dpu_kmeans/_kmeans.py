@@ -152,7 +152,6 @@ def _kmeans_single_lloyd_dpu(
     centers_new_int = np.empty_like(centers, dtype=np.int64)
     points_in_clusters = np.empty(n_clusters, dtype=np.int32)
 
-    _dimm.ctr.allocate_host_memory()
     # points_in_clusters_per_dpu = np.empty((n_dpu, n_clusters_round), dtype=np.int32)
     # partial_sums = np.empty((n_clusters, n_dpu, n_features), dtype=np.int64)
 

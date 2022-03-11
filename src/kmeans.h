@@ -100,7 +100,6 @@ typedef struct Params {
   int max_nclusters;
   int min_nclusters;
   size_t nclusters;
-  size_t nclusters_round;
   int isRMSE;
   int isOutput;
   int nloops;

@@ -114,9 +114,10 @@ void lloydIter(
 #endif
 
   /* copy back membership count per dpu (device to host) */
-  size_t count_t_ratio = 8 / sizeof(*centers_pcount);
+  size_t count_in_8bytes = 8 / sizeof(*centers_pcount);
   size_t nclusters_aligned =
-      ((p->nclusters + count_t_ratio - 1) / count_t_ratio) * count_t_ratio;
+      ((p->nclusters + count_in_8bytes - 1) / count_in_8bytes) *
+      count_in_8bytes;
   DPU_FOREACH(p->allset, dpu, each_dpu) {
     DPU_ASSERT(
         dpu_prepare_xfer(dpu, &(centers_pcount[each_dpu * nclusters_aligned])));
