@@ -35,13 +35,22 @@ class Container {
   int_feature **features_int;
   // int_feature **clusters_old_int;
   // int_feature **clusters_new_int;
+  int64_t *partial_sums_per_dpu;
+  int *points_in_clusters_per_dpu;
+  bool host_memory_allocated;
 
  public:
   /**
    * @brief Construct a new Container object
    *
    */
-  Container() : p(), features_float(nullptr), features_int(nullptr) {
+  Container()
+      : p(),
+        features_float(nullptr),
+        features_int(nullptr),
+        partial_sums_per_dpu(nullptr),
+        points_in_clusters_per_dpu(nullptr),
+        host_memory_allocated(false) {
     p.isOutput = 1;
   }
 
@@ -113,6 +122,25 @@ class Container {
     // &clusters_old_int); build_jagged_array_int(nclusters, p.nfeatures,
     // centers_new_int_ptr, &clusters_new_int);
     broadcastNumberOfClusters(&p, nclusters);
+    allocateHostMemory();
+  }
+
+  void allocateHostMemory() {
+    if (host_memory_allocated) deallocateHostMemory();
+
+    partial_sums_per_dpu = (int64_t *)malloc(
+        p.nclusters * p.ndpu * p.nfeatures * sizeof(*partial_sums_per_dpu));
+    points_in_clusters_per_dpu = (int *)malloc(
+        p.ndpu * p.nclusters_round * sizeof(*points_in_clusters_per_dpu));
+
+    host_memory_allocated = true;
+  }
+
+  void deallocateHostMemory() {
+    free(partial_sums_per_dpu);
+    free(points_in_clusters_per_dpu);
+
+    host_memory_allocated = false;
   }
 
   /**
@@ -140,7 +168,7 @@ class Container {
     }
     free(features_float);
     free(features_int);
-    free(p.mean);
+    // free(p.mean);
 #ifdef FLT_REDUCE
     deallocateMembershipTable();
 #endif
@@ -157,17 +185,13 @@ class Container {
 
   void lloyd_iter(py::array_t<int_feature> centers_old_int,
                   py::array_t<int64_t> centers_new_int,
-                  py::array_t<int> points_in_clusters,
-                  py::array_t<int> points_in_clusters_per_dpu,
-                  py::array_t<int64_t> partial_sums) {
+                  py::array_t<int> points_in_clusters) {
     int_feature *old_centers = (int_feature *)centers_old_int.request().ptr;
     int64_t *new_centers = (int64_t *)centers_new_int.request().ptr;
     int *new_centers_len = (int *)points_in_clusters.request().ptr;
-    int *centers_pcount = (int *)points_in_clusters_per_dpu.request().ptr;
-    int64_t *centers_psum = (int64_t *)partial_sums.request().ptr;
 
-    lloydIter(&p, old_centers, new_centers, new_centers_len, centers_pcount,
-              centers_psum);
+    lloydIter(&p, old_centers, new_centers, new_centers_len,
+              points_in_clusters_per_dpu, partial_sums_per_dpu);
   }
 
   py::array_t<float> kmeans_cpp(int max_nclusters, int min_nclusters,
@@ -250,6 +274,8 @@ PYBIND11_MODULE(_core, m) {
       .def("free_dpus", &Container::free_dpus)
       .def("kmeans", &Container::kmeans_cpp)
       .def("lloyd_iter", &Container::lloyd_iter)
+      .def("allocate_host_memory", &Container::allocateHostMemory)
+      .def("deallocate_host_memory", &Container::deallocateHostMemory)
       .def("dpu_run_time", &Container::get_dpu_run_time);
 
   m.def("add", &add, R"pbdoc(

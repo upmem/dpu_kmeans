@@ -114,12 +114,15 @@ void lloydIter(
 #endif
 
   /* copy back membership count per dpu (device to host) */
+  size_t count_t_ratio = 8 / sizeof(*centers_pcount);
+  size_t nclusters_aligned =
+      ((p->nclusters + count_t_ratio - 1) / count_t_ratio) * count_t_ratio;
   DPU_FOREACH(p->allset, dpu, each_dpu) {
-    DPU_ASSERT(dpu_prepare_xfer(
-        dpu, &(centers_pcount[each_dpu * p->nclusters_round])));
+    DPU_ASSERT(
+        dpu_prepare_xfer(dpu, &(centers_pcount[each_dpu * nclusters_aligned])));
   }
   DPU_ASSERT(dpu_push_xfer(p->allset, DPU_XFER_FROM_DPU, "centers_count_mram",
-                           0, sizeof(*centers_pcount) * p->nclusters_round,
+                           0, sizeof(*centers_pcount) * nclusters_aligned,
                            DPU_XFER_DEFAULT));
 
   /* DEBUG : print outputed centroids counts per DPU */
@@ -147,7 +150,7 @@ void lloydIter(
     for (int cluster_id = 0; cluster_id < p->nclusters; cluster_id++) {
       /* sum membership counts */
       new_centers_len[cluster_id] +=
-          centers_pcount[dpu_id * p->nclusters_round + cluster_id];
+          centers_pcount[dpu_id * nclusters_aligned + cluster_id];
       /* compute the new centroids sum */
       for (int feature_id = 0; feature_id < p->nfeatures; feature_id++)
         new_centers[cluster_id * p->nclusters + feature_id] +=

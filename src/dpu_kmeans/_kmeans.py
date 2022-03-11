@@ -31,8 +31,6 @@ def _lloyd_iter_dpu(
     centers_new,
     centers_new_int,
     points_in_clusters,
-    points_in_clusters_per_dpu,
-    partial_sums,
 ):
     """Single iteration of K-means lloyd algorithm with dense input on DPU.
 
@@ -68,13 +66,13 @@ def _lloyd_iter_dpu(
         centers_old_int,
         centers_new_int,
         points_in_clusters,
-        points_in_clusters_per_dpu,
-        partial_sums,
     )
 
     print(f"new centers int: {centers_new_int}")
-    centers_new_int //= points_in_clusters
     centers_new[:, :] = _dimm.ld.inverse_transform(centers_new_int)
+    np.divide(
+        centers_new, points_in_clusters, out=centers_new, where=points_in_clusters != 0
+    )
     print(f"new centers: {centers_new}")
 
     center_shift_tot = np.linalg.norm(centers_new - centers_old, ord="fro") ** 2
@@ -142,13 +140,10 @@ def _kmeans_single_lloyd_dpu(
         Number of iterations run.
     """
     n_clusters = centers_init.shape[0]
-    n_features = centers_init.shape[1]
-    n_dpu = _dimm.ctr.get_nr_dpus()
     dtype = _dimm.ld.dtype
 
     # transfer the number of clusters to the DPUs
     _dimm.ctr.load_n_clusters(n_clusters)
-    n_clusters_round = _dimm.ctr.get_nclusters_round()
 
     # Buffers to avoid new allocations at each iteration.
     centers = centers_init
@@ -156,8 +151,10 @@ def _kmeans_single_lloyd_dpu(
     centers_new = np.empty_like(centers, dtype=float)
     centers_new_int = np.empty_like(centers, dtype=np.int64)
     points_in_clusters = np.empty(n_clusters, dtype=np.int32)
-    points_in_clusters_per_dpu = np.empty((n_dpu, n_clusters_round), dtype=np.int32)
-    partial_sums = np.empty((n_clusters, n_dpu, n_features), dtype=np.int64)
+
+    _dimm.ctr.allocate_host_memory()
+    # points_in_clusters_per_dpu = np.empty((n_dpu, n_clusters_round), dtype=np.int32)
+    # partial_sums = np.empty((n_clusters, n_dpu, n_features), dtype=np.int64)
 
     if sp.issparse(X):
         raise ValueError("Sparse matrix not supported")
@@ -174,8 +171,6 @@ def _kmeans_single_lloyd_dpu(
                 centers_new,
                 centers_new_int,
                 points_in_clusters,
-                points_in_clusters_per_dpu,
-                partial_sums,
             )
 
             if verbose:
@@ -199,6 +194,7 @@ def _kmeans_single_lloyd_dpu(
         X, sample_weight, x_squared_norms, centers, n_threads
     )
 
+    _dimm.ctr.deallocate_host_memory()
     return labels, inertia, centers, i + 1
 
 
