@@ -20,8 +20,7 @@ ExternalProject_Add(
   SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/dpu_program
   INSTALL_DIR ./dpu_program
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
-             -DNR_TASKLETS=${NR_TASKLETS} -DFEATURE_TYPE=${FEATURE_TYPE}
-             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+             -DNR_TASKLETS=${NR_TASKLETS} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
   BUILD_ALWAYS TRUE
   USES_TERMINAL_BUILD TRUE)
 
@@ -72,11 +71,11 @@ set(CMAKE_C_FLAGS_RELEASE "-Ofast")
 
 install(TARGETS _core DESTINATION .)
 
-message(STATUS "hello")
-message(STATUS ${CMAKE_BINARY_DIR})
-# install(FILES ${CMAKE_BINARY_DIR}/compile_commands.json DESTINATION src)
-# configure_file(${CMAKE_BINARY_DIR}/compile_commands.json
-# ${CMAKE_SOURCE_DIR}/src/compile_commands.json COPYONLY)
+# copying the compilation database for language servers
+add_custom_target(
+  copy-compile-commands ALL
+  ${CMAKE_COMMAND} -E copy_if_different
+  ${CMAKE_BINARY_DIR}/compile_commands.json ${CMAKE_CURRENT_LIST_DIR}/src)
 
 # writing configuration file for clangd
 list(GET pybind11_INCLUDE_DIRS 0 PYBIND11_INCLUDE)
@@ -87,5 +86,5 @@ execute_process(
   OUTPUT_VARIABLE PYTHON_INCLUDE
   OUTPUT_STRIP_TRAILING_WHITESPACE)
 list(GET CMAKE_C_IMPLICIT_INCLUDE_DIRECTORIES 0 GCC_INCLUDE)
-# configure_file(${CMAKE_CURRENT_SOURCE_DIR}/.clangd.in
-# ${CMAKE_CURRENT_SOURCE_DIR}/.clangd @ONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/.clangd.in
+               ${CMAKE_CURRENT_SOURCE_DIR}/.clangd @ONLY)
