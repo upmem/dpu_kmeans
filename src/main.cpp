@@ -50,9 +50,7 @@ class Container {
         features_int(nullptr),
         partial_sums_per_dpu(nullptr),
         points_in_clusters_per_dpu(nullptr),
-        host_memory_allocated(false) {
-    p.isOutput = 1;
-  }
+        host_memory_allocated(false) {}
 
   /**
    * @brief Allocates all DPUs.

@@ -71,7 +71,8 @@ enum perfcounter_names {
 #endif  // ifdef PERF_COUNTER
 
 // Define the size of discretized features
-// choose the value here, which is then propagated to the rest of the build
+// choose the value here, which is then propagated to the rest of the build,
+// valid values are 8, 16 and 32.
 #define FEATURE_TYPE 16
 
 #if FEATURE_TYPE == 8
@@ -88,29 +89,23 @@ typedef int32_t int_feature;
          further. */
 
 #ifndef _KMEANS_DPU_KERNEL_H_
-// Parameters holding struct
+/**
+ * @brief Struct holding various algorithm parameters.
+ *
+ */
 typedef struct Params {
-  uint64_t npoints;
-  uint64_t npadded;
-  uint64_t npointperdpu;
-  int nfeatures;
-  float scale_factor;
-  float threshold;
-  float *mean;
-  int max_nclusters;
-  int min_nclusters;
-  size_t nclusters;
-  int isRMSE;
-  int isOutput;
-  int nloops;
-  int max_iter;
-  uint32_t ndpu;
-  dpu_set allset;
-  int from_file;
-  double time_seconds;
+  uint64_t npoints;      /**< Number of points */
+  uint64_t npadded;      /**< Number of points with padding */
+  uint64_t npointperdpu; /**< Number of points per dpu */
+  int nfeatures;         /**< Number of features */
+  size_t nclusters;      /**< Number of clusters */
+  int isOutput;          /**< Whether to print debug information */
+  uint32_t ndpu;         /**< Number of allocated dpu */
+  dpu_set allset;        /**< Struct of the allocated dpu set */
+  double time_seconds;   /**< Perf counter */
 } Params;
 
-// Function declarations
+/* Function declarations */
 
 /** @name dimmm_manager.c */
 /**@{*/

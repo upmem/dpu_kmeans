@@ -144,12 +144,12 @@ void lloydIter(
                            DPU_XFER_DEFAULT));
 
   /* DEBUG : print outputed centroids counts per DPU */
-  for (int dpu_id = 0; dpu_id < p->ndpu; dpu_id++) {
-    for (int cluster_id = 0; cluster_id < p->nclusters; cluster_id++) {
-      printf("%d ", centers_pcount[dpu_id * p->nclusters + cluster_id]);
-    }
-    printf("\n");
-  }
+  // for (int dpu_id = 0; dpu_id < p->ndpu; dpu_id++) {
+  //   for (int cluster_id = 0; cluster_id < p->nclusters; cluster_id++) {
+  //     printf("%d ", centers_pcount[dpu_id * p->nclusters + cluster_id]);
+  //   }
+  //   printf("\n");
+  // }
 
   /* copy back centroids partial averages (device to host) */
   DPU_FOREACH(p->allset, dpu, each_dpu) {
