@@ -315,7 +315,7 @@ class KMeans(KMeansCPU):
 
         best_inertia, best_labels = None, None
 
-        for i in range(self._n_init):
+        for _ in range(self._n_init):
             # Initialize centers
             centers_init = self._init_centroids(
                 X, x_squared_norms=x_squared_norms, init=init, random_state=random_state
@@ -357,9 +357,9 @@ class KMeans(KMeansCPU):
         distinct_clusters = len(set(best_labels))
         if distinct_clusters < self.n_clusters:
             warnings.warn(
-                "Number of distinct clusters ({}) found smaller than "
-                "n_clusters ({}). Possibly due to duplicate points "
-                "in X.".format(distinct_clusters, self.n_clusters),
+                f"Number of distinct clusters ({distinct_clusters}) found smaller than "
+                "n_clusters ({self.n_clusters}). Possibly due to duplicate points "
+                "in X.",
                 ConvergenceWarning,
                 stacklevel=2,
             )
@@ -369,41 +369,6 @@ class KMeans(KMeansCPU):
         self.inertia_ = best_inertia
         self.n_iter_ = best_n_iter
         return self
-
-    '''
-    def _fit(self, X: DimmData):
-        """Compute k-means clustering.
-
-        Parameters
-        ----------
-        X : DIMM_data
-            Training instances to cluster. It must be noted that the data
-            will be converted to C ordering, which will cause a memory
-            copy if the given data is not C-contiguous.
-
-        Returns
-        -------
-        result : ndarray
-            The centroids found by the clustering algorithm.
-        iterations : int
-            Number of iterations performed during the best run.
-        time : float
-            Total clustering time.
-        """
-        if self.n_dpu:
-            _dimm.set_n_dpu(self.n_dpu)
-        _dimm.load_kernel("kmeans", self.verbose)
-        _dimm.load_data(X, self.tol, self.verbose)
-        result, iterations, time = self._kmeans()
-
-        result += X.feature_means
-
-        self.n_iter_ = iterations
-        self.time = _dimm.ctr.dpu_run_time()
-        self.cluster_centers_ = result
-
-        return result, iterations, time
-    '''
 
     def _kmeans(self):
         log_iterations = np.require(

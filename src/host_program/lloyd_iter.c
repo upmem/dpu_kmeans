@@ -25,17 +25,38 @@ static int offset(int feature, int cluster, int dpu, int nfeatures,
 }
 
 /**
+ * @brief Returns the seconds elapsed between two timeval structures.
+ *
+ * @param tic [in] First timeval.
+ * @param toc [in] Second timeval.
+ * @return double Elapsed time in seconds.
+ */
+static double time_seconds(struct timeval tic, struct timeval toc) {
+  struct timeval timing;
+  timing.tv_sec = toc.tv_sec - tic.tv_sec;
+  timing.tv_usec = toc.tv_usec - tic.tv_usec;
+  double time = ((double)(timing.tv_sec * 1000000 + timing.tv_usec)) / 1000000;
+
+  return time;
+}
+
+/**
  * @brief Performs one iteration of the Lloyd algorithm on DPUs and gets the
  * results.
  */
 void lloydIter(
-    Params *p, /**< Algorithm parameters */
-    int_feature *old_centers, int64_t *new_centers,
-    int *new_centers_len, /**< [out] number of elements in each cluster */
-    int *centers_pcount, int64_t *centers_psum) {
-  struct dpu_set_t dpu; /* Iteration variable for the DPUs. */
-  uint32_t each_dpu;    /* Iteration variable for the DPUs. */
-  struct timeval dpu_timing, tic;
+    Params *p, /**< Algorithm parameters. */
+    int_feature
+        *old_centers, /**< [in] Discretized current centroids coordinates. */
+    int64_t *new_centers, /**< [out] Discretized updated centroids coordinates
+                             (before division by cluster count). */
+    int *new_centers_len, /**< [out] Number of elements in each cluster. */
+    int *centers_pcount,  /**< Buffer to read cluster counts per DPU. */
+    int64_t *centers_psum /**< Buffer to read coordinates sum per DPU. */
+) {
+  struct dpu_set_t dpu;           /* Iteration variable for the DPUs. */
+  uint32_t each_dpu;              /* Iteration variable for the DPUs. */
+  struct timeval dpu_timing, tic; /* Perf counters */
 
 #ifdef PERF_COUNTER
   uint64_t counters_mean[HOST_COUNTERS] = {0};
@@ -50,11 +71,7 @@ void lloydIter(
   DPU_ASSERT(dpu_launch(p->allset, DPU_SYNCHRONOUS));
   //================================================================
   gettimeofday(&dpu_timing, NULL);
-  dpu_timing.tv_sec -= tic.tv_sec;
-  dpu_timing.tv_usec -= tic.tv_usec;
-  double dpu_run_time =
-      ((double)(dpu_timing.tv_sec * 1000000 + dpu_timing.tv_usec)) / 1000000;
-  p->time_seconds += dpu_run_time;
+  p->time_seconds += time_seconds(tic, dpu_timing);
 
   /* DEBUG : read logs */
   // DPU_FOREACH(p->allset, dpu, each_dpu) {

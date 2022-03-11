@@ -111,59 +111,17 @@ typedef struct Params {
 } Params;
 
 // Function declarations
-/** @name rmse.c */
-/**@{*/
-float rms_err(Params *p, float **feature, float **cluster_centres,
-              int nclusters);
-/**@}*/
 
-/** @name kmeans.c */
+/** @name dimmm_manager.c */
 /**@{*/
-double time_seconds(struct timeval tic, struct timeval toc);
-void read_bin_input(Params *p, const char *filename, float ***features_out);
-void read_txt_input(Params *p, const char *filename, float ***features_out);
-void save_dat_file(Params *p, const char *filename_in, float **features);
-void format_array_input(Params *p, float *data, float ***features_out);
-void format_array_input_int(Params *p, int_feature *data,
-                            int_feature ***features_out);
-void preprocessing(Params *p, float **features, int_feature ***features_int_out,
-                   int verbose);
-void postprocessing(Params *p, float **features);
-float *kmeans_c(Params *p, float **features_float, int_feature **features_int,
-                int *log_iterations, double *log_time, int *best_nclusters);
-/**@}*/
-
-/** @name cluster.c */
-/**@{*/
-int cluster(Params *p, float **features_float, int_feature **features_int,
-            int *best_nclusters, float ***cluster_centres, float *min_rmse,
-            int *log_iterations, double *log_time);
-/**@}*/
-
-/** @name kmeans_clustering.c */
-/**@{*/
-void allocateClusters(Params *p, unsigned int nclusters);
-void deallocateClusters();
-float **kmeans_clustering(Params *p, int_feature **features_int,
-                          float **features_float, unsigned int nclusters,
-                          int *loop, int i_init);
-/**@}*/
-
-/** @name kmeans_dpu.c */
-/**@{*/
-void load_kernel(Params *p, const char *DPU_BINARY);
+void allocate_dpus(Params *p);
 void free_dpus(Params *p);
-void allocate(Params *p);
-void allocateMemory(Params *p);
-void deallocateMemory();
-void populateDpu(Params *p, int_feature **feature);
-void broadcastParameters(Params *p);
-void broadcastNumberOfClusters(Params *p, size_t nclusters);
+void load_kernel(Params *p, const char *DPU_BINARY);
 void build_jagged_array_int(uint64_t x_size, size_t y_size, int_feature *data,
                             int_feature ***features_out);
-void kmeansDpu(Params *p, int nclusters,
-               int64_t new_centers_len[ASSUMED_NR_CLUSTERS],
-               int64_t new_centers[ASSUMED_NR_CLUSTERS][ASSUMED_NR_FEATURES]);
+void broadcastNumberOfClusters(Params *p, size_t nclusters);
+void populateDpu(Params *p, int_feature **feature);
+void broadcastParameters(Params *p);
 /**@}*/
 
 /** @name lloyd_iter.c */

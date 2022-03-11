@@ -30,14 +30,15 @@ namespace py = pybind11;
  */
 class Container {
  private:
-  Params p;
-  float **features_float;
-  int_feature **features_int;
-  // int_feature **clusters_old_int;
-  // int_feature **clusters_new_int;
-  int64_t *partial_sums_per_dpu;
-  int *points_in_clusters_per_dpu;
-  bool host_memory_allocated;
+  Params p; /**< Struct containing various algorithm parameters. */
+  int_feature *
+      *features_int; /**< The discretized dataset features as a jagged array. */
+  int64_t *partial_sums_per_dpu; /**< Iteration buffer to read feature sums from
+                                    the DPUs. */
+  int *points_in_clusters_per_dpu; /**< Iteration buffer to read cluster counts
+                                      from the DPUs. */
+  bool host_memory_allocated;      /**< Whether the iteration buffers have been
+                                      allocated. */
 
  public:
   /**
@@ -46,7 +47,6 @@ class Container {
    */
   Container()
       : p(),
-        features_float(nullptr),
         features_int(nullptr),
         partial_sums_per_dpu(nullptr),
         points_in_clusters_per_dpu(nullptr),
@@ -57,7 +57,7 @@ class Container {
   /**
    * @brief Allocates all DPUs.
    */
-  void allocate() { ::allocate(&p); }
+  void allocate() { ::allocate_dpus(&p); }
 
   size_t get_ndpu() { return p.ndpu; }
 
@@ -70,24 +70,6 @@ class Container {
    */
   void load_kernel(const char *DPU_BINARY) { ::load_kernel(&p, DPU_BINARY); }
 
-  /**
-   * @brief Loads data into the DPU from a file.
-   *
-   * @param filename Path to the data file.
-   * @param is_binary_file Whether the data is encoded as binary.
-   */
-  void load_file_data(const char *filename, bool is_binary_file,
-                      float threshold_in, int verbose) {
-    p.from_file = true;
-    if (is_binary_file)
-      read_bin_input(&p, filename, &features_float);
-    else {
-      read_txt_input(&p, filename, &features_float);
-      save_dat_file(&p, filename, features_float);
-    }
-    transfer_data(verbose);
-    preprocessing(&p, features_float, &features_int, verbose);
-  }
   /**
    * @brief Loads data into the DPUs from a python array
    *
@@ -106,25 +88,28 @@ class Container {
     p.npoints = npoints;
     p.nfeatures = nfeatures;
     p.npadded = ((p.npoints + 8 * p.ndpu - 1) / (8 * p.ndpu)) * 8 * p.ndpu;
+    p.npointperdpu = p.npadded / p.ndpu;
 
     build_jagged_array_int(p.npadded, p.nfeatures, data_int_ptr, &features_int);
     transfer_data(verbose);
   }
 
+  /**
+   * @brief Informs the DPUs of the number of clusters for that iteration.
+   *
+   * @param nclusters Number of clusters.
+   */
   void load_nclusters(unsigned int nclusters) {
-    // int_feature *centers_old_int_ptr = (int_feature
-    // *)centers_old_int.request().ptr; int_feature *centers_new_int_ptr =
-    // (int_feature *)centers_new_int.request().ptr;
-
     p.nclusters = nclusters;
 
-    // build_jagged_array_int(nclusters, p.nfeatures, centers_old_int_ptr,
-    // &clusters_old_int); build_jagged_array_int(nclusters, p.nfeatures,
-    // centers_new_int_ptr, &clusters_new_int);
     broadcastNumberOfClusters(&p, nclusters);
     allocateHostMemory();
   }
 
+  /**
+   * @brief Allocates host iteration buffers.
+   *
+   */
   void allocateHostMemory() {
     if (host_memory_allocated) deallocateHostMemory();
 
@@ -143,6 +128,10 @@ class Container {
     host_memory_allocated = true;
   }
 
+  /**
+   * @brief Frees the host iteration buffers.
+   *
+   */
   void deallocateHostMemory() {
     free(partial_sums_per_dpu);
     free(points_in_clusters_per_dpu);
@@ -151,45 +140,46 @@ class Container {
   }
 
   /**
-   * @brief Preprocesses and transfers quantized data to the DPUs
+   * @brief Preprocesses and transfers quantized data to the DPUs.
    *
+   * @param verbose Verbosity level.
    */
   void transfer_data(int verbose) {
-    p.npointperdpu = p.npadded / p.ndpu;
     populateDpu(&p, features_int);
     broadcastParameters(&p);
-    allocateMemory(&p);
 #ifdef FLT_REDUCE
     allocateMembershipTable(&p);
 #endif
   }
+
   /**
    * @brief Frees the data.
+   * Only the jagged pointers are freed. The feature values themselves are
+   * managed by Python.
    */
   void free_data() {
-    /* We are NOT freeing the underlying arrays if they are managed by python
-     */
-    if (p.from_file) {
-      free(features_float[0]);
-      free(features_int[0]);
-    }
-    free(features_float);
     free(features_int);
-    // free(p.mean);
 #ifdef FLT_REDUCE
     deallocateMembershipTable();
 #endif
   }
+
   /**
    * @brief Frees the DPUs
    */
-  void free_dpus() {
-    ::free_dpus(&p);
-    deallocateMemory();
-  }
+  void free_dpus() { ::free_dpus(&p); }
 
   double get_dpu_run_time() { return p.time_seconds; }
 
+  /**
+   * @brief Runs one iteration of the K-Means Lloyd algorithm.
+   *
+   * @param centers_old_int [in] Discretized coordinates of the current
+   * centroids.
+   * @param centers_new_int [out] Discretized coordinates of the updated
+   * centroids (before division by number of points).
+   * @param points_in_clusters [out] Counts of points per cluster.
+   */
   void lloyd_iter(py::array_t<int_feature> centers_old_int,
                   py::array_t<int64_t> centers_new_int,
                   py::array_t<int> points_in_clusters) {
@@ -200,55 +190,7 @@ class Container {
     lloydIter(&p, old_centers, new_centers, new_centers_len,
               points_in_clusters_per_dpu, partial_sums_per_dpu);
   }
-
-  py::array_t<float> kmeans_cpp(int max_nclusters, int min_nclusters,
-                                int isRMSE, int isOutput, int nloops,
-                                int max_iter, py::array_t<int> log_iterations,
-                                py::array_t<double> log_time);
 };
-
-/**
- * @brief Main function for the KMeans algorithm.
- *
- * @return py::array_t<float> The centroids coordinates found by the algorithm.
- */
-py::array_t<float> Container ::kmeans_cpp(
-    int max_nclusters, /**< upper bound of the number of clusters */
-    int min_nclusters, /**< lower bound of the number of clusters */
-    int isRMSE,        /**< whether or not RMSE is computed */
-    int isOutput,      /**< whether or not to print the centroids */
-    int nloops,   /**< how many times the algorithm will be executed for each
-                     number of clusters */
-    int max_iter, /**< upper bound of the number of iterations */
-    py::array_t<int>
-        log_iterations, /**< array logging the iterations per nclusters */
-    py::array_t<double>
-        log_time) /**< array logging the time taken per nclusters */
-{
-  int best_nclusters = max_nclusters;
-
-  int *log_iter_ptr = (int *)log_iterations.request().ptr;
-  double *log_time_ptr = (double *)log_time.request().ptr;
-
-  p.max_nclusters = max_nclusters;
-  p.min_nclusters = min_nclusters;
-  p.isRMSE = isRMSE;
-  p.isOutput = isOutput;
-  p.nloops = nloops;
-  p.max_iter = max_iter;
-
-  float *clusters = kmeans_c(&p, features_float, features_int, log_iter_ptr,
-                             log_time_ptr, &best_nclusters);
-
-  std::vector<ssize_t> shape = {best_nclusters, p.nfeatures};
-  std::vector<ssize_t> strides = {(int)sizeof(float) * p.nfeatures,
-                                  sizeof(float)};
-
-  py::capsule free_when_done(
-      clusters, [](void *f) { delete reinterpret_cast<float *>(f); });
-
-  return py::array_t<float>(shape, strides, clusters, free_when_done);
-}
 
 PYBIND11_MODULE(_core, m) {
   m.doc() = R"pbdoc(
@@ -278,7 +220,6 @@ PYBIND11_MODULE(_core, m) {
       .def("load_n_clusters", &Container::load_nclusters)
       .def("free_data", &Container::free_data)
       .def("free_dpus", &Container::free_dpus)
-      .def("kmeans", &Container::kmeans_cpp)
       .def("lloyd_iter", &Container::lloyd_iter)
       .def("allocate_host_memory", &Container::allocateHostMemory)
       .def("deallocate_host_memory", &Container::deallocateHostMemory)

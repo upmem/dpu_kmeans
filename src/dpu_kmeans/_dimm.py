@@ -286,37 +286,6 @@ def load_data(X, verbose: int = False):
         print("reusing previously loaded data")
 
 
-'''
-def load_data(data: DimmData, tol: float = 1e-4, verbose: int = False):
-    """Loads a dataset into the allocated DPUs."""
-    global _data_id
-    if _data_id != data.data_id:
-        if verbose:
-            print("loading new data")
-        if _data_id:
-            if verbose:
-                print(f"freeing previous data : {_data_id}")
-            ctr.free_data(data.type == "file", True)
-        _data_id = data.data_id
-        if data.type == "file":
-            if verbose:
-                print(f"reading data from file {data.data_id}")
-            ctr.load_file_data(data.data_id, data.is_binary_file, tol, verbose)
-        elif data.type == "array":
-            if verbose:
-                print("reading data from array")
-            ctr.load_array_data(
-                data.X,
-                data.X_int,
-                data.npoints,
-                data.nfeatures,
-                tol * data.avg_variance,
-                data.scale_factor,
-                verbose,
-            )
-'''
-
-
 def free_dpus(verbose: int = False):
     """Frees all allocated DPUs."""
     global _allocated

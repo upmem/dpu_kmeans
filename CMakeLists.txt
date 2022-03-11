@@ -54,16 +54,8 @@ pkg_search_module(DPU REQUIRED IMPORTED_TARGET dpu)
 find_package(OpenMP REQUIRED)
 
 pybind11_add_module(
-  _core
-  MODULE
-  src/main.cpp
-  src/host_program/trivial_checksum_example_host.c
-  src/host_program/kmeans.c
-  src/host_program/cluster.c
-  src/host_program/kmeans_clustering.c
-  src/host_program/kmeans_dpu.c
-  src/host_program/rmse.c
-  src/host_program/lloyd_iter.c)
+  _core MODULE src/main.cpp src/host_program/trivial_checksum_example_host.c
+  src/host_program/lloyd_iter.c src/host_program/dimm_manager.c)
 target_link_libraries(_core PRIVATE PkgConfig::DPU OpenMP::OpenMP_CXX
                                     OpenMP::OpenMP_C)
 target_include_directories(_core PUBLIC PkgConfig::DPU)
