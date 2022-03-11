@@ -73,6 +73,7 @@ def _lloyd_iter_dpu(
     )
 
     print(f"new centers int: {centers_new_int}")
+    centers_new_int //= points_in_clusters
     centers_new[:, :] = _dimm.ld.inverse_transform(centers_new_int)
     print(f"new centers: {centers_new}")
 

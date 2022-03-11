@@ -157,13 +157,14 @@ void lloydIter(
   }
 
   /* average the new centers */
-  for (int cluster_id = 0; cluster_id < p->nclusters; cluster_id++) {
-    if (new_centers_len[cluster_id])
-      for (int feature_id = 0; feature_id < p->nfeatures; feature_id++) {
-        new_centers[cluster_id * p->nfeatures + feature_id] /=
-            new_centers_len[cluster_id];
-      }
-  }
+  /* this has been moved to the python code */
+  // for (int cluster_id = 0; cluster_id < p->nclusters; cluster_id++) {
+  //   if (new_centers_len[cluster_id])
+  //     for (int feature_id = 0; feature_id < p->nfeatures; feature_id++) {
+  //       new_centers[cluster_id * p->nfeatures + feature_id] /=
+  //           new_centers_len[cluster_id];
+  //     }
+  // }
 
   /* DEBUG: print new clusters */
   // printf("new clusters :\n");
