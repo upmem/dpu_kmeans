@@ -171,7 +171,7 @@ void lloydIter(
           centers_pcount[dpu_id * nclusters_aligned + cluster_id];
       /* compute the new centroids sum */
       for (int feature_id = 0; feature_id < p->nfeatures; feature_id++)
-        new_centers[cluster_id * p->nclusters + feature_id] +=
+        new_centers[cluster_id * p->nfeatures + feature_id] +=
             centers_psum[offset(feature_id, cluster_id, dpu_id, p->nfeatures,
                                 p->nclusters)];
     }

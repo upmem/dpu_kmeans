@@ -58,9 +58,7 @@ def _lloyd_iter_dpu(
     """
     dpu_iter = _dimm.ctr.lloyd_iter
 
-    print(f"old centers: {centers_old}")
     centers_old_int[:] = _dimm.ld.transform(centers_old)
-    print(f"old centers int: {centers_old_int}")
 
     dpu_iter(
         centers_old_int,
@@ -68,12 +66,11 @@ def _lloyd_iter_dpu(
         points_in_clusters,
     )
 
-    print(f"new centers int: {centers_new_int}")
     centers_new[:, :] = _dimm.ld.inverse_transform(centers_new_int)
-    np.divide(
-        centers_new, points_in_clusters, out=centers_new, where=points_in_clusters != 0
-    )
-    print(f"new centers: {centers_new}")
+    # np.divide(
+    #     centers_new, points_in_clusters, out=centers_new, where=points_in_clusters != 0
+    # )
+    centers_new /= points_in_clusters[:, None]
 
     center_shift_tot = np.linalg.norm(centers_new - centers_old, ord="fro") ** 2
     return center_shift_tot

@@ -81,8 +81,6 @@ class Container {
                        int nfeatures, int verbose) {
     int_feature *data_int_ptr = (int_feature *)data_int.request().ptr;
 
-    p.from_file = false;
-
     p.npoints = npoints;
     p.nfeatures = nfeatures;
     p.npadded = ((p.npoints + 8 * p.ndpu - 1) / (8 * p.ndpu)) * 8 * p.ndpu;
