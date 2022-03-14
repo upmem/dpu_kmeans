@@ -36,6 +36,7 @@ setup(
     ],
     extras_require={
         "test": ["pytest"],
+        "benchmarks": ["pytest", "pandas"],
     },
     zip_safe=False,
     cmake_args=[
