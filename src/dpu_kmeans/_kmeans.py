@@ -8,18 +8,17 @@ import warnings
 
 import numpy as np
 import scipy.sparse as sp
-
 from sklearn.cluster import KMeans as KMeansCPU
-from sklearn.utils import check_array, check_random_state
-from sklearn.utils.extmath import row_norms
-from sklearn.utils.fixes import threadpool_limits
-from sklearn.utils.validation import _check_sample_weight
 from sklearn.cluster._kmeans import (
     _is_same_clustering,
     _labels_inertia_threadpool_limit,
     _openmp_effective_n_threads,
 )
 from sklearn.exceptions import ConvergenceWarning
+from sklearn.utils import check_array, check_random_state
+from sklearn.utils.extmath import row_norms
+from sklearn.utils.fixes import threadpool_limits
+from sklearn.utils.validation import _check_sample_weight
 
 from . import _dimm
 from ._dimm import load_data
@@ -203,6 +202,23 @@ class KMeans(KMeansCPU):
         The number of clusters to form as well as the number of
         centroids to generate.
 
+    init : {'k-means++', 'random'}, callable or array-like of shape \
+            (n_clusters, n_features), default='k-means++'
+        Method for initialization:
+
+        'k-means++' : selects initial cluster centers for k-mean
+        clustering in a smart way to speed up convergence. See section
+        Notes in k_init for more details.
+
+        'random': choose `n_clusters` observations (rows) at random from data
+        for the initial centroids.
+
+        If an array is passed, it should be of shape (n_clusters, n_features)
+        and gives the initial centers.
+
+        If a callable is passed, it should take arguments X, n_clusters and a
+        random state and return an initialization.
+
     n_init : int, default=10
         Number of time the k-means algorithm will be run with different
         centroid seeds. The final results will be the best output of
@@ -219,6 +235,21 @@ class KMeans(KMeansCPU):
 
     verbose : int, default=0
         Verbosity mode.
+
+    random_state : int, RandomState instance or None, default=None
+        Determines random number generation for centroid initialization. Use
+        an int to make the randomness deterministic.
+        See :term:`Glossary <random_state>`.
+
+    copy_x : bool, default=True
+        When pre-computing distances it is more numerically accurate to center
+        the data first. If copy_x is True (default), then the original data is
+        not modified. If False, the original data is modified, and put back
+        before the function returns, but small numerical differences may be
+        introduced by subtracting and then adding the data mean. Note that if
+        the original data is not C-contiguous, a copy will be made even if
+        copy_x is False. If the original data is sparse, but not in CSR format,
+        a copy will be made even if copy_x is False.
 
     Examples
     --------
@@ -238,7 +269,7 @@ class KMeans(KMeansCPU):
         super().__init__(n_clusters=n_clusters, **kwargs)
         self.n_dpu = n_dpu
         self.n_iter_ = None
-        self.time = None
+        self.dpu_run_time_ = None
         self.cluster_centers_ = None
 
     def fit(self, X, y=None, sample_weight=None):
@@ -307,6 +338,9 @@ class KMeans(KMeansCPU):
         # transfer the data points to the DPUs
         load_data(X, verbose=self.verbose)
 
+        # reset perf timer
+        _dimm.reset_timer(verbose=self.verbose)
+
         kmeans_single = _kmeans_single_lloyd_dpu
         self._check_mkl_vcomp(X, X.shape[0])
 
@@ -365,23 +399,24 @@ class KMeans(KMeansCPU):
         self.labels_ = best_labels
         self.inertia_ = best_inertia
         self.n_iter_ = best_n_iter
+        self.dpu_run_time_ = _dimm.get_dpu_run_time()
         return self
 
-    def _kmeans(self):
-        log_iterations = np.require(
-            np.zeros(1, dtype=np.int32), requirements=["A", "C"]
-        )
-        log_time = np.require(np.zeros(1, dtype=np.float64), requirements=["A", "C"])
+    # def _kmeans(self):
+    #     log_iterations = np.require(
+    #         np.zeros(1, dtype=np.int32), requirements=["A", "C"]
+    #     )
+    #     log_time = np.require(np.zeros(1, dtype=np.float64), requirements=["A", "C"])
 
-        clusters = _dimm.ctr.kmeans(
-            self.n_clusters,
-            self.n_clusters,
-            False,
-            self.verbose,
-            self.n_init,
-            self.max_iter,
-            log_iterations,
-            log_time,
-        )
+    #     clusters = _dimm.ctr.kmeans(
+    #         self.n_clusters,
+    #         self.n_clusters,
+    #         False,
+    #         self.verbose,
+    #         self.n_init,
+    #         self.max_iter,
+    #         log_iterations,
+    #         log_time,
+    #     )
 
-        return clusters, log_iterations[0], log_time[0]
+    #     return clusters, log_iterations[0], log_time[0]

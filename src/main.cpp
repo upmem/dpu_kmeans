@@ -61,6 +61,10 @@ class Container {
 
   void set_ndpu(uint32_t ndpu) { p.ndpu = ndpu; }
 
+  void reset_timer() { p.time_seconds = 0; }
+
+  double get_dpu_run_time() { return p.time_seconds; }
+
   /**
    * @brief Loads binary into the DPUs
    *
@@ -164,8 +168,6 @@ class Container {
    * @brief Frees the DPUs
    */
   void free_dpus() { ::free_dpus(&p); }
-
-  double get_dpu_run_time() { return p.time_seconds; }
 
   /**
    * @brief Runs one iteration of the K-Means Lloyd algorithm.

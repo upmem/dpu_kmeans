@@ -8,11 +8,12 @@ This module is intended to work like a singleton class, hence the use of global 
 # pylint: disable=global-statement
 
 import atexit
+
 import numpy as np
 import xxhash
 
 try:
-    from importlib.resources import files, as_file
+    from importlib.resources import as_file, files
 except ImportError:
     # Try backported to PY<39 `importlib_resources`.
     from importlib_resources import files, as_file
@@ -20,8 +21,7 @@ except ImportError:
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.utils.validation import check_is_fitted
 
-from ._core import Container
-from ._core import FEATURE_TYPE
+from ._core import FEATURE_TYPE, Container
 
 _allocated = False  # whether the DPUs have been allocated
 _kernel = None  # name of the currently loaded binary
@@ -178,6 +178,18 @@ def load_data(X, verbose: int = False):
         )
     elif verbose:
         print("reusing previously loaded data")
+
+
+def reset_timer(verbose=False):
+    """Resets the DPU execution timer."""
+    if verbose:
+        print("resetting inner timer")
+    ctr.reset_timer()
+
+
+def get_dpu_run_time():
+    """Returns the DPU execution timer."""
+    return ctr.get_dpu_run_time()
 
 
 def free_dpus(verbose: int = False):
