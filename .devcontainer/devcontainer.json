@@ -18,6 +18,7 @@
         "python.formatting.autopep8Path": "/usr/local/py-utils/bin/autopep8",
         "python.formatting.blackPath": "/usr/local/py-utils/bin/black",
         "python.formatting.yapfPath": "/usr/local/py-utils/bin/yapf",
+        "python.formatting.provider": "black",
         "python.linting.banditPath": "/usr/local/py-utils/bin/bandit",
         "python.linting.flake8Path": "/usr/local/py-utils/bin/flake8",
         "python.linting.mypyPath": "/usr/local/py-utils/bin/mypy",
@@ -25,7 +26,8 @@
         "python.linting.pydocstylePath": "/usr/local/py-utils/bin/pydocstyle",
         "python.linting.pylintPath": "/usr/local/py-utils/bin/pylint",
         "python.linting.pylintArgs": [
-            "--extension-pkg-whitelist=dpu_kmeans._core"
+            "--extension-pkg-whitelist=dpu_kmeans._core",
+            "--ignored-modules=dpu_kmeans._core"
         ],
     },
 
