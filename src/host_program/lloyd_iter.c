@@ -54,9 +54,9 @@ void lloydIter(
     int *centers_pcount,  /**< Buffer to read cluster counts per DPU. */
     int64_t *centers_psum /**< Buffer to read coordinates sum per DPU. */
 ) {
-  struct dpu_set_t dpu;           /* Iteration variable for the DPUs. */
-  uint32_t each_dpu;              /* Iteration variable for the DPUs. */
-  struct timeval dpu_timing, tic; /* Perf counters */
+  struct dpu_set_t dpu;    /* Iteration variable for the DPUs. */
+  uint32_t each_dpu;       /* Iteration variable for the DPUs. */
+  struct timeval toc, tic; /* Perf counters */
 
 #ifdef PERF_COUNTER
   uint64_t counters_mean[HOST_COUNTERS] = {0};
@@ -70,8 +70,8 @@ void lloydIter(
   //============RUNNING ONE LLOYD ITERATION ON THE DPU==============
   DPU_ASSERT(dpu_launch(p->allset, DPU_SYNCHRONOUS));
   //================================================================
-  gettimeofday(&dpu_timing, NULL);
-  p->time_seconds += time_seconds(tic, dpu_timing);
+  gettimeofday(&toc, NULL);
+  p->time_seconds += time_seconds(tic, toc);
 
   /* DEBUG : read logs */
   // DPU_FOREACH(p->allset, dpu, each_dpu) {

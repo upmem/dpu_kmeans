@@ -21,7 +21,6 @@ from sklearn.utils.fixes import threadpool_limits
 from sklearn.utils.validation import _check_sample_weight
 
 from . import _dimm
-from ._dimm import load_data
 
 
 def _lloyd_iter_dpu(
@@ -66,10 +65,13 @@ def _lloyd_iter_dpu(
     )
 
     centers_new[:, :] = _dimm.ld.inverse_transform(centers_new_int)
-    # np.divide(
-    #     centers_new, points_in_clusters, out=centers_new, where=points_in_clusters != 0
-    # )
-    centers_new /= points_in_clusters[:, None]
+    np.divide(
+        centers_new,
+        points_in_clusters[:, None],
+        out=centers_new,
+        where=points_in_clusters[:, None] != 0,
+    )
+    # centers_new /= points_in_clusters[:, None]
 
     center_shift_tot = np.linalg.norm(centers_new - centers_old, ord="fro") ** 2
     return center_shift_tot
@@ -336,7 +338,7 @@ class KMeans(KMeansCPU):
         _dimm.load_kernel("kmeans", self.verbose)
 
         # transfer the data points to the DPUs
-        load_data(X, verbose=self.verbose)
+        _dimm.load_data(X, verbose=self.verbose)
 
         # reset perf timer
         _dimm.reset_timer(verbose=self.verbose)

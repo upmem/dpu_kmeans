@@ -61,7 +61,7 @@ class Container {
 
   void set_ndpu(uint32_t ndpu) { p.ndpu = ndpu; }
 
-  void reset_timer() { p.time_seconds = 0; }
+  void reset_timer() { p.time_seconds = 0.0; }
 
   double get_dpu_run_time() { return p.time_seconds; }
 
@@ -221,7 +221,8 @@ PYBIND11_MODULE(_core, m) {
       .def("lloyd_iter", &Container::lloyd_iter)
       .def("allocate_host_memory", &Container::allocateHostMemory)
       .def("deallocate_host_memory", &Container::deallocateHostMemory)
-      .def("dpu_run_time", &Container::get_dpu_run_time);
+      .def("reset_timer", &Container::reset_timer)
+      .def("get_dpu_run_time", &Container::get_dpu_run_time);
 
   m.def("add", &add, R"pbdoc(
         Add two numbers

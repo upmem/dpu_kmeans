@@ -8,6 +8,7 @@ This module is intended to work like a singleton class, hence the use of global 
 # pylint: disable=global-statement
 
 import atexit
+import sys
 
 import numpy as np
 import xxhash
@@ -27,6 +28,7 @@ _allocated = False  # whether the DPUs have been allocated
 _kernel = None  # name of the currently loaded binary
 _data_id = None  # ID of the currently loaded data
 _data_checksum = None  # the checksum of the currently loaded data
+_data_size = None  # size of the currently loaded data
 
 _kernels_lib = {"kmeans": files("dpu_kmeans").joinpath("dpu_program/kmeans_dpu_kernel")}
 
@@ -138,6 +140,7 @@ def load_kernel(kernel: str, verbose: int = False):
     global _allocated
     global _data_id
     global _data_checksum
+    global _data_size
     if not _allocated:
         ctr.allocate()
         _allocated = True
@@ -150,11 +153,13 @@ def load_kernel(kernel: str, verbose: int = False):
             ctr.load_kernel(str(dpu_binary))
         _data_id = None
         _data_checksum = None
+        _data_size = None
 
 
 def load_data(X, verbose: int = False):
     """Loads a dataset into the allocated DPUs."""
     global _data_checksum
+    global _data_size
 
     # compute the checksum of X
     h = xxhash.xxh3_64()
@@ -176,6 +181,7 @@ def load_data(X, verbose: int = False):
             Xt.shape[1],
             verbose,
         )
+        _data_size = sys.getsizeof(Xt)
     elif verbose:
         print("reusing previously loaded data")
 
@@ -198,6 +204,7 @@ def free_dpus(verbose: int = False):
     global _kernel
     global _data_id
     global _data_checksum
+    global _data_size
     if _allocated:
         if verbose:
             print("freeing dpus")
@@ -206,6 +213,7 @@ def free_dpus(verbose: int = False):
         _kernel = None
         _data_id = None
         _data_checksum = None
+        _data_size = None
 
 
 atexit.register(free_dpus)
