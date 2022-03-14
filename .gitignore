@@ -149,7 +149,8 @@ _skbuild/
 src/dpu_kmeans/dpu_program/
 
 # benchmarks results
-*.pkl
+benchmarks/**/*.pkl
+benchmarks/**/*.csv
 
 # ignoring local .clangd config file
 .clangd
