@@ -26,28 +26,21 @@ Usage
 
 ```python
 import numpy as np
-from dpu_kmeans import DIMM_data, KMeans
+from dpu_kmeans import KMeans
 
 X = np.array([[1, 2], [1, 4], [1, 0],[10, 2], [10, 4], [10, 0]])
-dimm_data = DIMM_data(X)
 
 kmeans = KMeans(2)
+kmeans.fit(dimm_data)
 
-centroids, iterations, time = kmeans.fit(dimm_data)
-print(centroids)
+print(kmeans.cluster_centers_)
 ```
 
 Output:
 
 ```python
-[[ 0.9998627  2.       ]
- [10.000137   2.       ]]
-```
-
-Alternatively you can import data from a CSV file:
-
-```python
-dimm_data = DIMM_data("/path/to/data")
+[[ 0.99986267  2.        ]
+ [10.00013733  2.        ]]
 ```
 
 Development
