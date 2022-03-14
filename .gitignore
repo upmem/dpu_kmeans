@@ -148,9 +148,10 @@ _skbuild/
 # built dpu binaries
 src/dpu_kmeans/dpu_program/
 
-# benchmarks results
+# benchmarks and profiling results
 benchmarks/**/*.pkl
 benchmarks/**/*.csv
+benchmarks/**/*.prof
 
 # ignoring local .clangd config file
 .clangd
