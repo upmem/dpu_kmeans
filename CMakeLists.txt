@@ -53,15 +53,8 @@ pkg_search_module(DPU REQUIRED IMPORTED_TARGET dpu)
 find_package(OpenMP REQUIRED)
 
 pybind11_add_module(
-  _core
-  MODULE
-  src/main.cpp
-  src/host_program/trivial_checksum_example_host.c
-  src/host_program/kmeans.c
-  src/host_program/cluster.c
-  src/host_program/kmeans_clustering.c
-  src/host_program/kmeans_dpu.c
-  src/host_program/rmse.c)
+  _core MODULE src/main.cpp src/host_program/trivial_checksum_example_host.c
+  src/host_program/lloyd_iter.c src/host_program/dimm_manager.c)
 target_link_libraries(_core PRIVATE PkgConfig::DPU OpenMP::OpenMP_CXX
                                     OpenMP::OpenMP_C)
 target_include_directories(_core PUBLIC PkgConfig::DPU)
@@ -77,6 +70,12 @@ set(CMAKE_C_STANDARD_REQUIRED TRUE)
 set(CMAKE_C_FLAGS_RELEASE "-Ofast")
 
 install(TARGETS _core DESTINATION .)
+
+# copying the compilation database for language servers
+add_custom_target(
+  copy-compile-commands ALL
+  ${CMAKE_COMMAND} -E copy_if_different
+  ${CMAKE_BINARY_DIR}/compile_commands.json ${CMAKE_CURRENT_LIST_DIR}/src)
 
 # writing configuration file for clangd
 list(GET pybind11_INCLUDE_DIRS 0 PYBIND11_INCLUDE)

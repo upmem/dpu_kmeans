@@ -15,8 +15,8 @@ except ImportError:
 from setuptools import find_packages
 from setuptools_scm import get_version
 
-version = get_version(local_scheme="no-local-version")
-version = "".join([c for c in version if c.isdigit() or c == "."])
+VERSION = get_version(local_scheme="no-local-version")
+VERSION = "".join([c for c in VERSION if c.isdigit() or c == "."])
 
 # compilation of the host library
 setup(
@@ -32,6 +32,7 @@ setup(
         "numpy",
         "scikit-learn",
         "importlib_resources;python_version<'3.9'",
+        "xxhash",
     ],
     extras_require={
         "test": ["pytest"],
@@ -39,6 +40,6 @@ setup(
     zip_safe=False,
     cmake_args=[
         "-DNR_TASKLETS=16",  # number of parallel tasklets on each DPU
-        f"-DVERSION={version}",
+        f"-DVERSION={VERSION}",
     ],
 )

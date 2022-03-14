@@ -30,3 +30,9 @@ target_link_options(kmeans_dpu_kernel PUBLIC -DNR_TASKLETS=${NR_TASKLETS})
 
 install(TARGETS trivial_checksum_example DESTINATION .)
 install(TARGETS kmeans_dpu_kernel DESTINATION .)
+
+# copying the compilation database for language servers
+add_custom_target(
+  copy-compile-commands ALL
+  ${CMAKE_COMMAND} -E copy_if_different
+  ${CMAKE_BINARY_DIR}/compile_commands.json ${CMAKE_CURRENT_LIST_DIR})

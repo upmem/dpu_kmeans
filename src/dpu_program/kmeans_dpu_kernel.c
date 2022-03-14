@@ -315,6 +315,7 @@ void final_reduce(uint8_t tasklet_id) {
 
   barrier_wait(&sync_barrier);
 
+  // TODO: this can probably go, just transfer from WRAM
   // writing the partial sums and counts to MRAM
   if (tasklet_id == 0) {
     uint16_t mram_transfer_size = nclusters * sizeof(*centers_count);
@@ -416,7 +417,7 @@ int main() {
         for (uint8_t idim = 0; idim < nfeatures; idim++) {
           volatile int_feature diff = (w_features[point_base_index + idim] -
                                        c_clusters[cluster_base_index + idim]);
-#ifdef FEATURETYPE_32
+#if FEATURETYPE == 32
           dist += (int64_t)diff * diff; /* sum of squares */
 #else
           dist += diff * diff; /* sum of squares */
@@ -466,40 +467,36 @@ int main() {
 
   // DEBUG
   // barrier_wait(&sync_barrier);
-  // if(tasklet_id==0)
-  // {
-  //     printf("nreal_points: %d\n", npoints);
+  // if(tasklet_id==0) {
+  //   printf("nreal_points: %d\n", npoints);
 
-  //     // printf("maxes: ");
-  //     // for(int ifeature = 0; ifeature < nfeatures; ifeature++){
-  //     //     int64_t max_mean = 0;
-  //     //     for(int icluster = 0; icluster<nclusters; icluster++){
-  //     //         if(centers_count[icluster] > 0 &&
-  //     centers_sum[cluster_base_indices[icluster]+ifeature] /
-  //     centers_count[icluster] > max_mean)
-  //     //             max_mean =
-  //     centers_sum[cluster_base_indices[icluster]+ifeature]/
-  //     centers_count[icluster];
-  //     //     }
-  //     //     printf("%lld ", max_mean);
-  //     // }
-  //     // printf("\n");
+  //   // printf("maxes: ");
+  //   // for(int ifeature = 0; ifeature < nfeatures; ifeature++){
+  //   //     int64_t max_mean = 0;
+  //   //     for(int icluster = 0; icluster<nclusters; icluster++){
+  //   //         if(centers_count[icluster] > 0
+  //   &&centers_sum[cluster_base_indices[icluster]+ifeature]
+  //   /centers_count[icluster] > max_mean)
+  //   //             max_mean =
+  //   centers_sum[cluster_base_indices[icluster]+ifeature]/centers_count[icluster];
+  //   //     }
+  //   //     printf("%lld ", max_mean);
+  //   // }
+  //   // printf("\n");
 
-  //     // for(int ipoint = 0; ipoint<npoints; ipoint++)
-  //     // {
-  //     //     printf("%d ", t_membership[ipoint]);
-  //     // }
-  //     // printf("\n");
+  //   // for(int ipoint = 0; ipoint<npoints; ipoint++)
+  //   // {
+  //   //     printf("%d ", t_membership[ipoint]);
+  //   // }
+  //   // printf("\n");
 
-  //     // for(int ifeature = 0; ifeature< nfeatures; ifeature++)
-  //     // {
-  //     //     if (centers_count[ifeature] > 0)
-  //     //         printf("count cluster %d : %d\n", ifeature,
-  //     centers_count[ifeature]);
-  //     // }
+  //   for(int ifeature = 0; ifeature< nfeatures; ifeature++)
+  //   {
+  //     printf("count cluster %d : %d\n", ifeature, centers_count[ifeature]);
+  //   }
 
-  //     // printf("counter for reduction = %ld\n",
-  //     host_counters[REDUCE_LOOP_CTR]);
+  //   // printf("counter for reduction = %ld\n",
+  //   // host_counters[REDUCE_LOOP_CTR]);
   // }
 
   return 0;
