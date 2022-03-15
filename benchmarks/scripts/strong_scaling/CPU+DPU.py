@@ -22,10 +22,10 @@ verbose = False
 tol = 1e-4
 random_state = 42
 
-n_points_per_dpu = int(1e5)
+n_points = int(1e5) * 256
 n_dim = 16
 
-n_dpu_set = [1, 2, 4, 8, 16, 32, 64]
+n_dpu_set = [256, 512, 1024, 2048]
 
 DPU_times = []
 DPU_dpu_runtimes = []
@@ -44,21 +44,49 @@ CPU_time_per_iter = []
 CPU_preprocessing_times = []
 CPU_main_loop_timers = []
 
+##################################################
+#                   DATA GEN                     #
+##################################################
+
+data, tags, centers = make_blobs(
+    n_points,
+    n_dim,
+    centers=n_clusters,
+    random_state=random_state,
+    return_centers=True,
+)
+
+print(f"raw data size : {size(sys.getsizeof(data))}")
+
+##################################################
+#                   CPU PERF                     #
+##################################################
+
+# perform clustering on CPU
+tic = time.perf_counter()
+CPU_kmeans = KMeans(
+    n_clusters,
+    init="random",
+    n_init=n_init,
+    max_iter=max_iter,
+    tol=tol,
+    verbose=verbose,
+    copy_x=False,
+    random_state=random_state,
+)
+CPU_kmeans.fit(data)
+toc = time.perf_counter()
+
+# read timers
+CPU_centroids, CPU_iter_counter, CPU_main_loop_timer, CPU_preprocessing_timer = (
+    CPU_kmeans.cluster_centers_,
+    CPU_kmeans.n_iter_,
+    CPU_kmeans.main_loop_timer_,
+    CPU_kmeans.preprocessing_timer_,
+)
+CPU_timer = toc - tic
+
 for i_n_dpu, n_dpu in enumerate(tqdm(n_dpu_set, file=sys.stdout)):
-
-    ##################################################
-    #                   DATA GEN                     #
-    ##################################################
-
-    data, tags, centers = make_blobs(
-        n_points_per_dpu * n_dpu,
-        n_dim,
-        centers=n_clusters,
-        random_state=random_state,
-        return_centers=True,
-    )
-
-    print(f"raw data size for {n_dpu} dpus : {size(sys.getsizeof(data))}")
 
     ##################################################
     #                   DPU PERF                     #
@@ -104,36 +132,6 @@ for i_n_dpu, n_dpu in enumerate(tqdm(n_dpu_set, file=sys.stdout)):
     )
     DPU_timer = toc - tic
 
-    print(f"quantized data size for {n_dpu} dpus : {size(_dimm._data_size)}")
-
-    ##################################################
-    #                   CPU PERF                     #
-    ##################################################
-
-    # perform clustering on CPU
-    tic = time.perf_counter()
-    CPU_kmeans = KMeans(
-        n_clusters,
-        init="random",
-        n_init=n_init,
-        max_iter=max_iter,
-        tol=tol,
-        verbose=verbose,
-        copy_x=False,
-        random_state=random_state,
-    )
-    CPU_kmeans.fit(data)
-    toc = time.perf_counter()
-
-    # read timers
-    CPU_centroids, CPU_iter_counter, CPU_main_loop_timer, CPU_preprocessing_timer = (
-        CPU_kmeans.cluster_centers_,
-        CPU_kmeans.n_iter_,
-        CPU_kmeans.main_loop_timer_,
-        CPU_kmeans.preprocessing_timer_,
-    )
-    CPU_timer = toc - tic
-
     ##################################################
     #                   LOGGING                      #
     ##################################################
@@ -178,3 +176,5 @@ for i_n_dpu, n_dpu in enumerate(tqdm(n_dpu_set, file=sys.stdout)):
     )
     df.index.rename("DPUs")
     df.to_pickle("results.pkl")
+
+print(f"quantized data size on dpus : {size(_dimm._data_size)}")

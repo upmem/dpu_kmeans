@@ -9,6 +9,7 @@ This module is intended to work like a singleton class, hence the use of global 
 
 import atexit
 import sys
+import time
 
 import numpy as np
 import xxhash

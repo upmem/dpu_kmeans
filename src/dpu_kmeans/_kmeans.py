@@ -4,6 +4,7 @@
 # Author: Sylvan Brocard <sbrocard@upmem.com>
 # License: MIT
 
+import time
 import warnings
 
 import numpy as np
@@ -267,12 +268,16 @@ class KMeans(KMeansCPU):
     [10.000137   2.       ]]
     """
 
-    def __init__(self, n_clusters: int = 8, *, n_dpu: int = 0, **kwargs):
+    def __init__(
+        self, n_clusters: int = 8, *, n_dpu: int = 0, reload_data=True, **kwargs
+    ):
         super().__init__(n_clusters=n_clusters, **kwargs)
         self.n_dpu = n_dpu
         self.n_iter_ = None
         self.dpu_run_time_ = None
+        self.data_load_time_ = None
         self.cluster_centers_ = None
+        self.reload_data = reload_data
 
     def fit(self, X, y=None, sample_weight=None):
         """Compute k-means clustering.
@@ -298,6 +303,8 @@ class KMeans(KMeansCPU):
         self : object
             Fitted estimator.
         """
+        tic = time.perf_counter()
+
         X = self._validate_data(
             X,
             accept_sparse="csr",
@@ -334,19 +341,20 @@ class KMeans(KMeansCPU):
         if self.n_dpu:
             _dimm.set_n_dpu(self.n_dpu)
 
-        # load kmeans kernel if not yet done
-        _dimm.load_kernel("kmeans", self.verbose)
+        if self.reload_data:
+            # load kmeans kernel if not yet done
+            _dimm.load_kernel("kmeans", self.verbose)
 
-        # transfer the data points to the DPUs
-        _dimm.load_data(X, verbose=self.verbose)
-
-        # reset perf timer
-        _dimm.reset_timer(verbose=self.verbose)
+            # transfer the data points to the DPUs
+            _dimm.load_data(X, verbose=self.verbose)
 
         kmeans_single = _kmeans_single_lloyd_dpu
         self._check_mkl_vcomp(X, X.shape[0])
 
         best_inertia, best_labels = None, None
+
+        toc = time.perf_counter()
+        self.preprocessing_timer_ = toc - tic
 
         for _ in range(self._n_init):
             # Initialize centers
@@ -356,7 +364,11 @@ class KMeans(KMeansCPU):
             if self.verbose:
                 print("Initialization complete")
 
+            # reset perf timer
+            _dimm.reset_timer(verbose=self.verbose)
+
             # run a k-means once
+            tic = time.perf_counter()
             labels, inertia, centers, n_iter_ = kmeans_single(
                 X,
                 sample_weight,
@@ -367,6 +379,9 @@ class KMeans(KMeansCPU):
                 x_squared_norms=x_squared_norms,
                 n_threads=self._n_threads,
             )
+            toc = time.perf_counter()
+            main_loop_timer = toc - tic
+            dpu_run_time = _dimm.get_dpu_run_time()
 
             # determine if these results are the best so far
             # we chose a new run if it has a better inertia and the clustering is
@@ -381,6 +396,8 @@ class KMeans(KMeansCPU):
                 best_centers = centers
                 best_inertia = inertia
                 best_n_iter = n_iter_
+                best_main_loop_timer = main_loop_timer
+                best_dpu_run_time = dpu_run_time
 
         if not sp.issparse(X):
             if not self.copy_x:
@@ -401,7 +418,8 @@ class KMeans(KMeansCPU):
         self.labels_ = best_labels
         self.inertia_ = best_inertia
         self.n_iter_ = best_n_iter
-        self.dpu_run_time_ = _dimm.get_dpu_run_time()
+        self.dpu_run_time_ = best_dpu_run_time
+        self.main_loop_timer_ = best_main_loop_timer
         return self
 
     # def _kmeans(self):
