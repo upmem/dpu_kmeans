@@ -147,7 +147,7 @@ def _kmeans_single_lloyd_dpu(
     # Buffers to avoid new allocations at each iteration.
     centers = centers_init
     centers_int = np.empty_like(centers, dtype=dtype)
-    centers_new = np.empty_like(centers, dtype=float)
+    centers_new = np.empty_like(centers, dtype=np.float32)
     centers_new_int = np.empty_like(centers, dtype=np.int64)
     points_in_clusters = np.empty(n_clusters, dtype=np.int32)
 
@@ -171,11 +171,11 @@ def _kmeans_single_lloyd_dpu(
                 points_in_clusters,
             )
 
-            if verbose:
-                _, inertia = _labels_inertia_threadpool_limit(
-                    X, sample_weight, x_squared_norms, centers, n_threads
-                )
-                print(f"Iteration {i}, inertia {inertia}.")
+            # if verbose:
+            #     _, inertia = _labels_inertia_threadpool_limit(
+            #         X, sample_weight, x_squared_norms, centers_new, n_threads
+            #     )
+            #     print(f"Iteration {i}, inertia {inertia}.")
 
             centers, centers_new = centers_new, centers
 
