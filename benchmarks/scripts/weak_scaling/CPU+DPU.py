@@ -14,7 +14,6 @@ from tqdm import tqdm
 from dpu_kmeans import KMeans as DPU_KMeans
 from dpu_kmeans import _dimm
 
-nfeatures = 8
 n_clusters = 16
 n_init = 10
 max_iter = 500

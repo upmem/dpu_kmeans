@@ -1,28 +1,29 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import sys
 import time
 
+import numpy as np
 import pandas as pd
+from sklearnex import patch_sklearn
+
+patch_sklearn()
+
+
 from hurry.filesize import size
 from sklearn.cluster import KMeans
-from sklearn.datasets import make_blobs
 from sklearn.metrics import adjusted_rand_score
 from tqdm import tqdm
 
 from dpu_kmeans import KMeans as DPU_KMeans
 from dpu_kmeans import _dimm
 
-n_clusters = 16
+n_clusters = 2
 n_init = 10
 max_iter = 500
 verbose = False
 tol = 1e-4
 random_state = 42
-
-n_points = int(1e5) * 256
-n_dim = 16
 
 n_dpu_set = [256, 512, 1024, 2048]
 
@@ -44,16 +45,22 @@ CPU_preprocessing_times = []
 CPU_main_loop_timers = []
 
 ##################################################
-#                   DATA GEN                     #
+#                   DATA READ                    #
 ##################################################
 
-data, tags, centers = make_blobs(
-    n_points,
-    n_dim,
-    centers=n_clusters,
-    random_state=random_state,
-    return_centers=True,
-)
+if len(sys.argv) >= 2:
+    higgs_file = sys.argv[1]
+else:
+    higgs_file = "data/higgs.pq"
+df = pd.read_parquet(higgs_file)
+
+data, tags = np.require(
+    df.iloc[:, 1:].to_numpy(dtype=np.float32), requirements=["C", "A", "O"]
+), np.require(df.iloc[:, 0].to_numpy(dtype=int), requirements=["O"])
+
+n_points, n_dim = data.shape
+
+del df
 
 print(f"raw data size : {size(sys.getsizeof(data))}")
 
@@ -80,7 +87,7 @@ toc = time.perf_counter()
 CPU_centroids, CPU_iter_counter, CPU_main_loop_timer, CPU_preprocessing_timer = (
     CPU_kmeans.cluster_centers_,
     CPU_kmeans.n_iter_,
-    CPU_kmeans.main_loop_timer_,
+    0,  # CPU_kmeans.main_loop_timer_,
     CPU_kmeans.preprocessing_timer_,
 )
 CPU_timer = toc - tic
@@ -103,6 +110,7 @@ for i_n_dpu, n_dpu in enumerate(tqdm(n_dpu_set, file=sys.stdout)):
     tic = time.perf_counter()
     DPU_kmeans = DPU_KMeans(
         n_clusters,
+        reload_data=True,
         init="random",
         n_init=n_init,
         max_iter=max_iter,
@@ -110,7 +118,6 @@ for i_n_dpu, n_dpu in enumerate(tqdm(n_dpu_set, file=sys.stdout)):
         verbose=verbose,
         copy_x=False,
         random_state=random_state,
-        reload_data=True,
     )
     DPU_kmeans.fit(data)
     toc = time.perf_counter()

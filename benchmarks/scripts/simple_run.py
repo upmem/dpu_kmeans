@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from sklearn.datasets import make_blobs
-import numpy as np
 import sys
 import time
+
+import numpy as np
 from hurry.filesize import size
+from sklearn.datasets import make_blobs
 from tqdm import tqdm
-from dpu_kmeans import DimmData, KMeans, _dimm
+
+from dpu_kmeans import KMeans, _dimm
 
 nfeatures = 8
 min_nclusters = 15
@@ -32,9 +34,7 @@ data, tags, centers = make_blobs(
 data = data.astype(np.float32)
 print("data size for {} points : {}".format(npoints_str, size(sys.getsizeof(data))))
 
-dimm_data = DimmData(data)
-
-_dimm.load_data(dimm_data, tol, verbose)
+# _dimm.load_data(dimm_data, tol, verbose)
 
 n_clusters_time = []
 n_clusters_inner_time = []
@@ -48,7 +48,7 @@ for n_clusters in tqdm(n_cluster_set, file=sys.stdout):
     tic = time.perf_counter()
 
     kmeans = KMeans(n_clusters, n_init=loops, max_iter=500, tol=tol, verbose=True)
-    centroids, iter_counter, inner_timer = kmeans.fit(dimm_data)
+    centroids, iter_counter, inner_timer = kmeans.fit(data)
 
     toc = time.perf_counter()
     timer += toc - tic
