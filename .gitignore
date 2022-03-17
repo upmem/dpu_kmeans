@@ -152,6 +152,7 @@ src/dpu_kmeans/dpu_program/
 benchmarks/**/*.pkl
 benchmarks/**/*.csv
 benchmarks/**/*.prof
+benchmarks/**/data/
 
 # ignoring local .clangd config file
 .clangd

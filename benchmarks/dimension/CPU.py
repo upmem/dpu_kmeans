@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from sklearn.datasets import make_blobs
-from sklearn.cluster import k_means
-from sklearnex import patch_sklearn
-import numpy as np
 import sys
 import time
+
+import numpy as np
 import pandas as pd
 from hurry.filesize import size
+from sklearn.cluster import k_means
+from sklearn.datasets import make_blobs
+from sklearnex import patch_sklearn
 from tqdm import tqdm
 
 patch_sklearn(verbose=False)
