@@ -22,7 +22,7 @@ verbose = False
 tol = 1e-4
 random_state = 42
 
-n_dpu_set = [256, 512, 1024, 2048]
+n_dpu_set = [2048]
 
 DPU_times = []
 DPU_dpu_runtimes = []
@@ -182,6 +182,6 @@ for i_n_dpu, n_dpu in enumerate(tqdm(n_dpu_set, file=sys.stdout)):
         index=n_dpu_set[: i_n_dpu + 1],
     )
     df.index.rename("DPUs")
-    df.to_pickle("results.pkl")
+    df.to_pickle("results_2048.pkl")
 
 print(f"quantized data size on dpus : {size(_dimm._data_size)}")

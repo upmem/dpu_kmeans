@@ -4,7 +4,6 @@
 import sys
 import time
 
-import numpy as np
 import pandas as pd
 from hurry.filesize import size
 from sklearn.cluster import KMeans
@@ -15,14 +14,17 @@ from tqdm import tqdm
 from dpu_kmeans import KMeans as DPU_KMeans
 from dpu_kmeans import _dimm
 
-n_clusters = 2
+n_clusters = 16
 n_init = 10
 max_iter = 500
 verbose = False
 tol = 1e-4
 random_state = 42
 
-n_dpu_set = [256, 512, 1024, 2048]
+n_points = int(1e5) * 256
+n_dim = 16
+
+n_dpu_set = [2048]
 
 DPU_times = []
 DPU_dpu_runtimes = []
@@ -41,25 +43,17 @@ CPU_time_per_iter = []
 CPU_preprocessing_times = []
 CPU_main_loop_timers = []
 
-cross_scores = []
-
 ##################################################
-#                   DATA READ                    #
+#                   DATA GEN                     #
 ##################################################
 
-if len(sys.argv) >= 2:
-    higgs_file = sys.argv[1]
-else:
-    higgs_file = "data/higgs.pq"
-df = pd.read_parquet(higgs_file)
-
-data, tags = np.require(
-    df.iloc[:, 1:].to_numpy(dtype=np.float32), requirements=["C", "A", "O"]
-), np.require(df.iloc[:, 0].to_numpy(dtype=int), requirements=["O"])
-
-n_points, n_dim = data.shape
-
-del df
+data, tags, centers = make_blobs(
+    n_points,
+    n_dim,
+    centers=n_clusters,
+    random_state=random_state,
+    return_centers=True,
+)
 
 print(f"raw data size : {size(sys.getsizeof(data))}")
 
@@ -67,29 +61,29 @@ print(f"raw data size : {size(sys.getsizeof(data))}")
 #                   CPU PERF                     #
 ##################################################
 
-# perform clustering on CPU
-tic = time.perf_counter()
-CPU_kmeans = KMeans(
-    n_clusters,
-    init="random",
-    n_init=n_init,
-    max_iter=max_iter,
-    tol=tol,
-    verbose=verbose,
-    copy_x=False,
-    random_state=random_state,
-)
-CPU_kmeans.fit(data)
-toc = time.perf_counter()
+# # perform clustering on CPU
+# tic = time.perf_counter()
+# CPU_kmeans = KMeans(
+#     n_clusters,
+#     init="random",
+#     n_init=n_init,
+#     max_iter=max_iter,
+#     tol=tol,
+#     verbose=verbose,
+#     copy_x=False,
+#     random_state=random_state,
+# )
+# CPU_kmeans.fit(data)
+# toc = time.perf_counter()
 
-# read timers
-CPU_centroids, CPU_iter_counter, CPU_main_loop_timer, CPU_preprocessing_timer = (
-    CPU_kmeans.cluster_centers_,
-    CPU_kmeans.n_iter_,
-    CPU_kmeans.main_loop_timer_,
-    CPU_kmeans.preprocessing_timer_,
-)
-CPU_timer = toc - tic
+# # read timers
+# CPU_centroids, CPU_iter_counter, CPU_main_loop_timer, CPU_preprocessing_timer = (
+#     CPU_kmeans.cluster_centers_,
+#     CPU_kmeans.n_iter_,
+#     CPU_kmeans.main_loop_timer_,
+#     CPU_kmeans.preprocessing_timer_,
+# )
+# CPU_timer = toc - tic
 
 for i_n_dpu, n_dpu in enumerate(tqdm(n_dpu_set, file=sys.stdout)):
 
@@ -109,7 +103,6 @@ for i_n_dpu, n_dpu in enumerate(tqdm(n_dpu_set, file=sys.stdout)):
     tic = time.perf_counter()
     DPU_kmeans = DPU_KMeans(
         n_clusters,
-        reload_data=True,
         init="random",
         n_init=n_init,
         max_iter=max_iter,
@@ -117,6 +110,7 @@ for i_n_dpu, n_dpu in enumerate(tqdm(n_dpu_set, file=sys.stdout)):
         verbose=verbose,
         copy_x=False,
         random_state=random_state,
+        reload_data=True,
     )
     DPU_kmeans.fit(data)
     toc = time.perf_counter()
@@ -149,16 +143,15 @@ for i_n_dpu, n_dpu in enumerate(tqdm(n_dpu_set, file=sys.stdout)):
     DPU_init_times.append(DPU_init_time)
     DPU_main_loop_timers.append(DPU_main_loop_timer)
 
-    CPU_times.append(CPU_timer)
-    CPU_iterations.append(CPU_iter_counter)
-    CPU_time_per_iter.append(CPU_main_loop_timer / CPU_iter_counter)
-    CPU_main_loop_timers.append(CPU_main_loop_timer)
-    CPU_preprocessing_times.append(CPU_preprocessing_timer)
+    # CPU_times.append(CPU_timer)
+    # CPU_iterations.append(CPU_iter_counter)
+    # CPU_time_per_iter.append(CPU_main_loop_timer / CPU_iter_counter)
+    # CPU_main_loop_timers.append(CPU_main_loop_timer)
+    # CPU_preprocessing_times.append(CPU_preprocessing_timer)
 
     # rand index for CPU and DPU (measures the similarity of the clustering with the ground truth)
     DPU_scores.append(adjusted_rand_score(tags, DPU_kmeans.labels_))
-    CPU_scores.append(adjusted_rand_score(tags, CPU_kmeans.labels_))
-    cross_scores.append(adjusted_rand_score(DPU_kmeans.labels_, CPU_kmeans.labels_))
+    # CPU_scores.append(adjusted_rand_score(tags, CPU_kmeans.labels_))
 
     # creating and exporting the dataframe at each iteration in case we crash early
     df = pd.DataFrame(
@@ -170,14 +163,13 @@ for i_n_dpu, n_dpu in enumerate(tqdm(n_dpu_set, file=sys.stdout)):
             "DPU_dpu_runtimes": DPU_dpu_runtimes,
             "DPU_iterations": DPU_iterations,
             "DPU_times_one_iter": DPU_time_per_iter,
-            "CPU_times": CPU_times,
-            "CPU_preprocessing_times": CPU_preprocessing_times,
-            "CPU_single_kmeans_times": CPU_main_loop_timers,
-            "CPU_iterations": CPU_iterations,
-            "CPU_times_one_iter": CPU_time_per_iter,
+            # "CPU_times": CPU_times,
+            # "CPU_preprocessing_times": CPU_preprocessing_times,
+            # "CPU_single_kmeans_times": CPU_main_loop_timers,
+            # "CPU_iterations": CPU_iterations,
+            # "CPU_times_one_iter": CPU_time_per_iter,
             "DPU_scores": DPU_scores,
-            "CPU_scores": CPU_scores,
-            "cross_scores": cross_scores,
+            # "CPU_scores": CPU_scores,
         },
         index=n_dpu_set[: i_n_dpu + 1],
     )
