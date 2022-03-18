@@ -147,7 +147,8 @@ def _kmeans_single_lloyd_dpu(
     # Buffers to avoid new allocations at each iteration.
     centers = centers_init
     centers_int = np.empty_like(centers, dtype=dtype)
-    centers_new = np.empty_like(centers, dtype=np.float32)
+    # centers_new = np.empty_like(centers, dtype=np.float32)
+    centers_new = np.empty_like(centers)
     centers_new_int = np.empty_like(centers, dtype=np.int64)
     points_in_clusters = np.empty(n_clusters, dtype=np.int32)
 
