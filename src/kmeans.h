@@ -50,10 +50,6 @@ typedef struct dpu_set_t dpu_set;
 #define PERF_COUNTER 1 /* 0 for cycles, 1 for instructions, comment for no
 // counter */
 
-// Experimental instruction
-// #define EXPINST
-#define EXPINST_VFMA
-
 #ifdef PERF_COUNTER
 #define HOST_COUNTERS 8
 #define LOCAL_COUNTERS 13
@@ -85,6 +81,10 @@ enum perfcounter_names {
 ////////// OR
 typedef int32_t int_feature;
 #define FEATURETYPE_32
+
+// Experimental instructions
+// #define EXPINST_32
+#define EXPINST_VFMA  // only compatible with 16 bits int_feature
 
 #ifndef _KMEANS_DPU_KERNEL_H_
 // Parameters holding struct

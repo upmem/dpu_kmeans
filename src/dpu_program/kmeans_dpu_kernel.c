@@ -413,6 +413,7 @@ int main() {
         uint64_t dist = 0; /* Euclidean distance squared */
         uint16_t cluster_base_index = cluster_base_indices[icluster];
 
+/////////// EXPERIMENTAL 16 BITS VFMA /////////////////////////
 #ifdef EXPINST_VFMA
 #pragma unroll(ASSUMED_NR_FEATURES)
 #pragma must_iterate(1, ASSUMED_NR_FEATURES, 1)
@@ -427,17 +428,23 @@ int main() {
           dist+=prod;
         }
 
-#else // #ifdef EXPINST_VFMA
+/////////// EXPERIMENTAL 32 BITS MULTIPLIER ///////////////////
+#elif defined EXPINST_32
 #pragma unroll(ASSUMED_NR_FEATURES)
 #pragma must_iterate(1, ASSUMED_NR_FEATURES, 1)
         for (uint8_t idim = 0; idim < nfeatures; idim++) {
-#ifdef EXPINST
           int_feature diff = (w_features[point_base_index + idim] -
                               c_clusters[cluster_base_index + idim]);
           int32_t prod;
           __builtin_mul_sw_sw_rrr(prod, diff, diff);
           dist += prod;
+        }
+
+/////////// NO EXPERIMENTAL FEATURE ///////////////////////////
 #else
+#pragma unroll(ASSUMED_NR_FEATURES)
+#pragma must_iterate(1, ASSUMED_NR_FEATURES, 1)
+        for (uint8_t idim = 0; idim < nfeatures; idim++) {
           volatile int_feature diff = (w_features[point_base_index + idim] -
                                       c_clusters[cluster_base_index + idim]);
 #ifdef FEATURETYPE_32
@@ -445,9 +452,10 @@ int main() {
 #else
           dist += diff * diff; /* sum of squares */
 #endif // #ifdef FEATURETYPE_32
-#endif // #ifdef EXPINST
         }
 #endif // #ifdef EXPINST_VFMA
+/////////// END OF EXPERIMENTAL FEATURES //////////////////////
+
         /* see if distance is smaller than previous ones:
         if so, change minimum distance and save index of cluster center */
         if (dist < min_dist) {
