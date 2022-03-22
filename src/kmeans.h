@@ -47,8 +47,11 @@ typedef struct dpu_set_t dpu_set;
 // reduction on the CPU
 
 // Performance tracking
-// #define PERF_COUNTER 0 /* 0 for cycles, 1 for instructions, comment for no
+#define PERF_COUNTER 1 /* 0 for cycles, 1 for instructions, comment for no
 // counter */
+
+// Experimental instruction
+#define EXPINST
 
 #ifdef PERF_COUNTER
 #define HOST_COUNTERS 8
@@ -77,10 +80,10 @@ enum perfcounter_names {
 
 // typedef int8_t int_feature;
 ////////// OR
-typedef int16_t int_feature;
+// typedef int16_t int_feature;
 ////////// OR
-// typedef int32_t int_feature;
-// #define FEATURETYPE_32
+typedef int32_t int_feature;
+#define FEATURETYPE_32
 
 #ifndef _KMEANS_DPU_KERNEL_H_
 // Parameters holding struct

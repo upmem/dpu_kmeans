@@ -416,17 +416,21 @@ int main() {
 #pragma unroll(ASSUMED_NR_FEATURES)
 #pragma must_iterate(1, ASSUMED_NR_FEATURES, 1)
         for (uint8_t idim = 0; idim < nfeatures; idim++) {
-          volatile int32_t diff = (w_features[point_base_index + idim] -
-                                   c_clusters[cluster_base_index + idim]);
+#ifdef EXPINST
+          int_feature diff = (w_features[point_base_index + idim] -
+                              c_clusters[cluster_base_index + idim]);
+          int32_t prod;
+          __builtin_mul_sw_sw_rrr(prod, diff, diff);
+          dist += prod;
+#else
+          volatile int_feature diff = (w_features[point_base_index + idim] -
+                                      c_clusters[cluster_base_index + idim]);
 #ifdef FEATURETYPE_32
           dist += (int64_t)diff * diff; /* sum of squares */
 #else
-          // dist += diff * diff; /* sum of squares */
-          int32_t prod;
-          // __builtin_mul_sw_sw_s_rrr(prod, diff, diff);
-          __builtin_mul_sw_sw_rrr(prod, diff, diff);
-          dist += prod;
-#endif
+          dist += diff * diff; /* sum of squares */
+#endif // #ifdef FEATURETYPE_32
+#endif // #ifdef EXPINST
         }
         /* see if distance is smaller than previous ones:
         if so, change minimum distance and save index of cluster center */
