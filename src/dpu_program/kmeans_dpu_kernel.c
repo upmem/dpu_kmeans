@@ -413,6 +413,21 @@ int main() {
         uint64_t dist = 0; /* Euclidean distance squared */
         uint16_t cluster_base_index = cluster_base_indices[icluster];
 
+#ifdef EXPINST_VFMA
+#pragma unroll(ASSUMED_NR_FEATURES)
+#pragma must_iterate(1, ASSUMED_NR_FEATURES, 1)
+        for (uint8_t idim = 0; idim < nfeatures/2; idim++) {
+          int32_t* w_features_32 = &w_features[point_base_index];
+          int32_t* c_clusters_32 = &c_clusters[cluster_base_index];
+
+          int32_t diff = (w_features_32[idim] -
+                              c_clusters_32[idim]);
+          int32_t prod;
+          __builtin_expinst_rrr(prod, diff, diff);
+          dist+=prod;
+        }
+
+#else // #ifdef EXPINST_VFMA
 #pragma unroll(ASSUMED_NR_FEATURES)
 #pragma must_iterate(1, ASSUMED_NR_FEATURES, 1)
         for (uint8_t idim = 0; idim < nfeatures; idim++) {
@@ -432,6 +447,7 @@ int main() {
 #endif // #ifdef FEATURETYPE_32
 #endif // #ifdef EXPINST
         }
+#endif // #ifdef EXPINST_VFMA
         /* see if distance is smaller than previous ones:
         if so, change minimum distance and save index of cluster center */
         if (dist < min_dist) {

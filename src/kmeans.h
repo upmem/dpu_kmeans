@@ -51,7 +51,8 @@ typedef struct dpu_set_t dpu_set;
 // counter */
 
 // Experimental instruction
-#define EXPINST
+// #define EXPINST
+#define EXPINST_VFMA
 
 #ifdef PERF_COUNTER
 #define HOST_COUNTERS 8

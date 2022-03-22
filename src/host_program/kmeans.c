@@ -274,7 +274,11 @@ void preprocessing(
       p->scale_factor = INT8_MAX / max_feature / 2;
       break;
     case 2UL:
+#ifdef EXPINST_VFMA
+      p->scale_factor = INT16_MAX / max_feature / 4;
+#else
       p->scale_factor = INT16_MAX / max_feature / 2;
+#endif
       break;
     case 4UL:
       p->scale_factor = INT32_MAX / max_feature / 2;
