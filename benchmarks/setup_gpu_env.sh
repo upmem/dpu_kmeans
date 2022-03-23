@@ -12,4 +12,3 @@ else
     echo "conda could not be found, please install conda or mamba"
     exit
 fi
-conda activate rapids-22.02
