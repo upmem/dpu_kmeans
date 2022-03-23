@@ -70,7 +70,7 @@ print(f"raw data size : {size(sys.getsizeof(data))}")
 
 # load empty data to the GPU to pay the initialization cost
 tic = time.perf_counter()
-gpu_data = np2cudf(np.zeros(1))
+gpu_data = np2cudf(np.zeros((2, 2)))
 toc = time.perf_counter()
 GPU_init_timer = toc - tic
 
