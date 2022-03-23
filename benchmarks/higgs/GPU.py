@@ -8,10 +8,9 @@ import cudf
 import numpy as np
 import pandas as pd
 from cuml.cluster import KMeans as cuKMeans
-from cuml.metrics.cluster import silhouette_score
 from hurry.filesize import size
 from sklearn.cluster import KMeans
-from sklearn.metrics import adjusted_rand_score
+from sklearn.metrics import adjusted_rand_score, calinski_harabasz_score
 
 n_clusters = 16
 n_init = 10
@@ -141,8 +140,8 @@ CPU_times.append(CPU_timer)
 CPU_iterations.append(CPU_iter_counter)
 
 # rand index for CPU and DPU (measures the similarity of the clustering with the ground truth)
-GPU_scores.append(silhouette_score(data, GPU_kmeans.labels_))
-CPU_scores.append(silhouette_score(data, CPU_kmeans.labels_))
+GPU_scores.append(calinski_harabasz_score(data, GPU_kmeans.labels_))
+CPU_scores.append(calinski_harabasz_score(data, CPU_kmeans.labels_))
 cross_scores.append(adjusted_rand_score(CPU_kmeans.labels_, GPU_kmeans.labels_))
 
 df = pd.DataFrame(
