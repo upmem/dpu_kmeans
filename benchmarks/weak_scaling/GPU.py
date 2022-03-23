@@ -81,9 +81,7 @@ for i_n_dpu, n_dpu in enumerate(tqdm(n_dpu_set, file=sys.stdout)):
         max_iter=max_iter,
         tol=tol,
         verbose=verbose,
-        copy_x=False,
         random_state=random_state,
-        reload_data=True,
     )
     GPU_kmeans.fit(data)
     toc = time.perf_counter()

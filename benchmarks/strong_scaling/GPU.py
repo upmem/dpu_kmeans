@@ -76,9 +76,7 @@ GPU_kmeans = cuKMeans(
     max_iter=max_iter,
     tol=tol,
     verbose=verbose,
-    copy_x=False,
     random_state=random_state,
-    reload_data=True,
 )
 GPU_kmeans.fit(data)
 toc = time.perf_counter()
