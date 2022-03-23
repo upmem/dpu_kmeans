@@ -11,7 +11,7 @@ from cuml.cluster import KMeans as cuKMeans
 from hurry.filesize import size
 from sklearn.cluster import KMeans
 from sklearn.datasets import make_blobs
-from sklearn.metrics import adjusted_rand_score
+from sklearn.metrics import adjusted_rand_score, silhouette_score
 
 n_clusters = 16
 n_init = 10
@@ -24,7 +24,7 @@ n_points = int(1e5) * 256
 n_dim = 16
 
 GPU_times = []
-GPU_preprocessing_times = []
+GPU_transfer_times = []
 GPU_init_timers = []
 GPU_iterations = []
 GPU_scores = []
@@ -73,7 +73,7 @@ GPU_init_timer = toc - tic
 tic = time.perf_counter()
 gpu_data = np2cudf(data)
 toc = time.perf_counter()
-GPU_preprocessing_timer = toc - tic
+GPU_transfer_timer = toc - tic
 
 # perform clustering on DPU
 tic = time.perf_counter()
@@ -127,7 +127,7 @@ CPU_timer = toc - tic
 ##################################################
 
 GPU_times.append(GPU_timer)
-GPU_preprocessing_times.append(GPU_preprocessing_timer)
+GPU_transfer_times.append(GPU_transfer_timer)
 GPU_init_timers.append(GPU_init_timer)
 GPU_iterations.append(GPU_iter_counter)
 
@@ -135,19 +135,19 @@ CPU_times.append(CPU_timer)
 CPU_iterations.append(CPU_iter_counter)
 
 # rand index for CPU and DPU (measures the similarity of the clustering with the ground truth)
-GPU_scores.append(adjusted_rand_score(tags, GPU_kmeans.labels_))
-CPU_scores.append(adjusted_rand_score(tags, CPU_kmeans.labels_))
+GPU_scores.append(silhouette_score(data, GPU_kmeans.labels_))
+CPU_scores.append(silhouette_score(data, CPU_kmeans.labels_))
 cross_scores.append(adjusted_rand_score(CPU_kmeans.labels_, GPU_kmeans.labels_))
 
 df = pd.DataFrame(
     {
         "GPU_times": GPU_times,
         "GPU_init_time": GPU_init_timers,
-        "GPU_preprocessing_times": GPU_preprocessing_times,
+        "GPU_transfer_times": GPU_transfer_times,
         "GPU_iterations": GPU_iterations,
         "CPU_times": CPU_times,
         "CPU_iterations": CPU_iterations,
-        "DPU_scores": GPU_scores,
+        "GPU_scores": GPU_scores,
         "CPU_scores": CPU_scores,
         "cross_scores": cross_scores,
     },
