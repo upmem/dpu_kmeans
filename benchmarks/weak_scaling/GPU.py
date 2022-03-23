@@ -46,7 +46,8 @@ def np2cudf(df):
     return pdf
 
 
-for i_n_dpu, n_dpu in enumerate(tqdm(n_dpu_set, file=sys.stdout)):
+for i_n_dpu, n_dpu in enumerate(pbar := tqdm(n_dpu_set, file=sys.stdout)):
+    pbar.set_description(f"{n_dpu} dpus")
 
     ##################################################
     #                   DATA GEN                     #
@@ -60,7 +61,7 @@ for i_n_dpu, n_dpu in enumerate(tqdm(n_dpu_set, file=sys.stdout)):
         return_centers=True,
     )
 
-    print(f"raw data size for {n_dpu} dpus : {size(sys.getsizeof(data))}")
+    pbar.set_description(f"{n_dpu} dpus, data size : {size(sys.getsizeof(data))}")
 
     ##################################################
     #                   GPU PERF                     #
