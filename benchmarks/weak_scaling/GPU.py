@@ -5,6 +5,7 @@ import sys
 import time
 
 import cudf
+import numpy as np
 import pandas as pd
 from cuml.cluster import KMeans as cuKMeans
 from hurry.filesize import size
@@ -26,6 +27,7 @@ n_dim = 16
 n_dpu_set = [1, 2, 4, 8, 16, 32, 64]
 
 GPU_times = []
+GPU_init_timers = []
 GPU_preprocessing_times = []
 GPU_iterations = []
 GPU_scores = []
@@ -45,6 +47,16 @@ def np2cudf(df):
         pdf[str(c)] = df[column]
     return pdf
 
+
+##################################################
+#                   GPU INIT                     #
+##################################################
+
+# load empty data to the GPU to pay the initialization cost
+tic = time.perf_counter()
+gpu_data = np2cudf(np.zeros(1))
+toc = time.perf_counter()
+GPU_init_timer = toc - tic
 
 for i_n_dpu, n_dpu in enumerate(pbar := tqdm(n_dpu_set, file=sys.stdout)):
     pbar.set_description(f"{n_dpu} dpus")
@@ -126,6 +138,7 @@ for i_n_dpu, n_dpu in enumerate(pbar := tqdm(n_dpu_set, file=sys.stdout)):
 
     GPU_times.append(GPU_timer)
     GPU_preprocessing_times.append(GPU_preprocessing_timer)
+    GPU_init_timers.append(GPU_init_timer)
     GPU_iterations.append(GPU_iter_counter)
 
     CPU_times.append(CPU_timer)
@@ -140,6 +153,7 @@ for i_n_dpu, n_dpu in enumerate(pbar := tqdm(n_dpu_set, file=sys.stdout)):
     df = pd.DataFrame(
         {
             "GPU_times": GPU_times,
+            "GPU_init_time": GPU_init_timers,
             "GPU_preprocessing_times": GPU_preprocessing_times,
             "GPU_iterations": GPU_iterations,
             "CPU_times": CPU_times,

@@ -5,6 +5,7 @@ import sys
 import time
 
 import cudf
+import numpy as np
 import pandas as pd
 from cuml.cluster import KMeans as cuKMeans
 from hurry.filesize import size
@@ -24,6 +25,7 @@ n_dim = 16
 
 GPU_times = []
 GPU_preprocessing_times = []
+GPU_init_timers = []
 GPU_iterations = []
 GPU_scores = []
 
@@ -60,6 +62,12 @@ print(f"raw data size : {size(sys.getsizeof(data))}")
 ##################################################
 #                   GPU PERF                     #
 ##################################################
+
+# load empty data to the GPU to pay the initialization cost
+tic = time.perf_counter()
+gpu_data = np2cudf(np.zeros(1))
+toc = time.perf_counter()
+GPU_init_timer = toc - tic
 
 # load the data to the GPU
 tic = time.perf_counter()
@@ -120,6 +128,7 @@ CPU_timer = toc - tic
 
 GPU_times.append(GPU_timer)
 GPU_preprocessing_times.append(GPU_preprocessing_timer)
+GPU_init_timers.append(GPU_init_timer)
 GPU_iterations.append(GPU_iter_counter)
 
 CPU_times.append(CPU_timer)
@@ -133,6 +142,7 @@ cross_scores.append(adjusted_rand_score(CPU_kmeans.labels_, GPU_kmeans.labels_))
 df = pd.DataFrame(
     {
         "GPU_times": GPU_times,
+        "GPU_init_time": GPU_init_timers,
         "GPU_preprocessing_times": GPU_preprocessing_times,
         "GPU_iterations": GPU_iterations,
         "CPU_times": CPU_times,
