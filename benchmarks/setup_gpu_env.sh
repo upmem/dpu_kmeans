@@ -1,0 +1,13 @@
+if [[ command -v mamba ]]
+    mamba create -n rapids-22.02 -c rapidsai -c nvidia -c conda-forge \
+        cuml=22.02 python=3.9 cudatoolkit=11.5 \
+        hurry.filesize scikit-learn tqdm
+elif [[ command -v conda ]]
+    conda create -n rapids-22.02 -c rapidsai -c nvidia -c conda-forge \
+        cuml=22.02 python=3.9 cudatoolkit=11.5 \
+        hurry.filesize scikit-learn tqdm
+else
+    echo "conda could not be found, please install conda or mamba"
+    exit
+fi
+conda activate rapids-22.02

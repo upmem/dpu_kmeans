@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 
 # %%
-df = pd.read_csv("data/Phones_accelerometer.csv", header=None, sep=",")
+df = pd.read_csv("data/Phones_accelerometer.csv", sep=",")
+
+# %%
 df.columns = df.columns.astype(str)
 df.to_parquet("./data/higgs.pq", index=False, compression=None)
