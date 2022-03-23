@@ -77,7 +77,7 @@ GPU_preprocessing_timer = toc - tic
 # perform clustering on DPU
 tic = time.perf_counter()
 GPU_kmeans = cuKMeans(
-    n_clusters,
+    n_clusters=n_clusters,
     init="random",
     n_init=n_init,
     max_iter=max_iter,

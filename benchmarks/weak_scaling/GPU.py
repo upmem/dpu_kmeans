@@ -75,7 +75,7 @@ for i_n_dpu, n_dpu in enumerate(tqdm(n_dpu_set, file=sys.stdout)):
     # perform clustering on DPU
     tic = time.perf_counter()
     GPU_kmeans = cuKMeans(
-        n_clusters,
+        n_clusters=n_clusters,
         init="random",
         n_init=n_init,
         max_iter=max_iter,
