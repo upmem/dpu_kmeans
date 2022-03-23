@@ -1,8 +1,8 @@
-if [[ command -v mamba ]]
+if command -v mamba &> /dev/null
     mamba create -n rapids-22.02 -c rapidsai -c nvidia -c conda-forge \
         cuml=22.02 python=3.9 cudatoolkit=11.5 \
         hurry.filesize scikit-learn tqdm
-elif [[ command -v conda ]]
+elif command -v conda &> /dev/null
     conda create -n rapids-22.02 -c rapidsai -c nvidia -c conda-forge \
         cuml=22.02 python=3.9 cudatoolkit=11.5 \
         hurry.filesize scikit-learn tqdm
