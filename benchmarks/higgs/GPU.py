@@ -8,9 +8,10 @@ import cudf
 import numpy as np
 import pandas as pd
 from cuml.cluster import KMeans as cuKMeans
+from cuml.metrics.cluster import silhouette_score
 from hurry.filesize import size
 from sklearn.cluster import KMeans
-from sklearn.metrics import adjusted_rand_score, silhouette_score
+from sklearn.metrics import adjusted_rand_score
 
 n_clusters = 16
 n_init = 10
