@@ -199,6 +199,11 @@ def get_dpu_run_time():
     return ctr.get_dpu_run_time()
 
 
+def get_cpu_pim_time():
+    """Returns the time to load the data to the DPU memory."""
+    return ctr.get_cpu_pim_time()
+
+
 def free_dpus(verbose: int = False):
     """Frees all allocated DPUs."""
     global _allocated

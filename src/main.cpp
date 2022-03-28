@@ -64,6 +64,7 @@ class Container {
   void reset_timer() { p.time_seconds = 0.0; }
 
   double get_dpu_run_time() { return p.time_seconds; }
+  double get_cpu_pim_time() { return p.cpu_pim_time; }
 
   /**
    * @brief Loads binary into the DPUs
@@ -222,7 +223,8 @@ PYBIND11_MODULE(_core, m) {
       .def("allocate_host_memory", &Container::allocateHostMemory)
       .def("deallocate_host_memory", &Container::deallocateHostMemory)
       .def("reset_timer", &Container::reset_timer)
-      .def("get_dpu_run_time", &Container::get_dpu_run_time);
+      .def("get_dpu_run_time", &Container::get_dpu_run_time)
+      .def("get_cpu_pim_time", &Container::get_cpu_pim_time);
 
   m.def("add", &add, R"pbdoc(
         Add two numbers

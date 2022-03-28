@@ -103,6 +103,7 @@ typedef struct Params {
   uint32_t ndpu;         /**< Number of allocated dpu */
   dpu_set allset;        /**< Struct of the allocated dpu set */
   double time_seconds;   /**< Perf counter */
+  double cpu_pim_time;   /**< Time to populate the DPUs */
 } Params;
 
 /* Function declarations */

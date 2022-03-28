@@ -276,7 +276,7 @@ class KMeans(KMeansCPU):
         self.n_dpu = n_dpu
         self.n_iter_ = None
         self.dpu_run_time_ = None
-        self.data_load_time_ = None
+        self.cpu_pim_time_ = 0
         self.cluster_centers_ = None
         self.reload_data = reload_data
 
@@ -348,6 +348,7 @@ class KMeans(KMeansCPU):
 
             # transfer the data points to the DPUs
             _dimm.load_data(X, verbose=self.verbose)
+            self.cpu_pim_time_ = _dimm.get_cpu_pim_time()
 
         kmeans_single = _kmeans_single_lloyd_dpu
         self._check_mkl_vcomp(X, X.shape[0])

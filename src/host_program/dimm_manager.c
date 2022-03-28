@@ -8,6 +8,22 @@
 #include "../kmeans.h"
 
 /**
+ * @brief Returns the seconds elapsed between two timeval structures.
+ *
+ * @param tic [in] First timeval.
+ * @param toc [in] Second timeval.
+ * @return double Elapsed time in seconds.
+ */
+static double time_seconds(struct timeval tic, struct timeval toc) {
+  struct timeval timing;
+  timing.tv_sec = toc.tv_sec - tic.tv_sec;
+  timing.tv_usec = toc.tv_usec - tic.tv_usec;
+  double time = ((double)(timing.tv_sec * 1000000 + timing.tv_usec)) / 1000000;
+
+  return time;
+}
+
+/**
  * @brief Allocates all DPUs
  *
  * @param p Algorithm parameters.
@@ -80,6 +96,10 @@ void populateDpu(Params *p,             /**< Algorithm parameters */
   int *nreal_points; /* number of real data points on each dpu */
   int64_t remaining_points = p->npoints; /* number of yet unassigned points */
 
+  struct timeval tic, toc;
+
+  gettimeofday(&tic, NULL);
+
   DPU_FOREACH(p->allset, dpu, each_dpu) {
     int next;
     next = each_dpu * p->npointperdpu;
@@ -113,6 +133,9 @@ void populateDpu(Params *p,             /**< Algorithm parameters */
   DPU_ASSERT(dpu_push_xfer(p->allset, DPU_XFER_TO_DPU, "npoints", 0,
                            sizeof(int), DPU_XFER_DEFAULT));
   free(nreal_points);
+
+  gettimeofday(&toc, NULL);
+  p->cpu_pim_time = time_seconds(tic, toc);
 }
 
 /**
