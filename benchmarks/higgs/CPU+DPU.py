@@ -8,8 +8,7 @@ import numpy as np
 import pandas as pd
 from hurry.filesize import size
 from sklearn.cluster import KMeans
-from sklearn.datasets import make_blobs
-from sklearn.metrics import adjusted_rand_score
+from sklearn.metrics import adjusted_rand_score, calinski_harabasz_score
 from tqdm import tqdm
 
 from dpu_kmeans import KMeans as DPU_KMeans
@@ -22,16 +21,18 @@ verbose = False
 tol = 1e-4
 random_state = 42
 
-n_dpu_set = [256, 512, 1024, 2048]
+n_dpu_set = [256, 512, 1024, 2048, 2524]
 
 DPU_times = []
-DPU_dpu_runtimes = []
+DPU_kernel_runtimes = []
 DPU_preprocessing_times = []
 DPU_init_times = []
 DPU_main_loop_timers = []
 DPU_iterations = []
 DPU_scores = []
 DPU_time_per_iter = []
+DPU_inter_pim_core_times = []
+DPU_cpu_pim_times = []
 
 CPU_times = []
 CPU_main_loop_timers = []
@@ -83,15 +84,15 @@ CPU_kmeans.fit(data)
 toc = time.perf_counter()
 
 # read timers
-CPU_centroids, CPU_iter_counter, CPU_main_loop_timer, CPU_preprocessing_timer = (
-    CPU_kmeans.cluster_centers_,
-    CPU_kmeans.n_iter_,
-    CPU_kmeans.main_loop_timer_,
-    CPU_kmeans.preprocessing_timer_,
-)
+CPU_centroids = CPU_kmeans.cluster_centers_
+CPU_iter_counter = CPU_kmeans.n_iter_
+CPU_main_loop_timer = CPU_kmeans.main_loop_timer_
+CPU_preprocessing_timer = CPU_kmeans.preprocessing_timer_
+
 CPU_timer = toc - tic
 
-for i_n_dpu, n_dpu in enumerate(tqdm(n_dpu_set, file=sys.stdout)):
+for i_n_dpu, n_dpu in enumerate(pbar := tqdm(n_dpu_set, file=sys.stdout)):
+    pbar.set_description(f"{n_dpu} dpus, raw data size : {size(sys.getsizeof(data))}")
 
     ##################################################
     #                   DPU PERF                     #
@@ -122,32 +123,30 @@ for i_n_dpu, n_dpu in enumerate(tqdm(n_dpu_set, file=sys.stdout)):
     toc = time.perf_counter()
 
     # read timers
-    (
-        DPU_centroids,
-        DPU_iter_counter,
-        DPU_dpu_runtime,
-        DPU_main_loop_timer,
-        DPU_preprocessing_timer,
-    ) = (
-        DPU_kmeans.cluster_centers_,
-        DPU_kmeans.n_iter_,
-        DPU_kmeans.dpu_run_time_,
-        DPU_kmeans.main_loop_timer_,
-        DPU_kmeans.preprocessing_timer_,
-    )
+    DPU_centroids = DPU_kmeans.cluster_centers_
+    DPU_iter_counter = DPU_kmeans.n_iter_
+    DPU_kernel_runtime = DPU_kmeans.dpu_run_time_
+    DPU_main_loop_timer = DPU_kmeans.main_loop_timer_
+    DPU_preprocessing_timer = DPU_kmeans.preprocessing_timer_
+    DPU_cpu_pim_timer = DPU_kmeans.cpu_pim_time_
+
     DPU_timer = toc - tic
+
+    pbar.set_description(f"{n_dpu} dpus, quantized size : {size(_dimm._data_size)}")
 
     ##################################################
     #                   LOGGING                      #
     ##################################################
 
     DPU_times.append(DPU_timer)
-    DPU_dpu_runtimes.append(DPU_dpu_runtime)
+    DPU_kernel_runtimes.append(DPU_kernel_runtime)
     DPU_preprocessing_times.append(DPU_preprocessing_timer)
     DPU_iterations.append(DPU_iter_counter)
     DPU_time_per_iter.append(DPU_main_loop_timer / DPU_iter_counter)
     DPU_init_times.append(DPU_init_time)
     DPU_main_loop_timers.append(DPU_main_loop_timer)
+    DPU_inter_pim_core_times.append(DPU_main_loop_timer - DPU_kernel_runtime)
+    DPU_cpu_pim_times.append(DPU_cpu_pim_timer)
 
     CPU_times.append(CPU_timer)
     CPU_iterations.append(CPU_iter_counter)
@@ -156,8 +155,8 @@ for i_n_dpu, n_dpu in enumerate(tqdm(n_dpu_set, file=sys.stdout)):
     CPU_preprocessing_times.append(CPU_preprocessing_timer)
 
     # rand index for CPU and DPU (measures the similarity of the clustering with the ground truth)
-    DPU_scores.append(adjusted_rand_score(tags, DPU_kmeans.labels_))
-    CPU_scores.append(adjusted_rand_score(tags, CPU_kmeans.labels_))
+    DPU_scores.append(calinski_harabasz_score(data, DPU_kmeans.labels_))
+    CPU_scores.append(calinski_harabasz_score(data, CPU_kmeans.labels_))
     cross_scores.append(adjusted_rand_score(DPU_kmeans.labels_, CPU_kmeans.labels_))
 
     # creating and exporting the dataframe at each iteration in case we crash early
@@ -166,8 +165,10 @@ for i_n_dpu, n_dpu in enumerate(tqdm(n_dpu_set, file=sys.stdout)):
             "DPU_times": DPU_times,
             "DPU_init_times": DPU_init_times,
             "DPU_preprocessing_times": DPU_preprocessing_times,
+            "DPU_cpu_pim_times": DPU_cpu_pim_times,
             "DPU_single_kmeans_times": DPU_main_loop_timers,
-            "DPU_dpu_runtimes": DPU_dpu_runtimes,
+            "DPU_kernel_runtimes": DPU_kernel_runtimes,
+            "DPU_inter_pim_core_times": DPU_inter_pim_core_times,
             "DPU_iterations": DPU_iterations,
             "DPU_times_one_iter": DPU_time_per_iter,
             "CPU_times": CPU_times,
@@ -182,6 +183,5 @@ for i_n_dpu, n_dpu in enumerate(tqdm(n_dpu_set, file=sys.stdout)):
         index=n_dpu_set[: i_n_dpu + 1],
     )
     df.index.rename("DPUs")
-    df.to_pickle("results.pkl")
-
-print(f"quantized data size on dpus : {size(_dimm._data_size)}")
+    df.to_pickle("higgs.pkl")
+    df.to_csv("higgs.csv")
