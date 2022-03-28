@@ -12,15 +12,12 @@ from hurry.filesize import size
 from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score, calinski_harabasz_score
 
-n_clusters = 16
+n_clusters = 2
 n_init = 10
 max_iter = 500
 verbose = False
 tol = 1e-4
 random_state = 42
-
-n_points = int(1e5) * 256
-n_dim = 16
 
 GPU_times = []
 GPU_transfer_times = []
@@ -80,7 +77,7 @@ gpu_data = np2cudf(data)
 toc = time.perf_counter()
 GPU_tranfer_timer = toc - tic
 
-# perform clustering on DPU
+# perform clustering on GPU
 tic = time.perf_counter()
 GPU_kmeans = cuKMeans(
     n_clusters=n_clusters,
@@ -139,7 +136,7 @@ GPU_iterations.append(GPU_iter_counter)
 CPU_times.append(CPU_timer)
 CPU_iterations.append(CPU_iter_counter)
 
-# rand index for CPU and DPU (measures the similarity of the clustering with the ground truth)
+# rand index for CPU and GPU (measures the similarity of the clustering with the ground truth)
 GPU_scores.append(calinski_harabasz_score(data, GPU_kmeans.labels_))
 CPU_scores.append(calinski_harabasz_score(data, CPU_kmeans.labels_))
 cross_scores.append(adjusted_rand_score(CPU_kmeans.labels_, GPU_kmeans.labels_))
