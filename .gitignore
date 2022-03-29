@@ -153,6 +153,7 @@ benchmarks/**/*.pkl
 benchmarks/**/*.csv
 benchmarks/**/*.prof
 benchmarks/**/data/
+benchmarks/**/*.json
 
 # ignoring local .clangd config file
 .clangd
