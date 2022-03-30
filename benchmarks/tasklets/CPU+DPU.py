@@ -183,6 +183,6 @@ for i_n_dpu, n_dpu in enumerate(pbar := tqdm(n_dpu_set, file=sys.stdout)):
         },
         index=[int(nr_tasklets)],
     )
-    df.index.rename("DPUs")
+    df.index.rename("tasklets", inplace=True)
     df.to_pickle(f"tasklets_{nr_tasklets}.pkl")
     df.to_csv(f"tasklets_{nr_tasklets}.csv")

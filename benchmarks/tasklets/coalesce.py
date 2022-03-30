@@ -4,7 +4,7 @@ import glob
 
 import pandas as pd
 
-all_files = glob.glob("*.pkl")
+all_files = glob.glob("tasklets_*.pkl")
 
 li = []
 
