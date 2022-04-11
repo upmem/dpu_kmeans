@@ -6,6 +6,8 @@
 
 import time
 import warnings
+from lib2to3.pgen2 import driver
+from os import scandir
 
 import numpy as np
 import scipy.sparse as sp
@@ -25,10 +27,9 @@ from . import _dimm
 
 
 def _lloyd_iter_dpu(
-    centers_old,
     centers_old_int,
-    centers_new,
     centers_new_int,
+    centers_sum_int,
     points_in_clusters,
 ):
     """Single iteration of K-means lloyd algorithm with dense input on DPU.
@@ -56,25 +57,25 @@ def _lloyd_iter_dpu(
         Distance between old and new centers.
     """
     dpu_iter = _dimm.ctr.lloyd_iter
-
-    centers_old_int[:] = _dimm.ld.transform(centers_old)
+    scale_factor = _dimm.ld.scale_factor
 
     dpu_iter(
         centers_old_int,
-        centers_new_int,
+        centers_sum_int,
         points_in_clusters,
     )
 
-    centers_new[:, :] = _dimm.ld.inverse_transform(centers_new_int)
-    np.divide(
-        centers_new,
+    np.floor_divide(
+        centers_sum_int,
         points_in_clusters[:, None],
-        out=centers_new,
+        out=centers_new_int,
         where=points_in_clusters[:, None] != 0,
     )
-    # centers_new /= points_in_clusters[:, None]
 
-    center_shift_tot = np.linalg.norm(centers_new - centers_old, ord="fro") ** 2
+    center_shift_tot = (
+        np.linalg.norm(centers_new_int - centers_old_int, ord="fro") ** 2
+        / scale_factor**2
+    )
     return center_shift_tot
 
 
@@ -92,8 +93,8 @@ def _kmeans_single_lloyd_dpu(
 
     Parameters
     ----------
-    X : {ndarray, sparse matrix} of shape (n_samples, n_features)
-        The observations to cluster. If sparse matrix, must be in CSR format.
+    X : {ndarray} of shape (n_samples, n_features)
+        The observations to cluster.
 
     sample_weight : ndarray of shape (n_samples,)
         The weights for each observation in X.
@@ -148,8 +149,8 @@ def _kmeans_single_lloyd_dpu(
     centers = centers_init
     centers_int = np.empty_like(centers, dtype=dtype)
     # centers_new = np.empty_like(centers, dtype=np.float32)
-    centers_new = np.empty_like(centers)
-    centers_new_int = np.empty_like(centers, dtype=np.int64)
+    centers_new_int = np.empty_like(centers, dtype=dtype)
+    centers_sum_int = np.empty_like(centers, dtype=np.int64)
     points_in_clusters = np.empty(n_clusters, dtype=np.int32)
 
     # points_in_clusters_per_dpu = np.empty((n_dpu, n_clusters_round), dtype=np.int32)
@@ -160,15 +161,17 @@ def _kmeans_single_lloyd_dpu(
     else:
         lloyd_iter = _lloyd_iter_dpu
 
+    # quantize the centroids
+    centers_int[:] = _dimm.ld.transform(centers)
+
     # Threadpoolctl context to limit the number of threads in second level of
     # nested parallelism (i.e. BLAS) to avoid oversubsciption.
     with threadpool_limits(limits=1, user_api="blas"):
         for i in range(max_iter):
             center_shift_tot = lloyd_iter(
-                centers,
                 centers_int,
-                centers_new,
                 centers_new_int,
+                centers_sum_int,
                 points_in_clusters,
             )
 
@@ -178,7 +181,7 @@ def _kmeans_single_lloyd_dpu(
             #     )
             #     print(f"Iteration {i}, inertia {inertia}.")
 
-            centers, centers_new = centers_new, centers
+            centers_int, centers_new_int = centers_new_int, centers_int
 
             # Check for tol based convergence.
             if center_shift_tot <= tol:
@@ -188,6 +191,9 @@ def _kmeans_single_lloyd_dpu(
                         f"{center_shift_tot} within tolerance {tol}."
                     )
                 break
+
+    # convert the centroids back to float
+    centers = _dimm.ld.inverse_transform(centers_int)
 
     labels, inertia = _labels_inertia_threadpool_limit(
         X, sample_weight, x_squared_norms, centers, n_threads
