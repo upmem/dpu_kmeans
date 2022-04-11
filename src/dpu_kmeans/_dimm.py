@@ -70,7 +70,9 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
 
         # Compute scale factor for quantization
         max_feature = np.max(np.abs(X))
-        self.scale_factor = np.iinfo(self.dtype).max / max_feature / 2
+        self.scale_factor = (
+            np.iinfo(self.dtype).max / max_feature / 2.1
+        )  # small safety margin to avoid overflow
 
         return self
 
@@ -90,12 +92,8 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
         check_is_fitted(self)
 
         Xt = np.empty_like(X, dtype=self.dtype)
-        return np.rint(
-            X * self.scale_factor,
-            order="C",
-            out=Xt,
-            casting="unsafe",
-        )
+        np.multiply(X, self.scale_factor, out=Xt, order="C", casting="unsafe")
+        return Xt
 
     def inverse_transform(self, Xt):
         """
