@@ -177,6 +177,15 @@ void lloydIter(
     }
   }
 
+  /* count empty clusters */
+  size_t empty_clusters = 0;
+  for (int cluster_id = 0; cluster_id < p->nclusters; cluster_id++)
+    if (new_centers_len[cluster_id] == 0) empty_clusters++;
+
+  /* if empty clusters, get points furthest from centers from the DPUs */
+  if (empty_clusters) {
+  }
+
   /* average the new centers */
   /* this has been moved to the python code */
   // for (int cluster_id = 0; cluster_id < p->nclusters; cluster_id++) {
