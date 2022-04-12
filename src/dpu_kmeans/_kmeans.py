@@ -72,6 +72,14 @@ def _lloyd_iter_dpu(
         where=points_in_clusters[:, None] != 0,
     )
 
+    if any(points_in_clusters == 0):
+        # If any cluster has no points, we need to set the center to the
+        # mean of the other clusters.
+        print("Warning: some clusters have no points, setting to mean")
+        centers_new_int[points_in_clusters == 0] = centers_new_int[
+            points_in_clusters != 0
+        ].mean(axis=0)
+
     center_shift_tot = (
         np.linalg.norm(centers_new_int - centers_old_int, ord="fro") ** 2
         / scale_factor**2
