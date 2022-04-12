@@ -24,7 +24,7 @@ random_state_set = list(range(42))
 n_points_per_dpu = int(1e5)
 n_dim = 16
 
-n_dpu = 64
+n_dpu = 1
 
 DPU_times = []
 DPU_kernel_runtimes = []
@@ -51,12 +51,12 @@ cross_scores = []
 for i_random_state, random_state in enumerate(
     pbar := tqdm(random_state_set, file=sys.stdout)
 ):
-    pbar.set_description(f"{n_dim} dims, raw data size : ___")
+    pbar.set_description(f"roll : {random_state}, raw data size : ___")
 
     ##################################################
     #                   DATA GEN                     #
     ##################################################
-    n_points = n_points_per_dpu
+    n_points = n_points_per_dpu * n_dpu
 
     data, tags, centers = make_blobs(
         n_points,
@@ -66,7 +66,9 @@ for i_random_state, random_state in enumerate(
         return_centers=True,
     )
 
-    pbar.set_description(f"{n_dim} dims, raw data size : {size(sys.getsizeof(data))}")
+    pbar.set_description(
+        f"roll : {random_state}, raw data size : {size(sys.getsizeof(data))}"
+    )
 
     ##################################################
     #                   CPU PERF                     #
@@ -99,7 +101,7 @@ for i_random_state, random_state in enumerate(
     #                   DPU PERF                     #
     ##################################################
 
-    pbar.set_description(f"{n_dpu} dpus, quantized size : ___")
+    pbar.set_description(f"roll : {random_state}, quantized size : ___")
 
     # load the DPUS
     _dimm.free_dpus()
@@ -135,7 +137,9 @@ for i_random_state, random_state in enumerate(
 
     DPU_timer = toc - tic
 
-    pbar.set_description(f"{n_dpu} dpus, quantized size : {size(_dimm._data_size)}")
+    pbar.set_description(
+        f"roll : {random_state}, quantized size : {size(_dimm._data_size)}"
+    )
 
     ##################################################
     #                   LOGGING                      #
@@ -186,5 +190,5 @@ for i_random_state, random_state in enumerate(
         index=random_state_set[: i_random_state + 1],
     )
     df.index.rename("random_state", inplace=True)
-    df.to_pickle("precision.pkl")
-    df.to_csv("precision.csv")
+    df.to_pickle(f"precision_{n_dpu}.pkl")
+    df.to_csv(f"precision_{n_dpu}.csv")
