@@ -72,7 +72,7 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
         max_feature = np.max(np.abs(X))
         self.scale_factor = (
             np.iinfo(self.dtype).max / max_feature / 2.1
-        )  # small safety margin to avoid overflow
+        )  # small safety margin to avoid rounding overflow
 
         return self
 
@@ -114,7 +114,8 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
         """
         check_is_fitted(self)
 
-        return Xt / self.scale_factor
+        # adding 0.5 to compensate for rounding previously
+        return (Xt + 0.5) / self.scale_factor
 
 
 ld = LinearDiscretizer()  # linear discretization transformer
