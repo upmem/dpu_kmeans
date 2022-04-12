@@ -12,13 +12,16 @@ from os import scandir
 import numpy as np
 import scipy.sparse as sp
 from sklearn.cluster import KMeans as KMeansCPU
+from sklearn.cluster._k_means_common import _relocate_empty_clusters_dense
 from sklearn.cluster._kmeans import (
     _is_same_clustering,
     _labels_inertia_threadpool_limit,
     _openmp_effective_n_threads,
+    lloyd_iter_chunked_dense,
 )
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.utils import check_array, check_random_state
+from sklearn.utils._readonly_array_wrapper import ReadonlyArrayWrapper
 from sklearn.utils.extmath import row_norms
 from sklearn.utils.fixes import threadpool_limits
 from sklearn.utils.validation import _check_sample_weight
@@ -31,6 +34,10 @@ def _lloyd_iter_dpu(
     centers_new_int,
     centers_sum_int,
     points_in_clusters,
+    X,
+    sample_weight,
+    x_squared_norms,
+    n_threads,
 ):
     """Single iteration of K-means lloyd algorithm with dense input on DPU.
 
@@ -65,20 +72,51 @@ def _lloyd_iter_dpu(
         points_in_clusters,
     )
 
+    if any(points_in_clusters == 0):
+        # If any cluster has no points, we need to set the centers to the
+        # furthest points in the cluster from the previous iteration.
+        print("Warning: some clusters have no points, relocating empty clusters")
+
+        centers_old = _dimm.ld.inverse_transform(centers_old_int)
+        centers_sum_new = _dimm.ld.inverse_transform(centers_sum_int)
+
+        n_samples = X.shape[0]
+        n_clusters = centers_old_int.shape[0]
+
+        labels = np.full(n_samples, -1, dtype=np.int32)
+        weight_in_clusters = np.zeros(n_clusters)
+        center_shift = np.zeros_like(weight_in_clusters)
+
+        _labels = lloyd_iter_chunked_dense
+        X = ReadonlyArrayWrapper(X)
+
+        _labels(
+            X,
+            sample_weight,
+            x_squared_norms,
+            centers_old,
+            centers_old,
+            weight_in_clusters,
+            labels,
+            center_shift,
+            n_threads,
+            update_centers=False,
+        )
+
+        weight_in_clusters = points_in_clusters.astype(float)
+        _relocate_empty_clusters_dense(
+            X, sample_weight, centers_old, centers_sum_new, weight_in_clusters, labels
+        )
+        points_in_clusters[:] = weight_in_clusters
+
+        centers_sum_int[:] = centers_sum_new * scale_factor
+
     np.floor_divide(
         centers_sum_int,
         points_in_clusters[:, None],
         out=centers_new_int,
         where=points_in_clusters[:, None] != 0,
     )
-
-    if any(points_in_clusters == 0):
-        # If any cluster has no points, we need to set the center to the
-        # mean of the other clusters.
-        print("Warning: some clusters have no points, setting to mean")
-        centers_new_int[points_in_clusters == 0] = centers_new_int[
-            points_in_clusters != 0
-        ].mean(axis=0)
 
     center_shift_tot = (
         np.linalg.norm(centers_new_int - centers_old_int, ord="fro") ** 2
@@ -181,6 +219,10 @@ def _kmeans_single_lloyd_dpu(
                 centers_new_int,
                 centers_sum_int,
                 points_in_clusters,
+                X,
+                sample_weight,
+                x_squared_norms,
+                n_threads,
             )
 
             # if verbose:
