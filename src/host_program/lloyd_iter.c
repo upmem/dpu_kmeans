@@ -184,6 +184,98 @@ void lloydIter(
 
   /* if empty clusters, get points furthest from centers from the DPUs */
   if (empty_clusters) {
+    /* get empty clusters indices */
+    uint8_t *empty_clusters_idx =
+        (uint8_t *)malloc(empty_clusters * sizeof(uint8_t));
+    size_t i_empty_clusters = 0;
+    for (int cluster_id = 0; cluster_id < p->nclusters; cluster_id++)
+      if (new_centers_len[cluster_id] == 0)
+        empty_clusters_idx[empty_clusters++] = cluster_id;
+
+    /* allocate array to read distant point coordinates from the DPUs. */
+    int_feature *far_from_centers_per_dpu = (int_feature *)malloc(
+        empty_clusters * p->ndpu * p->nfeatures * sizeof(int_feature));
+
+    /* allocate array to read cluster assignments from the DPUs for distant
+     * points. */
+    uint8_t *clusters_of_far_from_centers_per_dpu =
+        (uint8_t *)malloc(empty_clusters * p->ndpu * sizeof(uint8_t));
+
+    /* copy back distant points coordinates from the DPUs */
+    DPU_FOREACH(p->allset, dpu, each_dpu) {
+      DPU_ASSERT(dpu_prepare_xfer(
+          dpu,
+          &far_from_centers_per_dpu[each_dpu * empty_clusters * p->nfeatures]));
+    }
+    DPU_ASSERT(dpu_push_xfer(
+        p->allset, DPU_XFER_FROM_DPU, "far_from_centers_mram", 0,
+        empty_clusters * p->nfeatures * sizeof(*far_from_centers_per_dpu),
+        DPU_XFER_DEFAULT));
+
+    /* copy back cluster assignments from the DPUs for distant points */
+    DPU_FOREACH(p->allset, dpu, each_dpu) {
+      DPU_ASSERT(dpu_prepare_xfer(
+          dpu,
+          &clusters_of_far_from_centers_per_dpu[each_dpu * empty_clusters]));
+    }
+    DPU_ASSERT(dpu_push_xfer(
+        p->allset, DPU_XFER_FROM_DPU, "clusters_of_far_from_centers_mram", 0,
+        empty_clusters * sizeof(*clusters_of_far_from_centers_per_dpu),
+        DPU_XFER_DEFAULT));
+
+    /* allocate array for current distant points count per dpu */
+    size_t *points_already_taken_on_dpu =
+        (size_t *)calloc(p->ndpu, sizeof(size_t));
+
+    /* relocate centers which have no samples assigned */
+    for (size_t i_empty_cluster = 0; i_empty_cluster < empty_clusters;
+         i_empty_cluster++) {
+      int cluster_id = empty_clusters_idx[i_empty_cluster];
+      int furthest_point_id, furthest_point_dpu_id, old_cluster_id;
+
+      /* get the most distant point, only look at top point of each DPU */
+      int64_t max_distance = 0;
+      for (int dpu_id = 0; dpu_id < p->ndpu; dpu_id++) {
+        int64_t distance = 0;
+        uint8_t cluster_id_of_top_point = clusters_of_far_from_centers_per_dpu
+            [dpu_id * empty_clusters + points_already_taken_on_dpu[dpu_id]];
+        int id_of_top_point =
+            dpu_id * empty_clusters * p->nfeatures +
+            points_already_taken_on_dpu[dpu_id] * p->nfeatures;
+
+        for (int feature_id = 0; feature_id < p->nfeatures; feature_id++) {
+          int64_t diff =
+              far_from_centers_per_dpu[id_of_top_point + feature_id] -
+              old_centers[cluster_id_of_top_point + feature_id];
+          distance += diff * diff;
+        }
+        if (distance > max_distance) {
+          max_distance = distance;
+          furthest_point_id = id_of_top_point;
+          furthest_point_dpu_id = dpu_id;
+          old_cluster_id = cluster_id_of_top_point;
+        }
+      }
+
+      /* update points taken */
+      points_already_taken_on_dpu[furthest_point_dpu_id]++;
+
+      /* relocate the center */
+      for (int feature_id = 0; feature_id < p->nfeatures; feature_id++) {
+        new_centers[cluster_id * p->nfeatures + feature_id] =
+            far_from_centers_per_dpu[furthest_point_id + feature_id];
+        new_centers[old_cluster_id * p->nfeatures + feature_id] -=
+            far_from_centers_per_dpu[furthest_point_id + feature_id];
+      }
+
+      new_centers_len[cluster_id] = 1;
+      new_centers_len[old_cluster_id]--;
+    }
+
+    free(far_from_centers_per_dpu);
+    free(clusters_of_far_from_centers_per_dpu);
+    free(empty_clusters_idx);
+    free(points_already_taken_on_dpu);
   }
 
   /* average the new centers */
