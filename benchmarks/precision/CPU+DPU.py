@@ -85,6 +85,7 @@ for i_random_state, random_state in enumerate(
         verbose=verbose,
         copy_x=False,
         random_state=random_state,
+        algorithm="full",
     )
     CPU_kmeans.fit(data)
     toc = time.perf_counter()

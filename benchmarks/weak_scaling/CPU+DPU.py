@@ -119,6 +119,7 @@ for i_n_dpu, n_dpu in enumerate(pbar := tqdm(n_dpu_set, file=sys.stdout)):
         verbose=verbose,
         copy_x=False,
         random_state=random_state,
+        algorithm="full",
     )
     CPU_kmeans.fit(data)
     toc = time.perf_counter()

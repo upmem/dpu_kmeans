@@ -79,6 +79,7 @@ CPU_kmeans = KMeans(
     verbose=verbose,
     copy_x=False,
     random_state=random_state,
+    algorithm="full",
 )
 CPU_kmeans.fit(data)
 toc = time.perf_counter()
