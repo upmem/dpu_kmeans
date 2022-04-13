@@ -1,4 +1,4 @@
-for n_tasklets in $(seq 17 23)
+for n_tasklets in $(seq 1 32)
 do
     cd ../../
     sed -i "s/DNR_TASKLETS=[0-9]\+/DNR_TASKLETS=$n_tasklets/g" setup.py
