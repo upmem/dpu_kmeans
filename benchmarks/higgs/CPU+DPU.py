@@ -21,7 +21,7 @@ verbose = False
 tol = 1e-4
 random_state = 42
 
-n_dpu_set = [256, 512, 1024, 2048, 2524]
+n_dpu_set = [256, 512, 1024, 2048, 2523]
 
 DPU_times = []
 DPU_kernel_runtimes = []

@@ -24,7 +24,7 @@ random_state = 42
 n_points = int(1e5) * 256
 n_dim = 16
 
-n_dpu_set = [256, 512, 1024, 2048, 2524]
+n_dpu_set = [256, 512, 1024, 2048, 2523]
 
 DPU_times = []
 DPU_kernel_runtimes = []

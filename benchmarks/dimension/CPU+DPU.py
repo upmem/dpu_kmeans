@@ -24,7 +24,7 @@ random_state = 43
 n_features = int(1e5) * 256 * 16  # same as strong scaling
 n_dim_set = [32, 16, 8, 4, 2]
 
-n_dpu = 2524
+n_dpu = 2523
 
 DPU_times = []
 DPU_kernel_runtimes = []
