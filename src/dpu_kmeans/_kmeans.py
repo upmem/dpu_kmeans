@@ -75,7 +75,7 @@ def _lloyd_iter_dpu(
     if any(points_in_clusters == 0):
         # If any cluster has no points, we need to set the centers to the
         # furthest points in the cluster from the previous iteration.
-        print("Warning: some clusters have no points, relocating empty clusters")
+        # print("Warning: some clusters have no points, relocating empty clusters")
 
         centers_old = _dimm.ld.inverse_transform(centers_old_int)
         centers_sum_new = _dimm.ld.inverse_transform(centers_sum_int)
@@ -243,7 +243,7 @@ def _kmeans_single_lloyd_dpu(
                 break
 
     # convert the centroids back to float
-    centers = _dimm.ld.inverse_transform(centers_int)
+    centers[:] = _dimm.ld.inverse_transform(centers_int)
 
     labels, inertia = _labels_inertia_threadpool_limit(
         X, sample_weight, x_squared_norms, centers, n_threads
