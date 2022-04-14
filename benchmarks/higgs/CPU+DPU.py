@@ -33,6 +33,10 @@ DPU_scores = []
 DPU_time_per_iter = []
 DPU_inter_pim_core_times = []
 DPU_cpu_pim_times = []
+DPU_pim_cpu_times = []
+DPU_inertia_times = []
+DPU_reallocate_times = []
+DPU_train_times = []
 
 CPU_times = []
 CPU_main_loop_timers = []
@@ -41,6 +45,7 @@ CPU_scores = []
 CPU_time_per_iter = []
 CPU_preprocessing_times = []
 CPU_main_loop_timers = []
+CPU_train_times = []
 
 cross_scores = []
 
@@ -89,6 +94,7 @@ CPU_centroids = CPU_kmeans.cluster_centers_
 CPU_iter_counter = CPU_kmeans.n_iter_
 CPU_main_loop_timer = CPU_kmeans.main_loop_timer_
 CPU_preprocessing_timer = CPU_kmeans.preprocessing_timer_
+CPU_train_timer = CPU_kmeans.train_time_
 
 CPU_timer = toc - tic
 
@@ -130,6 +136,10 @@ for i_n_dpu, n_dpu in enumerate(pbar := tqdm(n_dpu_set, file=sys.stdout)):
     DPU_main_loop_timer = DPU_kmeans.main_loop_timer_
     DPU_preprocessing_timer = DPU_kmeans.preprocessing_timer_
     DPU_cpu_pim_timer = DPU_kmeans.cpu_pim_time_
+    DPU_pim_cpu_timer = DPU_kmeans.pim_cpu_time_
+    DPU_inertia_timer = DPU_kmeans.inertia_timer_
+    DPU_reallocate_timer = DPU_kmeans.reallocate_timer_
+    DPU_train_timer = DPU_kmeans.train_time_
 
     DPU_timer = toc - tic
 
@@ -148,12 +158,17 @@ for i_n_dpu, n_dpu in enumerate(pbar := tqdm(n_dpu_set, file=sys.stdout)):
     DPU_main_loop_timers.append(DPU_main_loop_timer)
     DPU_inter_pim_core_times.append(DPU_main_loop_timer - DPU_kernel_runtime)
     DPU_cpu_pim_times.append(DPU_cpu_pim_timer)
+    DPU_pim_cpu_times.append(DPU_pim_cpu_timer)
+    DPU_inertia_times.append(DPU_inertia_timer)
+    DPU_reallocate_times.append(DPU_reallocate_timer)
+    DPU_train_times.append(DPU_train_timer)
 
     CPU_times.append(CPU_timer)
     CPU_iterations.append(CPU_iter_counter)
     CPU_time_per_iter.append(CPU_main_loop_timer / CPU_iter_counter)
     CPU_main_loop_timers.append(CPU_main_loop_timer)
     CPU_preprocessing_times.append(CPU_preprocessing_timer)
+    CPU_train_times.append(CPU_train_timer)
 
     # rand index for CPU and DPU (measures the similarity of the clustering with the ground truth)
     DPU_scores.append(calinski_harabasz_score(data, DPU_kmeans.labels_))
@@ -164,15 +179,20 @@ for i_n_dpu, n_dpu in enumerate(pbar := tqdm(n_dpu_set, file=sys.stdout)):
     df = pd.DataFrame(
         {
             "DPU_times": DPU_times,
+            "DPU_train_times": DPU_train_times,
             "DPU_init_times": DPU_init_times,
             "DPU_preprocessing_times": DPU_preprocessing_times,
             "DPU_cpu_pim_times": DPU_cpu_pim_times,
+            "DPU_pim_cpu_times": DPU_pim_cpu_times,
+            "DPU_inertia_times": DPU_inertia_times,
+            "DPU_reallocate_times": DPU_reallocate_times,
             "DPU_single_kmeans_times": DPU_main_loop_timers,
             "DPU_kernel_runtimes": DPU_kernel_runtimes,
             "DPU_inter_pim_core_times": DPU_inter_pim_core_times,
             "DPU_iterations": DPU_iterations,
             "DPU_times_one_iter": DPU_time_per_iter,
             "CPU_times": CPU_times,
+            "CPU_train_times": CPU_train_times,
             "CPU_preprocessing_times": CPU_preprocessing_times,
             "CPU_single_kmeans_times": CPU_main_loop_timers,
             "CPU_iterations": CPU_iterations,
