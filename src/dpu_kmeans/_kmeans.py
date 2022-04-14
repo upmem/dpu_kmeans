@@ -72,10 +72,12 @@ def _lloyd_iter_dpu(
         points_in_clusters,
     )
 
+    reallocate_timer = 0
     if any(points_in_clusters == 0):
         # If any cluster has no points, we need to set the centers to the
         # furthest points in the cluster from the previous iteration.
         # print("Warning: some clusters have no points, relocating empty clusters")
+        tic = time.perf_counter()
 
         centers_old = _dimm.ld.inverse_transform(centers_old_int)
         centers_sum_new = _dimm.ld.inverse_transform(centers_sum_int)
@@ -111,6 +113,9 @@ def _lloyd_iter_dpu(
 
         centers_sum_int[:] = centers_sum_new * scale_factor
 
+        toc = time.perf_counter()
+        reallocate_timer = toc - tic
+
     np.floor_divide(
         centers_sum_int,
         points_in_clusters[:, None],
@@ -122,7 +127,7 @@ def _lloyd_iter_dpu(
         np.linalg.norm(centers_new_int - centers_old_int, ord="fro") ** 2
         / scale_factor**2
     )
-    return center_shift_tot
+    return center_shift_tot, reallocate_timer
 
 
 def _kmeans_single_lloyd_dpu(
@@ -185,6 +190,8 @@ def _kmeans_single_lloyd_dpu(
     n_iter : int
         Number of iterations run.
     """
+    compute_inertia = _dimm.ctr.compute_inertia
+    scale_factor = _dimm.ld.scale_factor
     n_clusters = centers_init.shape[0]
     dtype = _dimm.ld.dtype
 
@@ -214,7 +221,7 @@ def _kmeans_single_lloyd_dpu(
     # nested parallelism (i.e. BLAS) to avoid oversubsciption.
     with threadpool_limits(limits=1, user_api="blas"):
         for i in range(max_iter):
-            center_shift_tot = lloyd_iter(
+            center_shift_tot, reallocate_timer = lloyd_iter(
                 centers_int,
                 centers_new_int,
                 centers_sum_int,
@@ -245,12 +252,20 @@ def _kmeans_single_lloyd_dpu(
     # convert the centroids back to float
     centers[:] = _dimm.ld.inverse_transform(centers_int)
 
-    labels, inertia = _labels_inertia_threadpool_limit(
-        X, sample_weight, x_squared_norms, centers, n_threads
-    )
+    # host side E step of the algorithm
+    # tic = time.perf_counter()
+    # labels, inertia = _labels_inertia_threadpool_limit(
+    #     X, sample_weight, x_squared_norms, centers, n_threads
+    # )
+    # toc = time.perf_counter()
+
+    tic = time.perf_counter()
+    inertia = compute_inertia(centers_int) / scale_factor**2
+    toc = time.perf_counter()
+    inertia_timer = toc - tic
 
     _dimm.ctr.deallocate_host_memory()
-    return labels, inertia, centers, i + 1
+    return inertia, centers, i + 1, inertia_timer, reallocate_timer
 
 
 class KMeans(KMeansCPU):
@@ -390,6 +405,8 @@ class KMeans(KMeansCPU):
 
             if hasattr(init, "__array__"):
                 init -= X_mean
+        else:
+            raise NotImplementedError("Sparse initialization is not supported.")
 
         # precompute squared norms of data points
         x_squared_norms = row_norms(X, squared=True)
@@ -414,6 +431,7 @@ class KMeans(KMeansCPU):
         toc = time.perf_counter()
         self.preprocessing_timer_ = toc - tic
 
+        train_time = 0
         for _ in range(self._n_init):
             # Initialize centers
             centers_init = self._init_centroids(
@@ -427,7 +445,7 @@ class KMeans(KMeansCPU):
 
             # run a k-means once
             tic = time.perf_counter()
-            labels, inertia, centers, n_iter_ = kmeans_single(
+            inertia, centers, n_iter_, inertia_timer, reallocate_timer = kmeans_single(
                 X,
                 sample_weight,
                 centers_init,
@@ -440,6 +458,8 @@ class KMeans(KMeansCPU):
             toc = time.perf_counter()
             main_loop_timer = toc - tic
             dpu_run_time = _dimm.get_dpu_run_time()
+            pim_cpu_time = _dimm.get_pim_cpu_time()
+            train_time += main_loop_timer
 
             # determine if these results are the best so far
             # we chose a new run if it has a better inertia and the clustering is
@@ -447,15 +467,21 @@ class KMeans(KMeansCPU):
             # slightly better even if the clustering is the same with potentially
             # permuted labels, due to rounding errors)
             if best_inertia is None or (
-                inertia < best_inertia
-                and not _is_same_clustering(labels, best_labels, self.n_clusters)
+                inertia < best_inertia and not np.array_equal(centers, best_centers)
             ):
-                best_labels = labels
                 best_centers = centers
                 best_inertia = inertia
                 best_n_iter = n_iter_
                 best_main_loop_timer = main_loop_timer
                 best_dpu_run_time = dpu_run_time
+                best_inertia_timer = inertia_timer
+                best_reallocate_timer = reallocate_timer
+                best_pim_cpu_time = pim_cpu_time
+
+        # compute final labels CPU side
+        best_labels = _labels_inertia_threadpool_limit(
+            X, sample_weight, x_squared_norms, best_centers, self._n_threads
+        )[0]
 
         if not sp.issparse(X):
             if not self.copy_x:
@@ -478,6 +504,10 @@ class KMeans(KMeansCPU):
         self.n_iter_ = best_n_iter
         self.dpu_run_time_ = best_dpu_run_time
         self.main_loop_timer_ = best_main_loop_timer
+        self.inertia_timer_ = best_inertia_timer
+        self.reallocate_timer_ = best_reallocate_timer
+        self.pim_cpu_time_ = best_pim_cpu_time
+        self.train_time_ = train_time
         return self
 
     # def _kmeans(self):

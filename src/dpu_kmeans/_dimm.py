@@ -203,6 +203,11 @@ def get_cpu_pim_time():
     return ctr.get_cpu_pim_time()
 
 
+def get_pim_cpu_time():
+    """Returns the time to get the inertia from the DPU memory."""
+    return ctr.get_pim_cpu_time()
+
+
 def free_dpus(verbose: int = False):
     """Frees all allocated DPUs."""
     global _allocated

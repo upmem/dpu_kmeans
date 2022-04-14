@@ -37,8 +37,10 @@ class Container {
                                     the DPUs. */
   int *points_in_clusters_per_dpu; /**< Iteration buffer to read cluster counts
                                       from the DPUs. */
-  bool host_memory_allocated;      /**< Whether the iteration buffers have been
-                                      allocated. */
+  uint64_t
+      *inertia_per_dpu; /**< Iteration buffer to read inertia from the DPUs. */
+  bool host_memory_allocated; /**< Whether the iteration buffers have been
+                                 allocated. */
 
  public:
   /**
@@ -50,7 +52,8 @@ class Container {
         features_int(nullptr),
         partial_sums_per_dpu(nullptr),
         points_in_clusters_per_dpu(nullptr),
-        host_memory_allocated(false) {}
+        host_memory_allocated(false),
+        inertia_per_dpu(nullptr) {}
 
   /**
    * @brief Allocates all DPUs.
@@ -65,6 +68,7 @@ class Container {
 
   double get_dpu_run_time() { return p.time_seconds; }
   double get_cpu_pim_time() { return p.cpu_pim_time; }
+  double get_pim_cpu_time() { return p.pim_cpu_time; }
 
   /**
    * @brief Loads binary into the DPUs
@@ -126,6 +130,9 @@ class Container {
     points_in_clusters_per_dpu = (int *)malloc(
         p.ndpu * nclusters_aligned * sizeof(*points_in_clusters_per_dpu));
 
+    /* allocate array to read inertia from the DPUs */
+    inertia_per_dpu = (uint64_t *)malloc(p.ndpu * sizeof(*inertia_per_dpu));
+
     host_memory_allocated = true;
   }
 
@@ -136,6 +143,7 @@ class Container {
   void deallocateHostMemory() {
     free(partial_sums_per_dpu);
     free(points_in_clusters_per_dpu);
+    free(inertia_per_dpu);
 
     host_memory_allocated = false;
   }
@@ -189,6 +197,22 @@ class Container {
     lloydIter(&p, old_centers, new_centers, new_centers_len,
               points_in_clusters_per_dpu, partial_sums_per_dpu);
   }
+
+  /**
+   * @brief Runs one E step of the K-Means algorithm and gets inertia.
+   *
+   * @param centers_old_int [in] Discretized coordinates of the current
+   * centroids.
+   * @return uint64_t The inertia.
+   */
+  uint64_t compute_inertia(py::array_t<int_feature> centers_old_int) {
+    int_feature *old_centers = (int_feature *)centers_old_int.request().ptr;
+    uint64_t inertia;
+
+    inertia = lloydIterWithInertia(&p, old_centers, inertia_per_dpu);
+
+    return inertia;
+  }
 };
 
 PYBIND11_MODULE(_core, m) {
@@ -220,11 +244,13 @@ PYBIND11_MODULE(_core, m) {
       .def("free_data", &Container::free_data)
       .def("free_dpus", &Container::free_dpus)
       .def("lloyd_iter", &Container::lloyd_iter)
+      .def("compute_inertia", &Container::compute_inertia)
       .def("allocate_host_memory", &Container::allocateHostMemory)
       .def("deallocate_host_memory", &Container::deallocateHostMemory)
       .def("reset_timer", &Container::reset_timer)
       .def("get_dpu_run_time", &Container::get_dpu_run_time)
-      .def("get_cpu_pim_time", &Container::get_cpu_pim_time);
+      .def("get_cpu_pim_time", &Container::get_cpu_pim_time)
+      .def("get_pim_cpu_time", &Container::get_pim_cpu_time);
 
   m.def("add", &add, R"pbdoc(
         Add two numbers

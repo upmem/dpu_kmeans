@@ -104,6 +104,7 @@ typedef struct Params {
   dpu_set allset;        /**< Struct of the allocated dpu set */
   double time_seconds;   /**< Perf counter */
   double cpu_pim_time;   /**< Time to populate the DPUs */
+  double pim_cpu_time;   /**< Time to transfer inertia from the CPU */
 } Params;
 
 /* Function declarations */
@@ -125,6 +126,8 @@ void broadcastParameters(Params *p);
 void lloydIter(Params *p, int_feature *old_centers, int64_t *new_centers,
                int *new_centers_len, int *centers_pcount,
                int64_t *centers_psum);
+uint64_t lloydIterWithInertia(Params *p, int_feature *old_centers,
+                              uint64_t *inertia_psum);
 /**@}*/
 #endif  // ifndef _KMEANS_DPU_KERNEL_H_
 

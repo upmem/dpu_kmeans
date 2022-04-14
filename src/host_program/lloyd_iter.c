@@ -195,3 +195,59 @@ void lloydIter(
   //   }
   // }
 }
+
+/**
+ * @brief Performs one E step of the Lloyd algorithm on DPUs and gets the
+ * inertia only.
+ */
+uint64_t lloydIterWithInertia(
+    Params *p, /**< Algorithm parameters. */
+    int_feature
+        *old_centers, /**< [in] Discretized current centroids coordinates. */
+    uint64_t *inertia_psum /**< Buffer to read inertia per DPU. */
+) {
+  struct dpu_set_t dpu;    /* Iteration variable for the DPUs. */
+  uint32_t each_dpu;       /* Iteration variable for the DPUs. */
+  struct timeval toc, tic; /* Perf counters */
+
+  int compute_inertia = 1;
+
+  DPU_ASSERT(dpu_broadcast_to(p->allset, "c_clusters", 0, old_centers,
+                              p->nclusters * p->nfeatures * sizeof(int_feature),
+                              DPU_XFER_DEFAULT));
+
+  DPU_ASSERT(dpu_broadcast_to(p->allset, "compute_inertia", 0, &compute_inertia,
+                              sizeof(int), DPU_XFER_DEFAULT));
+
+  gettimeofday(&tic, NULL);
+  //============RUNNING ONE LLOYD ITERATION ON THE DPU==============
+  DPU_ASSERT(dpu_launch(p->allset, DPU_SYNCHRONOUS));
+  //================================================================
+  gettimeofday(&toc, NULL);
+  p->time_seconds += time_seconds(tic, toc);
+
+  gettimeofday(&tic, NULL);
+  /* copy back inertia (device to host) */
+  DPU_FOREACH(p->allset, dpu, each_dpu) {
+    DPU_ASSERT(dpu_prepare_xfer(dpu, &(inertia_psum[each_dpu])));
+  }
+  DPU_ASSERT(dpu_push_xfer(p->allset, DPU_XFER_FROM_DPU, "inertia", 0,
+                           sizeof(*inertia_psum), DPU_XFER_DEFAULT));
+
+  /* sum partial inertia */
+  uint64_t inertia = 0;
+  for (int dpu_id = 0; dpu_id < p->ndpu; dpu_id++) {
+    inertia += inertia_psum[dpu_id];
+  }
+
+  compute_inertia = 0;
+
+  DPU_ASSERT(dpu_broadcast_to(p->allset, "compute_inertia", 0, &compute_inertia,
+                              sizeof(int), DPU_XFER_DEFAULT));
+
+  gettimeofday(&toc, NULL);
+
+  p->pim_cpu_time = time_seconds(tic, toc);
+
+  return inertia;
+}

@@ -46,7 +46,17 @@ __host unsigned int npoints;
 __host unsigned int task_size_in_points_host;
 __host unsigned int task_size_in_bytes_host;
 __host unsigned int task_size_in_features_host;
+__host unsigned int compute_inertia = 0;
 // __host unsigned int membership_size_in_bytes;
+/**@}*/
+
+/*------------------ OUTPUT -----------------------------*/
+/**
+ * @name Variable outputs
+ * Variables for host output communication
+ */
+/**@{*/
+__host uint64_t inertia;
 /**@}*/
 
 /*================== TABLES =============================*/
@@ -61,6 +71,14 @@ __host unsigned int task_size_in_features_host;
 uint16_t cluster_base_indices[ASSUMED_NR_CLUSTERS];
 /** lookup table to quickly find the base index of a point */
 uint16_t point_base_indices[WRAM_FEATURES_SIZE / sizeof(int_feature)];
+/**@}*/
+
+/** @name Tasklets
+ * Tasklet tables
+ */
+/**@{*/
+/** table to hold the inertia computed by each tasklet */
+__dma_aligned uint64_t inertia_tasklets[NR_TASKLETS];
 /**@}*/
 
 /*------------------ INPUT ------------------------------*/
@@ -190,8 +208,14 @@ void initialize(uint8_t tasklet_id) {
     // c_clusters, ncluster_features * sizeof(int32_t));
 
     // reinitializing center counters and sums
-    memset(centers_count, 0, sizeof(*centers_count) * nclusters);
-    memset(centers_sum, 0, sizeof(*centers_sum) * ncluster_features);
+    if (!compute_inertia) {
+      memset(centers_count, 0, sizeof(*centers_count) * nclusters);
+      memset(centers_sum, 0, sizeof(*centers_sum) * ncluster_features);
+    }
+
+    // reinitializing inertia table
+    else
+      memset(inertia_tasklets, 0, sizeof(*inertia_tasklets) * NR_TASKLETS);
   }
 
   barrier_wait(&sync_barrier);
@@ -315,18 +339,24 @@ void final_reduce(uint8_t tasklet_id) {
 
   barrier_wait(&sync_barrier);
 
-  // TODO: this can probably go, just transfer from WRAM
-  // writing the partial sums and counts to MRAM
   if (tasklet_id == 0) {
-    uint16_t mram_transfer_size = nclusters * sizeof(*centers_count);
-    // rounding up to multiple of 8
-    mram_transfer_size = (mram_transfer_size + 7) & -8;
-    mram_write(centers_count, centers_count_mram, mram_transfer_size);
+    if (!compute_inertia) {
+      // TODO: this can probably go, just transfer from WRAM
+      // writing the partial sums and counts to MRAM
+      uint16_t mram_transfer_size = nclusters * sizeof(*centers_count);
+      // rounding up to multiple of 8
+      mram_transfer_size = (mram_transfer_size + 7) & -8;
+      mram_write(centers_count, centers_count_mram, mram_transfer_size);
 
-    mram_transfer_size = ncluster_features * sizeof(*centers_sum);
-    // rounding up to multiple of 8
-    mram_transfer_size = (mram_transfer_size + 7) & -8;
-    mram_write(centers_sum, centers_sum_mram, mram_transfer_size);
+      mram_transfer_size = ncluster_features * sizeof(*centers_sum);
+      // rounding up to multiple of 8
+      mram_transfer_size = (mram_transfer_size + 7) & -8;
+      mram_write(centers_sum, centers_sum_mram, mram_transfer_size);
+    } else
+      // summing inertia
+      inertia = 0;
+    for (int i_tasklet = 0; i_tasklet < NR_TASKLETS; i_tasklet++)
+      inertia += inertia_tasklets[i_tasklet];
   }
 }
 
@@ -436,8 +466,11 @@ int main() {
 #endif
 
 #ifndef PERF_COUNTER
-      task_reduce(tasklet_id, index, current_itask_in_points + ipoint,
-                  point_base_index, w_features);
+      if (!compute_inertia)
+        task_reduce(tasklet_id, index, current_itask_in_points + ipoint,
+                    point_base_index, w_features);
+      else
+        inertia_tasklets[tasklet_id] += min_dist;
 #else
       task_reduce(tasklet_id, index, current_itask_in_points + ipoint,
                   point_base_index, w_features, tasklet_counters);
