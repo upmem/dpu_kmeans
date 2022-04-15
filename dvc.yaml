@@ -1,0 +1,11 @@
+stages:
+  train:
+    cmd: python CPU+DPU.py
+    wdir: benchmarks/weak_scaling/
+    deps:
+    - CPU+DPU.py
+    params:
+    - ../params.yaml:
+    metrics:
+    - weak_scaling.csv:
+        cache: false
