@@ -2,125 +2,74 @@
 # -*- coding: utf-8 -*-
 
 import os
-from copy import deepcopy
-from itertools import product
-from typing import Tuple
+from time import sleep
 
 import pandas as pd
 import yaml
+from tqdm import tqdm
 
 
-def unroll_dict(dic: dict) -> "list[dict]":
-    """
-    Unrolls a dictionary with lists values into a list of dictionaries with scalar values.
-    """
-    keys, values = zip(*dic.items())
-    values = [v if isinstance(v, list) else [v] for v in values]
-    return [dict(zip(keys, v)) for v in product(*values)]
-
-
-def unpack(dic: dict) -> "list[dict]":
-    """
-    Unpacks the input parameters into a list of experiments.
-    """
-    return unroll_dict(
-        {k: v if not isinstance(v, dict) else unpack(v) for k, v in dic.items()}
-    )
-
-
-def get_experiments() -> Tuple[dict, "list[dict]", "list[dict]"]:
+def get_experiments() -> pd.DataFrame:
     """
     Loads the experiments from the params.yaml file.
     """
-
     script_dir = os.path.dirname(__file__)
     params_file = os.path.join(script_dir, "params.yaml")
 
     with open(params_file, "r") as f:
-        # params = yaml.load(f, Loader=yaml.FullLoader)
         params = yaml.safe_load(f)
 
-    dpu_experiments_list = unpack(params)
-    dpu_experiments_list = [deepcopy(experiment) for experiment in dpu_experiments_list]
-
-    for experiment in dpu_experiments_list:
-        experiment["data"]["n_points"] = (
-            int(experiment["data"]["n_points"] * experiment["dimm"]["n_dpu"])
-            if experiment["data"]["scaling"] == True
-            else int(experiment["data"]["n_points"])
-        )
-
-    datasets = set(yaml.dump(experiment["data"]) for experiment in dpu_experiments_list)
-    datasets = [yaml.safe_load(d) for d in datasets]
-
-    train_parameters_set = set(
-        yaml.dump(experiment["train"]) for experiment in dpu_experiments_list
+    df = pd.DataFrame.from_dict(params, orient="index").stack().to_frame().transpose()
+    for col in list(df.columns):
+        df = df.explode(col)
+    df["data", "n_points"] = df.apply(
+        lambda row: row["data", "n_points"] * row["dimm", "n_dpu"]
+        if row["data", "scaling"]
+        else row["data", "n_points"],
+        axis=1,
     )
-    train_parameters_set = [yaml.safe_load(e) for e in train_parameters_set]
-
-    return params, dpu_experiments_list, train_parameters_set, datasets
+    return df
 
 
 def run_benchmark():
     """
     Runs the benchmark.
     """
-    params, dpu_experiments_list, train_parameters_set, datasets = get_experiments()
+    df = get_experiments()
 
-    # making sure that there is either one dataset, or one per experiment
-    assert len(datasets) == 1 or len(datasets) == len(dpu_experiments_list)
+    datasets = df.data.drop_duplicates()
+    nonconstant_data = datasets.columns[datasets.nunique() > 1]
+    for _, dataset in (pbar_data := tqdm(datasets.iterrows(), total=datasets.shape[0])):
+        desc = ", ".join([p + ": " + str(dataset[p]) for p in nonconstant_data])
+        pbar_data.set_description(f"generating dataset: ({desc})     ")
+        sleep(2)
+        pbar_data.set_description(f"generating dataset: ({desc}) done")
+        dataset_df = df[(df.data == dataset).all(axis=1)]
+        trains = dataset_df.train.drop_duplicates()
+        for _, train_param in (
+            pbar_train := tqdm(trains.iterrows(), total=trains.shape[0], leave=False)
+        ):
+            pbar_train.set_description(
+                f"with train parameters:{train_param.n_clusters}, running CPU     "
+            )
+            sleep(2)
+            pbar_train.set_description(
+                f"with train parameters:{train_param.n_clusters}, running CPU done"
+            )
 
-    print(datasets)
-    for experiment in dpu_experiments_list:
-        print(experiment)
-    for experiment in cpu_experiments_list:
-        print(experiment)
-
-
-# if __name__ == "__main__":
-script_dir = os.path.dirname(__file__)
-params_file = os.path.join(script_dir, "params.yaml")
-
-with open(params_file, "r") as f:
-    # params = yaml.load(f, Loader=yaml.FullLoader)
-    params = yaml.safe_load(f)
-
-datasets = unpack(params["data"])
-
-print(datasets)
-
-train_parameters_set = unpack(params["train"])
-dimm_parameters_set = unpack(params["dimm"])
-
-print(train_parameters_set)
-print(dimm_parameters_set)
-
-datasets_scaled = []
-for dataset in datasets:
-    if dataset["scaling"] == True:
-        for dimm_param in dimm_parameters_set:
-            dataset_scaled = deepcopy(dataset)
-            dataset_scaled["n_points"] = int(dataset["n_points"] * dimm_param["n_dpu"])
-            dataset_scaled["n_dpu"] = [dimm_param["n_dpu"]]
-            datasets_scaled.append(dataset_scaled)
-    else:
-        dataset_scaled = deepcopy(dataset)
-        dataset_scaled["n_points"] = int(dataset["n_points"])
-        dataset_scaled["train"]["dimm"]["n_dpu"] = [
-            dimm_param["n_dpu"] for dimm_param in dimm_parameters_set
-        ]
-        datasets_scaled.append(dataset)
-
-print(datasets_scaled)
+            train_param_df = dataset_df[(dataset_df.train == train_param).all(axis=1)]
+            dimms = train_param_df.dimm.drop_duplicates()
+            for _, dimm_param in (
+                pbar_dimm := tqdm(dimms.iterrows(), total=dimms.shape[0], leave=False)
+            ):
+                pbar_dimm.set_description(
+                    f"with dimm parameters:{dimm_param.n_dpu}     "
+                )
+                sleep(2)
+                pbar_dimm.set_description(
+                    f"with dimm parameters:{dimm_param.n_dpu} done"
+                )
 
 
-# pd.json_normalize(params)
-df = pd.DataFrame.from_dict(params, orient="index").stack().to_frame().transpose()
-for col in list(df.columns):
-    df = df.explode(col)
-df["data", "n_points"] = df.apply(
-    lambda row: row["data", "n_points"] * row["dimm"]["n_dpu"]
-    if row["data"]["scaling"]
-    else row["data", "n_points"],
-    axis=1,
-)
+if __name__ == "__main__":
+    run_benchmark()
