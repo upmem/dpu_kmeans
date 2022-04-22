@@ -1,0 +1,19 @@
+schema: '2.0'
+stages:
+  train:
+    cmd: python ../benchmark.py
+    deps:
+    - path: ../../src/
+      md5: 9ff8a7b25aa5d3904eb86035f6733b15.dir
+      size: 846744
+      nfiles: 41
+    - path: ../benchmark.py
+      md5: d7827c58ef41050b2e0da9798cc3d29e
+      size: 11564
+    outs:
+    - path: benchmarks.csv
+      md5: 6d62f70aec450bc9733e35b743c61322
+      size: 3239
+    - path: results.csv
+      md5: 0f22fbb356902c3a347d4b54f978354e
+      size: 329
