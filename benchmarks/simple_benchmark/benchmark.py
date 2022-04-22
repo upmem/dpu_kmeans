@@ -105,7 +105,7 @@ def load_dataset(**kwargs) -> np.ndarray:
     script_dir = os.path.dirname(__file__)
     dataset_name = kwargs["name"]
     dataset_file = os.path.join(script_dir, "data", dataset_name + ".pq")
-    df = pd.read_parquet(higgs_file)
+    df = pd.read_parquet(dataset_file)
 
     data = np.require(
         df.iloc[:, 1:].to_numpy(dtype=np.float32), requirements=["C", "A", "O"]
@@ -286,14 +286,38 @@ def run_benchmark(verbose: bool = False) -> None:
                     dimm_index, ("results", "dpu", "cross_score")
                 ] = adjusted_rand_score(CPU_kmeans.labels_, DPU_kmeans.labels_)
 
-    print(df)
+    # print(df)
+    # df.to_csv("benchmarks.csv", index=False)
+    # important_columns = df.columns[df.nunique() > 1]
+    # print(important_columns)
+    # df_readable = df[important_columns]
+    # df_readable.to_csv("results.csv", index=False)
+    return df
+
+
+def experiment_outputs(df: pd.DataFrame) -> None:
+    """
+    Outputs the results of the experiment
+    """
+    # output the entire benchmarks table
     df.to_csv("benchmarks.csv", index=False)
-    important_columns = df.columns[df.nunique() > 1]
-    print(important_columns)
-    df_readable = df[important_columns]
-    df_readable.to_csv("results.csv", index=False)
-    # df.to_json("simple_benchmarks.json", index=False)
+
+    # output the important results table
+    important_input_columns = df.inputs.columns[df.inputs.nunique() > 1]
+    important_output_columns = [(c[1:]) for c in df.columns if c[2] in ("train_times",)]
+
+    df_readable = pd.concat(
+        (df.inputs[important_input_columns], df.results[important_output_columns]),
+        axis=1,
+    )
+    df_readable.set_index(important_input_columns.to_list(), inplace=True)
+    df_readable.columns = ["_".join(col) for col in df_readable.columns.values]
+    param_index = "--".join(["_".join(name) for name in df_readable.index.names])
+    df_readable.index = df_readable.index.to_flat_index()
+    df_readable.index.rename(param_index, inplace=True)
+    df_readable.to_csv("results.csv")
 
 
 if __name__ == "__main__":
-    run_benchmark()
+    df = run_benchmark()
+    experiment_outputs(df)
