@@ -2,7 +2,7 @@ stages:
   train:
     cmd: python ../benchmark.py
     deps:
-    - benchmark.py
+    - ../benchmark.py
     - ../../src/
     outs:
     - benchmarks.csv
