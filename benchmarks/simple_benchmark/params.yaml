@@ -4,9 +4,7 @@ data:
   n_dim: 16
   centers: 16
   scaling: false
-  random_state:
-    - 42
-    - 43
+  random_state: 42
 train:
   n_init: 10
   max_iter: 500
