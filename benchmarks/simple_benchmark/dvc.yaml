@@ -1,0 +1,9 @@
+stages:
+  train:
+    cmd: python benchmark.py
+    code: ../../src
+    deps:
+    - benchmark.py
+    outs:
+    - benchmarks.csv
+    - results.csv
