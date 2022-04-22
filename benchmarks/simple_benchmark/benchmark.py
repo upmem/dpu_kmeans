@@ -310,12 +310,12 @@ def experiment_outputs(df: pd.DataFrame) -> None:
         (df.inputs[important_input_columns], df.results[important_output_columns]),
         axis=1,
     )
-    df_readable.set_index(important_input_columns.to_list(), inplace=True)
+    # df_readable.set_index(important_input_columns.to_list(), inplace=True)
     df_readable.columns = ["_".join(col) for col in df_readable.columns.values]
-    param_index = "--".join(["_".join(name) for name in df_readable.index.names])
-    df_readable.index = df_readable.index.to_flat_index()
-    df_readable.index.rename(param_index, inplace=True)
-    df_readable.to_csv("results.csv")
+    # param_index = "--".join(["_".join(name) for name in df_readable.index.names])
+    # df_readable.index = df_readable.index.to_flat_index()
+    # df_readable.index.rename(param_index, inplace=True)
+    df_readable.to_csv("results.csv", index=False)
 
 
 if __name__ == "__main__":
