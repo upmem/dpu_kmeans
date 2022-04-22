@@ -42,8 +42,9 @@ def get_experiments() -> pd.DataFrame:
     Loads the experiments from the params.yaml file.
     """
     # load the params.yaml file as a dictionary
-    script_dir = os.path.dirname(__file__)
-    params_file = os.path.join(script_dir, "params.yaml")
+    # script_dir = os.path.dirname(__file__)
+    # params_file = os.path.join(script_dir, "params.yaml")
+    params_file = "params.yaml"
 
     with open(params_file, "r") as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
@@ -102,9 +103,9 @@ def load_dataset(**kwargs) -> np.ndarray:
     """
     Loads a dataset
     """
-    script_dir = os.path.dirname(__file__)
+    # script_dir = os.path.dirname(__file__)
     dataset_name = kwargs["name"]
-    dataset_file = os.path.join(script_dir, "data", dataset_name + ".pq")
+    dataset_file = os.path.join("data", dataset_name + ".pq")
     df = pd.read_parquet(dataset_file)
 
     data = np.require(

@@ -1,6 +1,6 @@
 stages:
   train:
-    cmd: python benchmark.py
+    cmd: python ../benchmark.py
     deps:
     - benchmark.py
     - ../../src/
