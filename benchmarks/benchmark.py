@@ -4,12 +4,12 @@
 import os
 from collections.abc import Sequence
 from random import random
-from time import perf_counter, sleep
+from time import perf_counter
 
 import numpy as np
 import pandas as pd
 import yaml
-from sklearn.cluster import KMeans as CPUKMeans
+from dropin_patch._kmeans_w_perf import KMeans as CPUKMeans
 from sklearn.datasets import make_blobs
 from sklearn.metrics import adjusted_rand_score, calinski_harabasz_score
 from tqdm import tqdm
