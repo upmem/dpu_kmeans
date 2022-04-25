@@ -49,19 +49,19 @@ def get_experiments() -> pd.DataFrame:
     with open(params_file, "r") as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
 
-    # convert number of points to an integer
-    params["data"]["n_points"] = int(params["data"]["n_points"])
-
     # convert the dictionary to a pandas DataFrame and explode the experiments
     df = pd.DataFrame.from_dict(params, orient="index").stack().to_frame().transpose()
     for col in list(df.columns):
         df = df.explode(col, ignore_index=True)
-    df["data", "n_points"] = df.apply(
-        lambda row: row["data", "n_points"] * row["dimm", "n_dpu"]
-        if row["data", "scaling"]
-        else row["data", "n_points"],
-        axis=1,
-    )
+
+    # adjust number of points if we want it to scale with DPUs
+    if "n_points" in params["data"]:
+        df["data", "n_points"] = df.apply(
+            lambda row: row["data", "n_points"] * row["dimm", "n_dpu"]
+            if row["data", "scaling"]
+            else row["data", "n_points"],
+            axis=1,
+        )
 
     # convert integer columns back to int type as this was lost in the dataframe creation
     integer_columns = get_int_keys(params)
@@ -286,6 +286,9 @@ def run_benchmark(verbose: bool = False) -> None:
                 df.loc[
                     dimm_index, ("results", "dpu", "cross_score")
                 ] = adjusted_rand_score(CPU_kmeans.labels_, DPU_kmeans.labels_)
+
+                # writing outputs at every iteration in case we crash early
+                experiment_outputs(df)
 
     # print(df)
     # df.to_csv("benchmarks.csv", index=False)
