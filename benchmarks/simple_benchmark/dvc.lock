@@ -8,12 +8,32 @@ stages:
       size: 846744
       nfiles: 41
     - path: ../benchmark.py
-      md5: d7827c58ef41050b2e0da9798cc3d29e
-      size: 11564
+      md5: ef48724581fca8581906e96bd0eed584
+      size: 11709
+    params:
+      params.yaml:
+        data:
+          synthetic: true
+          n_points: 1000.0
+          n_dim: 16
+          centers: 16
+          scaling: false
+          random_state: 42
+        dimm:
+          n_dpu:
+          - 64
+          - 128
+          - 256
+        train:
+          n_init: 10
+          max_iter: 500
+          tol: 0.0001
+          n_clusters: 16
+          random_state: 42
     outs:
     - path: benchmarks.csv
-      md5: 6d62f70aec450bc9733e35b743c61322
-      size: 3239
+      md5: 82e2475bac1e2e805c316df6fe96b0fb
+      size: 2000
     - path: results.csv
-      md5: 0f22fbb356902c3a347d4b54f978354e
-      size: 329
+      md5: 5f1c4282ef9a0d27ba3ff2961ac32cb3
+      size: 170

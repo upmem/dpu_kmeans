@@ -4,6 +4,11 @@ stages:
     deps:
     - ../benchmark.py
     - ../../src/
+    params:
+    - data
+    - train
+    - dimm
     outs:
     - benchmarks.csv
+    plots:
     - results.csv

@@ -1,0 +1,40 @@
+stages:
+  host_name:
+    cmd: hostname > hostname.txt
+    outs:
+    - hostname.txt
+    always_changed: true
+  download:
+    wdir: data
+    cmd: wget https://archive.ics.uci.edu/ml/machine-learning-databases/00280/HIGGS.csv.gz
+    outs:
+    - HIGGS.csv.gz
+  unzip:
+    wdir: data
+    cmd: gunzip HIGGS.csv.gz
+    deps:
+    - HIGGS.csv.gz
+    outs:
+    - HIGGS.csv
+  serialize:
+    wdir: data
+    cmd: python convert_to_pq.py
+    deps:
+    - HIGGS.csv
+    outs:
+    - higgs.pq
+  train:
+    cmd: python ../benchmark.py
+    deps:
+    - ../benchmark.py
+    - ../../src/
+    - data/higgs.pq
+    - hostname.txt
+    params:
+    - data
+    - train
+    - dimm
+    outs:
+    - benchmarks.csv
+    plots:
+    - results.csv
