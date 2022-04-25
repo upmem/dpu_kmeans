@@ -57,9 +57,9 @@ def get_experiments() -> pd.DataFrame:
     # adjust number of points if we want it to scale with DPUs
     if "n_points" in params["data"]:
         df["data", "n_points"] = df.apply(
-            lambda row: row["data", "n_points"] * row["dimm", "n_dpu"]
+            lambda row: int(row["data", "n_points"] * row["dimm", "n_dpu"])
             if row["data", "scaling"]
-            else row["data", "n_points"],
+            else int(row["data", "n_points"]),
             axis=1,
         )
 
