@@ -37,6 +37,21 @@ def get_int_keys(d: dict, prefix=()) -> list:
     return keys
 
 
+def get_available_dpus() -> int:
+    """
+    Returns the number of available DPUs
+    """
+    script_dir = os.path.dirname(__file__)
+    info_file = os.path.join(script_dir, "machines_info.yaml")
+    with open(info_file, "r") as f:
+        info = yaml.load(f, Loader=yaml.FullLoader)
+    host_file = "hostname.yaml"
+    with open(host_file, "r") as f:
+        host = yaml.load(f, Loader=yaml.FullLoader)
+        hostname = host["name"]
+    return info["nr_dpu"][hostname]
+
+
 def get_experiments() -> pd.DataFrame:
     """
     Loads the experiments from the params.yaml file.
@@ -129,6 +144,9 @@ def run_benchmark(verbose: bool = False) -> None:
     """
     Runs the benchmark.
     """
+    # check number of available DPUs
+    n_available_dpu = get_available_dpus()
+
     # load the experiments
     df = get_experiments()
 
@@ -216,6 +234,7 @@ def run_benchmark(verbose: bool = False) -> None:
                 ##################################################
 
                 try:
+                    assert n_available_dpu > dimm_param["n_dpu"]
 
                     # load the DPUS
                     _dimm.free_dpus()

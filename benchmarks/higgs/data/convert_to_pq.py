@@ -7,9 +7,7 @@ import dask.dataframe as dd
 import numpy as np
 from dask.diagnostics import ProgressBar
 
-df = dd.read_csv(
-    "HIGGS.csv", dtype=np.float32, header=None, sep=",", compression="gzip"
-)
+df = dd.read_csv("HIGGS.csv", dtype=np.float32, header=None, sep=",")
 df.columns = df.columns.astype(str)
 with ProgressBar():
-    df.to_parquet("higgs.pq", index=False, compression=None)
+    df.to_parquet("higgs.pq", write_index=False, compression=None)

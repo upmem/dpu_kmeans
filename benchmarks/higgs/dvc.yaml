@@ -1,9 +1,9 @@
 stages:
   host_name:
-    wdir: ../
-    cmd: ./get_hostname.sh
+    cmd: ../get_hostname.sh
     outs:
-    - hostname.yaml
+    - hostname.yaml:
+        cache: false
     always_changed: true
   download:
     wdir: data
@@ -40,6 +40,8 @@ stages:
     - ../hostname.yaml:
       - name
     outs:
-    - benchmarks.csv
+    - benchmarks.csv:
+        cache: false
     plots:
-    - results.csv
+    - results.csv:
+        cache: false
