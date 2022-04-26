@@ -46,10 +46,15 @@ def get_available_dpus() -> int:
     with open(info_file, "r") as f:
         info = yaml.load(f, Loader=yaml.FullLoader)
     host_file = "hostname.yaml"
-    with open(host_file, "r") as f:
-        host = yaml.load(f, Loader=yaml.FullLoader)
-        hostname = host["name"]
-    return info["nr_dpu"][hostname]
+    try:
+        with open(host_file, "r") as f:
+            host = yaml.load(f, Loader=yaml.FullLoader)
+            hostname = host["name"]
+    except FileNotFoundError:
+        import socket
+
+        hostname = socket.gethostname()
+    return info["nr_dpu"][hostname] if hostname in info["nr_dpu"] else np.inf
 
 
 def get_experiments() -> pd.DataFrame:
