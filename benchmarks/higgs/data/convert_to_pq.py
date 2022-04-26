@@ -3,9 +3,13 @@
 Converts the Higgs dataset CSV to a parquet file for faster access.
 """
 
+import dask.dataframe as dd
 import numpy as np
-import pandas as pd
+from dask.diagnostics import ProgressBar
 
-df = pd.read_csv("data/HIGGS.csv", dtype=np.float32, header=None, sep=",")
+df = dd.read_csv(
+    "HIGGS.csv", dtype=np.float32, header=None, sep=",", compression="gzip"
+)
 df.columns = df.columns.astype(str)
-df.to_parquet("./data/higgs.pq", index=False, compression=None)
+with ProgressBar():
+    df.to_parquet("higgs.pq", index=False, compression=None)

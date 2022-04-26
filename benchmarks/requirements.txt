@@ -1,0 +1,7 @@
+hurry.filesize
+numpy
+pandas
+pyarrow
+PyYAML
+scikit-learn
+tqdm

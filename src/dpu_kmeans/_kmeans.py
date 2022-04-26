@@ -86,7 +86,7 @@ def _lloyd_iter_dpu(
         n_clusters = centers_old_int.shape[0]
 
         labels = np.full(n_samples, -1, dtype=np.int32)
-        weight_in_clusters = np.zeros(n_clusters)
+        weight_in_clusters = np.zeros(n_clusters, dtype=X.dtype)
         center_shift = np.zeros_like(weight_in_clusters)
 
         _labels = lloyd_iter_chunked_dense
@@ -105,7 +105,8 @@ def _lloyd_iter_dpu(
             update_centers=False,
         )
 
-        weight_in_clusters = points_in_clusters.astype(float)
+        # weight_in_clusters = points_in_clusters.astype(float)
+        weight_in_clusters[:] = points_in_clusters
         _relocate_empty_clusters_dense(
             X, sample_weight, centers_old, centers_sum_new, weight_in_clusters, labels
         )

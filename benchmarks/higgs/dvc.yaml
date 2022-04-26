@@ -1,21 +1,25 @@
 stages:
   host_name:
-    cmd: hostname > hostname.txt
+    wdir: ../
+    cmd: ./get_hostname.sh
     outs:
-    - hostname.txt
+    - hostname.yaml
     always_changed: true
   download:
     wdir: data
     cmd: wget https://archive.ics.uci.edu/ml/machine-learning-databases/00280/HIGGS.csv.gz
+    deps:
+    - https://archive.ics.uci.edu/ml/machine-learning-databases/00280/HIGGS.csv.gz
     outs:
     - HIGGS.csv.gz
   unzip:
     wdir: data
-    cmd: gunzip HIGGS.csv.gz
+    cmd: gunzip -k HIGGS.csv.gz
     deps:
     - HIGGS.csv.gz
     outs:
-    - HIGGS.csv
+    - HIGGS.csv:
+        cache: false
   serialize:
     wdir: data
     cmd: python convert_to_pq.py
@@ -29,11 +33,12 @@ stages:
     - ../benchmark.py
     - ../../src/
     - data/higgs.pq
-    - hostname.txt
     params:
     - data
     - train
     - dimm
+    - ../hostname.yaml:
+      - name
     outs:
     - benchmarks.csv
     plots:

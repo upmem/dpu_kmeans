@@ -49,6 +49,7 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
             self.dtype = np.int16
         elif FEATURE_TYPE == 32:
             self.dtype = np.int32
+        self.input_dtype = None
 
     def fit(self, X, y=None):
         """
@@ -67,6 +68,7 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
             Returns the instance itself.
         """
         X = self._validate_data(X, dtype="numeric")
+        self.input_dtype = X.dtype
 
         # Compute scale factor for quantization
         max_feature = np.max(np.abs(X))
@@ -115,7 +117,7 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
         check_is_fitted(self)
 
         # adding 0.5 to compensate for rounding previously
-        return (Xt + 0.5) / self.scale_factor
+        return ((Xt + 0.5) / self.scale_factor).astype(self.input_dtype)
 
 
 ld = LinearDiscretizer()  # linear discretization transformer

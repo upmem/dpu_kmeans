@@ -1,0 +1,21 @@
+stages:
+  host_name:
+    cmd: ../get_hostname.sh
+    outs:
+    - hostname.yaml
+    always_changed: true
+  train:
+    cmd: python ../benchmark.py
+    deps:
+    - ../benchmark.py
+    - ../../src/
+    params:
+    - data
+    - train
+    - dimm
+    - hostname.yaml:
+      - name
+    outs:
+    - benchmarks.csv
+    plots:
+    - results.csv
