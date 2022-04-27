@@ -54,7 +54,7 @@ def get_available_dpus() -> int:
         import socket
 
         hostname = socket.gethostname()
-    return info["nr_dpu"][hostname] if hostname in info["nr_dpu"] else np.inf
+    return info["nr_dpus"][hostname] if hostname in info["nr_dpus"] else np.inf
 
 
 def get_experiments() -> pd.DataFrame:
