@@ -1,3 +1,18 @@
 # Add patterns of files dvc should ignore, which could improve
 # the performance. Learn more at
 # https://dvc.org/doc/user-guide/dvcignore
+
+# clangd cache
+**/.cache/clangd/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+
+# C extensions
+*.so
+
+# compiled dpu kernels
+src/dpu_kmeans/dpu_program/
+
+# compilation libraries
+compile_commands.json

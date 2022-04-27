@@ -3,7 +3,6 @@ data:
   n_points: 1.e+3
   n_dim: 16
   centers: 16
-  scaling: false
   random_state: 42
 train:
   n_init: 10
@@ -16,3 +15,4 @@ dimm:
     - 64
     - 128
     - 256
+    - 2048

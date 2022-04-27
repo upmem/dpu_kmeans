@@ -16,6 +16,8 @@ stages:
     - hostname.yaml:
       - name
     outs:
-    - benchmarks.csv
+    - benchmarks.csv:
+        cache: false
     plots:
-    - results.csv
+    - results.csv:
+        cache: false

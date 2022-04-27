@@ -1,4 +1,9 @@
 stages:
+  host_name:
+    cmd: ../get_hostname.sh
+    outs:
+    - hostname.yaml
+    always_changed: true
   train:
     cmd: python ../benchmark.py
     deps:
@@ -8,7 +13,11 @@ stages:
     - data
     - train
     - dimm
+    - hostname.yaml:
+      - name
     outs:
-    - benchmarks.csv
+    - benchmarks.csv:
+        cache: false
     plots:
-    - results.csv
+    - results.csv:
+        cache: false
