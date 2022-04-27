@@ -352,7 +352,10 @@ def experiment_outputs(df: pd.DataFrame) -> None:
 
     # output the important results table
     important_input_columns = df.inputs.columns[df.inputs.nunique() > 1]
-    if "n_points_per_dpu" in df.inputs.data.columns:
+    if (
+        "n_points_per_dpu" in df.inputs.data.columns
+        and "n_points" in df.inputs.data.columns
+    ):
         important_input_columns = important_input_columns.drop(("data", "n_points"))
     important_output_columns = [(c[1:]) for c in df.columns if c[2] in ("train_times",)]
 
@@ -373,4 +376,4 @@ def experiment_outputs(df: pd.DataFrame) -> None:
 
 if __name__ == "__main__":
     df = run_benchmark()
-    experiment_outputs(df)
+    # experiment_outputs(df)
