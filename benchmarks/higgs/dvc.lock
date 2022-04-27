@@ -1,0 +1,22 @@
+schema: '2.0'
+stages:
+  download:
+    cmd: wget https://archive.ics.uci.edu/ml/machine-learning-databases/00280/HIGGS.csv.gz
+    deps:
+    - path: https://archive.ics.uci.edu/ml/machine-learning-databases/00280/HIGGS.csv.gz
+      checksum: '"a7def932-4f263a606f300"'
+      size: 2816407858
+    outs:
+    - path: HIGGS.csv.gz
+      md5: 6130f7b2e2d59315467ecc0adf4b3271
+      size: 2816407858
+  unzip:
+    cmd: gunzip -k HIGGS.csv.gz
+    deps:
+    - path: HIGGS.csv.gz
+      md5: 6130f7b2e2d59315467ecc0adf4b3271
+      size: 2816407858
+    outs:
+    - path: HIGGS.csv
+      md5: e921e5b01ff78d3bdc899ee204c64e94
+      size: 8035497980
