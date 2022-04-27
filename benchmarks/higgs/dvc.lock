@@ -37,3 +37,44 @@ stages:
       md5: 88e1d7c72cb43c66729d0c1869ce6d7d.dir
       size: 952426437
       nfiles: 241
+  train:
+    cmd: python ../benchmark.py
+    deps:
+    - path: ../../src/
+      md5: 0eddb62a0e9772f7854c28a8165fb387.dir
+      size: 82144
+      nfiles: 20
+    - path: ../benchmark.py
+      md5: 58fd0829ec48bd5ca3138b2119f1e05c
+      size: 13048
+    - path: data/higgs.pq
+      md5: 88e1d7c72cb43c66729d0c1869ce6d7d.dir
+      size: 952426437
+      nfiles: 241
+    params:
+      params.yaml:
+        data:
+          synthetic: false
+          name: higgs
+        dimm:
+          n_dpu:
+          - 256
+          - 512
+          - 1024
+          - 2048
+          - 2523
+        train:
+          n_init: 10
+          max_iter: 500
+          tol: 0.0001
+          n_clusters: 2
+          random_state: 42
+      hostname.yaml:
+        name: upmemcloud1
+    outs:
+    - path: benchmarks.csv
+      md5: b910df956cd8dd8175dd1c8eb03e9987
+      size: 1997
+    - path: results.csv
+      md5: 930849df919a6adfa80c7f147d26110b
+      size: 123

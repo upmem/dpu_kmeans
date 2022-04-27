@@ -38,7 +38,7 @@ stages:
     - data
     - train
     - dimm
-    - ../hostname.yaml:
+    - hostname.yaml:
       - name
     outs:
     - benchmarks.csv:
