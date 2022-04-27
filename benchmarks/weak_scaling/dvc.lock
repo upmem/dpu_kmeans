@@ -1,0 +1,50 @@
+schema: '2.0'
+stages:
+  host_name:
+    cmd: ../get_hostname.sh
+    outs:
+    - path: hostname.yaml
+      md5: e6000c99650874f5fd47732fd34c24c1
+      size: 18
+  train:
+    cmd: python ../benchmark.py
+    deps:
+    - path: ../../src/
+      md5: 0eddb62a0e9772f7854c28a8165fb387.dir
+      size: 82144
+      nfiles: 20
+    - path: ../benchmark.py
+      md5: 58fd0829ec48bd5ca3138b2119f1e05c
+      size: 13048
+    params:
+      params.yaml:
+        data:
+          synthetic: true
+          n_points_per_dpu: 100000.0
+          n_dim: 16
+          centers: 16
+          random_state: 42
+        dimm:
+          n_dpu:
+          - 1
+          - 2
+          - 4
+          - 8
+          - 16
+          - 32
+          - 64
+        train:
+          n_init: 10
+          max_iter: 500
+          tol: 0.0001
+          n_clusters: 16
+          random_state: 42
+      hostname.yaml:
+        name: upmemcloud1
+    outs:
+    - path: benchmarks.csv
+      md5: 95d484d7587151c30951e64a1857d23c
+      size: 3679
+    - path: results.csv
+      md5: 39a5a5c5dcfc86868995206c92319833
+      size: 321

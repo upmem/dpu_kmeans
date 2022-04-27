@@ -26,7 +26,8 @@ stages:
     deps:
     - HIGGS.csv
     outs:
-    - higgs.pq
+    - higgs.pq:
+        cache: false
   train:
     cmd: python ../benchmark.py
     deps:
