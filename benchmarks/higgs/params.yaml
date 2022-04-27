@@ -1,0 +1,14 @@
+data:
+  synthetic: false
+  name: higgs
+train:
+  n_init: 10
+  max_iter: 500
+  tol: 1.e-4
+  n_clusters: 2
+  random_state: 42
+dimm:
+  n_dpu:
+    - 256
+    - 512
+    - 1024

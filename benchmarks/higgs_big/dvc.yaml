@@ -1,0 +1,29 @@
+stages:
+  host_name:
+    cmd: ../get_hostname.sh
+    outs:
+    - hostname.yaml:
+        cache: false
+    always_changed: true
+  higgs:
+    cmd: python ../benchmark.py
+    deps:
+    - ../benchmark.py
+    - ../../src/
+    - ../higgs/data/higgs.pq
+    params:
+    - params.yaml:
+      - data
+      - train
+      - dimm
+    - hostname.yaml:
+      - name
+    outs:
+    - benchmarks.csv:
+        cache: false
+    metrics:
+    - metrics.json:
+        cache: false
+    plots:
+    - results.csv:
+        cache: false

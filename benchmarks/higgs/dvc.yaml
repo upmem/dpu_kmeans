@@ -28,39 +28,16 @@ stages:
     outs:
     - higgs.pq:
         cache: false
-  higgs_small:
+  higgs:
     cmd: python ../benchmark.py
     deps:
     - ../benchmark.py
     - ../../src/
     - data/higgs.pq
     params:
-    - params_small.yaml:
-      - data
-      - train
-      - dimm
-    - hostname.yaml:
-      - name
-    outs:
-    - benchmarks.csv:
-        cache: false
-    metrics:
-    - metrics.json:
-        cache: false
-    plots:
-    - results.csv:
-        cache: false
-  higgs_big:
-    cmd: python ../benchmark.py
-    deps:
-    - ../benchmark.py
-    - ../../src/
-    - data/higgs.pq
-    params:
-    - params_big.yaml:
-      - data
-      - train
-      - dimm
+    - data
+    - train
+    - dimm
     - hostname.yaml:
       - name
     outs:
