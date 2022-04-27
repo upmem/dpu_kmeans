@@ -2,7 +2,8 @@ stages:
   host_name:
     cmd: ../get_hostname.sh
     outs:
-    - hostname.yaml
+    - hostname.yaml:
+        cache: false
     always_changed: true
   train:
     cmd: python ../benchmark.py
