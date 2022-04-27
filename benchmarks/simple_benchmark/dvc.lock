@@ -4,12 +4,12 @@ stages:
     cmd: python ../benchmark.py
     deps:
     - path: ../../src/
-      md5: 9ff8a7b25aa5d3904eb86035f6733b15.dir
-      size: 846744
-      nfiles: 41
+      md5: 0eddb62a0e9772f7854c28a8165fb387.dir
+      size: 82144
+      nfiles: 20
     - path: ../benchmark.py
-      md5: ef48724581fca8581906e96bd0eed584
-      size: 11709
+      md5: 58fd0829ec48bd5ca3138b2119f1e05c
+      size: 13048
     params:
       params.yaml:
         data:
@@ -17,23 +17,31 @@ stages:
           n_points: 1000.0
           n_dim: 16
           centers: 16
-          scaling: false
           random_state: 42
         dimm:
           n_dpu:
           - 64
           - 128
           - 256
+          - 2048
         train:
           n_init: 10
           max_iter: 500
           tol: 0.0001
           n_clusters: 16
           random_state: 42
+      hostname.yaml:
+        name: upmemcloud1
     outs:
     - path: benchmarks.csv
-      md5: 82e2475bac1e2e805c316df6fe96b0fb
-      size: 2000
+      md5: 223aab85f7c60498da59dea812633ba1
+      size: 2179
     - path: results.csv
-      md5: 5f1c4282ef9a0d27ba3ff2961ac32cb3
-      size: 170
+      md5: dbd007eab7fd4d27c9973c9081634df6
+      size: 173
+  host_name:
+    cmd: ../get_hostname.sh
+    outs:
+    - path: hostname.yaml
+      md5: e6000c99650874f5fd47732fd34c24c1
+      size: 18
