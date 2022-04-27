@@ -1,0 +1,1 @@
+{"256":{"cpu_train_times":16.101301711,"dpu_train_times":50.563339669},"512":{"cpu_train_times":16.101301711,"dpu_train_times":25.359894334},"1024":{"cpu_train_times":16.101301711,"dpu_train_times":12.782979014}}

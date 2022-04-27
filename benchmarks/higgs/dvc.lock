@@ -24,7 +24,7 @@ stages:
     cmd: ../get_hostname.sh
     outs:
     - path: hostname.yaml
-      md5: e6000c99650874f5fd47732fd34c24c1
+      md5: ea421fca94eb11f3c16bf7f986871cc7
       size: 18
   serialize:
     cmd: python convert_to_pq.py

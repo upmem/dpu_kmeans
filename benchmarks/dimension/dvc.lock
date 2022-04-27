@@ -1,0 +1,8 @@
+schema: '2.0'
+stages:
+  host_name:
+    cmd: ../get_hostname.sh
+    outs:
+    - path: hostname.yaml
+      md5: ea421fca94eb11f3c16bf7f986871cc7
+      size: 18

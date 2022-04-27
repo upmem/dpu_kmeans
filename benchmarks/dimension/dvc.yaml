@@ -5,7 +5,7 @@ stages:
     - hostname.yaml:
         cache: false
     always_changed: true
-  train:
+  dimension:
     cmd: python ../benchmark.py
     deps:
     - ../benchmark.py
