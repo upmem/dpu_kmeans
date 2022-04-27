@@ -8,8 +8,8 @@ stages:
       size: 82144
       nfiles: 20
     - path: ../benchmark.py
-      md5: 58fd0829ec48bd5ca3138b2119f1e05c
-      size: 13048
+      md5: fc144b062f115fd2690cafa509aa3137
+      size: 13194
     params:
       params.yaml:
         data:
@@ -34,11 +34,14 @@ stages:
         name: upmemcloud1
     outs:
     - path: benchmarks.csv
-      md5: 223aab85f7c60498da59dea812633ba1
-      size: 2179
+      md5: 3723ffa6960cda3a42c8680efd9b342c
+      size: 2160
+    - path: metrics.json
+      md5: be4b3ae3f8262cea01ea32cfc0478dcf
+      size: 210
     - path: results.csv
-      md5: dbd007eab7fd4d27c9973c9081634df6
-      size: 173
+      md5: 53352172517ded6ba75e1507c0ca6dec
+      size: 172
   host_name:
     cmd: ../get_hostname.sh
     outs:

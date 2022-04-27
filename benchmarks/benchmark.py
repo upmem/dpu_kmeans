@@ -350,7 +350,10 @@ def experiment_outputs(df: pd.DataFrame) -> None:
     # param_index = "--".join(["_".join(name) for name in df_readable.index.names])
     # df_readable.index = df_readable.index.to_flat_index()
     # df_readable.index.rename(param_index, inplace=True)
-    df_readable.dropna().to_csv("results.csv", index=False)
+    df_readable = df_readable.dropna()
+    df_readable.to_csv("results.csv", index=False)
+    df_readable = df_readable.set_index(df_readable.columns[0])
+    df_readable.to_json("metrics.json", orient="index")
 
 
 if __name__ == "__main__":
