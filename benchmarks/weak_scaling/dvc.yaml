@@ -18,6 +18,9 @@ stages:
     outs:
     - benchmarks.csv:
         cache: false
+    metrics:
+    - metrics.json:
+        cache: false
     plots:
     - results.csv:
         cache: false

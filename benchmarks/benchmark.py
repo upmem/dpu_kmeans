@@ -83,6 +83,15 @@ def get_experiments() -> pd.DataFrame:
     elif "n_points" in params["data"]:
         df["data", "n_points"] = df["data", "n_points"].astype(int)
 
+    # adjust random number generator seed if we want it to be identical with data generation
+    if any(df["train", "random_state"] == "like_data"):
+        df["train", "random_state"] = df.apply(
+            lambda row: int(row["data", "random_state"])
+            if row["train", "random_state"] == "like_data"
+            else int(row["train", "random_state"]),
+            axis=1,
+        )
+
     # convert integer columns back to int type as this was lost in the dataframe creation
     integer_columns = get_int_keys(params)
     for column in df:
@@ -239,7 +248,7 @@ def run_benchmark(verbose: bool = False) -> None:
                 ##################################################
 
                 try:
-                    assert n_available_dpu > dimm_param["n_dpu"]
+                    assert n_available_dpu >= dimm_param["n_dpu"]
 
                     # load the DPUS
                     _dimm.free_dpus()
@@ -312,6 +321,12 @@ def run_benchmark(verbose: bool = False) -> None:
                     df.loc[
                         dimm_index, ("results", "dpu", "cross_score")
                     ] = adjusted_rand_score(CPU_kmeans.labels_, DPU_kmeans.labels_)
+
+                    # logging real number of DPUs
+                    if dimm_param["n_dpu"] == 0:
+                        df.loc[
+                            dimm_index, ("inputs", "dimm", "n_dpu")
+                        ] = _dimm.ctr.get_nr_dpus()
 
                     # writing outputs at every iteration in case we crash early
                     experiment_outputs(df)

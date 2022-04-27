@@ -1,0 +1,20 @@
+data:
+  synthetic: true
+  n_points: 4096.e+5
+  n_dim:
+    - 32
+    - 24
+    - 16
+    - 8
+    - 4
+    - 2
+  centers: 16
+  random_state: 42
+train:
+  n_init: 10
+  max_iter: 500
+  tol: 1.e-4
+  n_clusters: 16
+  random_state: 42
+dimm:
+  n_dpu: 0
