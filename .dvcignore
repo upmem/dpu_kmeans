@@ -5,6 +5,9 @@
 # clangd cache
 **/.cache/clangd/
 
+# packaging
+*.egg-info/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 
