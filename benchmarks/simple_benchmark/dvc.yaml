@@ -8,7 +8,7 @@ stages:
   simple_train:
     vars:
     - exp_name: simple
-    cmd: python ../benchmark.py --exp_name simple
+    cmd: python ../benchmark.py --exp_name ${exp_name}
     deps:
     - ../benchmark.py
     - ../../src/

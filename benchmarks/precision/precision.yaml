@@ -6,14 +6,6 @@ data:
   random_state:
     - 0
     - 1
-    - 2
-    - 3
-    - 4
-    - 5
-    - 6
-    - 7
-    - 8
-    - 9
 train:
   n_init: 10
   max_iter: 500

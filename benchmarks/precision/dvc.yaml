@@ -5,23 +5,26 @@ stages:
     - hostname.yaml:
         cache: false
     always_changed: true
-  precision:
-    cmd: python ../benchmark.py
+  simple_train:
+    vars:
+    - exp_name: precision
+    cmd: python ../benchmark.py --exp_name ${exp_name}
     deps:
     - ../benchmark.py
     - ../../src/
     params:
-    - data
-    - train
-    - dimm
+    - ${exp_name}.yaml:
+      - data
+      - train
+      - dimm
     - hostname.yaml:
       - name
     outs:
-    - benchmarks.csv:
+    - ${exp_name}_benchmarks.csv:
         cache: false
     metrics:
-    - metrics.json:
+    - ${exp_name}_metrics.json:
         cache: false
     plots:
-    - results.csv:
+    - ${exp_name}_plots.csv:
         cache: false
