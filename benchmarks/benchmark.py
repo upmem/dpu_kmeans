@@ -372,6 +372,8 @@ def experiment_outputs(df: pd.DataFrame) -> None:
     df_readable.to_csv("results.csv", index=False)
     df_readable = df_readable.set_index(df_readable.columns[0])
     df_readable.to_json("metrics.json", orient="index")
+    with open("metrics.json", "a") as f:
+        f.write("\n")
 
 
 if __name__ == "__main__":
