@@ -1,1 +1,1 @@
-{"64":{"cpu_train_times":0.211301533,"dpu_train_times":0.112094891},"128":{"cpu_train_times":0.211301533,"dpu_train_times":0.140071684},"256":{"cpu_train_times":0.211301533,"dpu_train_times":0.199074317}}
+{"64":{"cpu_train_times":0.2672574421,"dpu_train_times":0.112034456},"128":{"cpu_train_times":0.2672574421,"dpu_train_times":0.1265307409},"256":{"cpu_train_times":0.2672574421,"dpu_train_times":0.199523536}}

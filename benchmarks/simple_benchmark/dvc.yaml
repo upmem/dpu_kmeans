@@ -11,9 +11,10 @@ stages:
     - ../benchmark.py
     - ../../src/
     params:
-    - data
-    - train
-    - dimm
+    - params.yaml:
+      - data
+      - train
+      - dimm
     - hostname.yaml:
       - name
     outs:
