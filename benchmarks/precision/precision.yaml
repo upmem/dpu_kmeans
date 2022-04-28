@@ -1,6 +1,6 @@
 data:
   synthetic: true
-  n_points_per_dpu: 1.e+5
+  n_points_per_dpu: 1.e+3
   n_dim: 16
   centers: 16
   random_state:
