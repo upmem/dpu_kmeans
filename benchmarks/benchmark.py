@@ -5,6 +5,7 @@ import os
 from collections.abc import Sequence
 from random import random
 from time import perf_counter
+import argparse
 
 import numpy as np
 import pandas as pd
@@ -57,14 +58,14 @@ def get_available_dpus() -> int:
     return info["nr_dpus"][hostname] if hostname in info["nr_dpus"] else np.inf
 
 
-def get_experiments() -> pd.DataFrame:
+def get_experiments(exp_name: str) -> pd.DataFrame:
     """
-    Loads the experiments from the params.yaml file.
+    Loads the experiments from the parameters yaml file.
     """
     # load the params.yaml file as a dictionary
     # script_dir = os.path.dirname(__file__)
     # params_file = os.path.join(script_dir, "params.yaml")
-    params_file = "params.yaml"
+    params_file = f"{exp_name}.yaml"
 
     with open(params_file, "r") as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
@@ -154,15 +155,28 @@ def get_dataset(**kwargs) -> np.ndarray:
         return load_dataset(**kwargs)
 
 
+def get_exp_name() -> str:
+    """
+    Get the experiment name from the command line
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--exp_name", type=str, default="")
+    args = parser.parse_args()
+    return args.exp_name
+
+
 def run_benchmark(verbose: bool = False) -> None:
     """
     Runs the benchmark.
     """
+    # get experiment name
+    exp_name = get_exp_name()
+
     # check number of available DPUs
     n_available_dpu = get_available_dpus()
 
     # load the experiments
-    df = get_experiments()
+    df = get_experiments(exp_name)
 
     # run the experiments
 
@@ -329,7 +343,7 @@ def run_benchmark(verbose: bool = False) -> None:
                         ] = _dimm.ctr.get_nr_dpus()
 
                     # writing outputs at every iteration in case we crash early
-                    experiment_outputs(df)
+                    experiment_outputs(df, exp_name)
 
                 except Exception:
                     pass
@@ -343,12 +357,12 @@ def run_benchmark(verbose: bool = False) -> None:
     return df
 
 
-def experiment_outputs(df: pd.DataFrame) -> None:
+def experiment_outputs(df: pd.DataFrame, exp_name:str) -> None:
     """
     Outputs the results of the experiment
     """
     # output the entire benchmarks table
-    df.to_csv("benchmarks.csv", index=False)
+    df.to_csv(f"{exp_name}_benchmarks.csv", index=False)
 
     # output the important results table
     important_input_columns = df.inputs.columns[df.inputs.nunique() > 1]
@@ -369,9 +383,9 @@ def experiment_outputs(df: pd.DataFrame) -> None:
     # df_readable.index = df_readable.index.to_flat_index()
     # df_readable.index.rename(param_index, inplace=True)
     df_readable = df_readable.dropna()
-    df_readable.to_csv("results.csv", index=False)
+    df_readable.to_csv(f"{exp_name}_plots.csv", index=False)
     df_readable = df_readable.set_index(df_readable.columns[0])
-    df_readable.to_json("metrics.json", orient="index")
+    df_readable.to_json(f"{exp_name}_metrics.json", orient="index")
     with open("metrics.json", "a") as f:
         f.write("\n")
 

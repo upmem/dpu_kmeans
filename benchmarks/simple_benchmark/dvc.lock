@@ -49,17 +49,19 @@ stages:
       md5: e6000c99650874f5fd47732fd34c24c1
       size: 18
   simple_train:
-    cmd: python ../benchmark.py
+    cmd: python ../benchmark.py --exp_name simple
     deps:
     - path: ../../src/
-      md5: 0eddb62a0e9772f7854c28a8165fb387.dir
+      md5: 17598cc4b61c8dbdfbe083627ad7bc46.dir
       size: 75378
       nfiles: 14
     - path: ../benchmark.py
-      md5: b56fdc9e0bd2f26320052a81dcdf9c55
-      size: 13977
+      md5: 50861d4dd9b4b204bb9b6611dcb46919
+      size: 14388
     params:
-      params.yaml:
+      hostname.yaml:
+        name: upmemcloud1
+      simple.yaml:
         data:
           synthetic: true
           n_points: 1000.0
@@ -78,15 +80,13 @@ stages:
           tol: 0.0001
           n_clusters: 16
           random_state: 42
-      hostname.yaml:
-        name: upmemcloud7
     outs:
-    - path: benchmarks.csv
-      md5: 7e1c9dbcc5545f1674087f0fe6562964
-      size: 2183
-    - path: metrics.json
-      md5: fe2a0266d8db5e0a3f493ff5c75f527a
-      size: 205
-    - path: results.csv
-      md5: f380e2c640fecffdb71138a71ec916f0
-      size: 171
+    - path: simple_benchmarks.csv
+      md5: 392a2c8d1b18146877695759727d3f5a
+      size: 2147
+    - path: simple_metrics.json
+      md5: 406dbaa2bdc4a3f7c6451e38684055e7
+      size: 209
+    - path: simple_plots.csv
+      md5: 5f66df8ccd81e812c2a60a428da2b94e
+      size: 169

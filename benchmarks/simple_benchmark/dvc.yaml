@@ -6,23 +6,25 @@ stages:
         cache: false
     always_changed: true
   simple_train:
-    cmd: python ../benchmark.py
+    vars:
+    - exp_name: simple
+    cmd: python ../benchmark.py --exp_name simple
     deps:
     - ../benchmark.py
     - ../../src/
     params:
-    - params.yaml:
+    - ${exp_name}.yaml:
       - data
       - train
       - dimm
     - hostname.yaml:
       - name
     outs:
-    - benchmarks.csv:
+    - ${exp_name}_benchmarks.csv:
         cache: false
     metrics:
-    - metrics.json:
+    - ${exp_name}_metrics.json:
         cache: false
     plots:
-    - results.csv:
+    - ${exp_name}_plots.csv:
         cache: false
