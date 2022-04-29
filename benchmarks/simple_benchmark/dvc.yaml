@@ -27,12 +27,8 @@ stages:
         cache: false
     plots:
     - ${exp_name}_plots.csv:
+        template: multiline.json
         cache: false
-        title: CPU Times
+        title: Train Times
         x: dimm_n_dpu
         y: cpu_train_times
-    - ${exp_name}_plots.csv:
-        cache: false
-        title: DPU Times
-        x: dimm_n_dpu
-        y: dpu_train_times
