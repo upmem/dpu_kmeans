@@ -56,8 +56,8 @@ stages:
       size: 75378
       nfiles: 14
     - path: ../benchmark.py
-      md5: 50861d4dd9b4b204bb9b6611dcb46919
-      size: 14388
+      md5: 1716392d786c9c38635a8e1daf1c3022
+      size: 14139
     params:
       hostname.yaml:
         name: upmemcloud1
@@ -82,11 +82,11 @@ stages:
           random_state: 42
     outs:
     - path: simple_benchmarks.csv
-      md5: 392a2c8d1b18146877695759727d3f5a
-      size: 2147
+      md5: a9787e951b30f021a265e5a6d3b655d4
+      size: 2185
     - path: simple_metrics.json
-      md5: 406dbaa2bdc4a3f7c6451e38684055e7
-      size: 209
+      md5: 55b43e09351d71e32ec009112635cde2
+      size: 210
     - path: simple_plots.csv
-      md5: 5f66df8ccd81e812c2a60a428da2b94e
-      size: 169
+      md5: 00bb64f2017071412662b70cfaa002b9
+      size: 174
