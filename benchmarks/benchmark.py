@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import argparse
 import json
 import os
 from collections.abc import Sequence
 from random import random
 from time import perf_counter
-import argparse
 
 import numpy as np
 import pandas as pd

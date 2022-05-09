@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import nox
 
-
 nox.options.sessions = ["lint", "tests"]
 
 
