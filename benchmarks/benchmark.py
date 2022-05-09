@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import json
 import os
 from collections.abc import Sequence
 from random import random
@@ -42,33 +43,28 @@ def get_available_dpus() -> int:
     """
     Returns the number of available DPUs
     """
-    script_dir = os.path.dirname(__file__)
-    info_file = os.path.join(script_dir, "machines_info.yaml")
-    with open(info_file, "r") as f:
-        info = yaml.load(f, Loader=yaml.FullLoader)
-    host_file = "hostname.yaml"
+    machine_file = "machine.yaml"
     try:
-        with open(host_file, "r") as f:
-            host = yaml.load(f, Loader=yaml.FullLoader)
-            hostname = host["name"]
+        with open(machine_file, "r") as f:
+            machine = yaml.load(f, Loader=yaml.FullLoader)
     except FileNotFoundError:
-        import socket
-
-        hostname = socket.gethostname()
-    return info["nr_dpus"][hostname] if hostname in info["nr_dpus"] else np.inf
+        return np.inf
+    return machine["nr_dpus"]
 
 
-def get_experiments(exp_name: str) -> pd.DataFrame:
+def get_experiments() -> pd.DataFrame:
     """
     Loads the experiments from the parameters yaml file.
     """
     # load the params.yaml file as a dictionary
-    # script_dir = os.path.dirname(__file__)
-    # params_file = os.path.join(script_dir, "params.yaml")
-    params_file = f"{exp_name}.yaml"
+    params_file = "params.yaml"
 
     with open(params_file, "r") as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
+
+    # get the experiment name and remove it from parameters
+    exp_name = params["exp_name"]
+    del params["exp_name"]
 
     # convert the dictionary to a pandas DataFrame and explode the experiments
     df = pd.DataFrame.from_dict(params, orient="index").stack().to_frame().transpose()
@@ -102,7 +98,7 @@ def get_experiments(exp_name: str) -> pd.DataFrame:
     # adding a layer to the multi-index
     df = pd.concat([df], axis=1, keys=["inputs"])
 
-    return df
+    return df, exp_name
 
 
 def get_desc(nonconstants: Sequence, params: pd.DataFrame) -> str:
@@ -155,28 +151,86 @@ def get_dataset(**kwargs) -> np.ndarray:
         return load_dataset(**kwargs)
 
 
-def get_exp_name() -> str:
+def experiment_outputs(df: pd.DataFrame, exp_name: str) -> None:
     """
-    Get the experiment name from the command line
+    Outputs the results of the experiment
     """
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--exp_name", type=str, default="")
-    args = parser.parse_args()
-    return args.exp_name
+    # output the entire benchmarks table
+    df.to_csv("benchmarks.csv", index=False)
+
+    # output the important results table
+    important_input_columns = df.inputs.columns[df.inputs.nunique() > 1]
+    # if (
+    #     ("data", "n_points_per_dpu") in important_input_columns
+    #     and ("data", "n_points") in important_input_columns
+    # ):
+    #     important_input_columns = important_input_columns.drop(("data", "n_points"))
+    important_output_columns = [(c[1:]) for c in df.columns if c[2] in ("train_times",)]
+
+    df_readable = pd.concat(
+        (df.inputs[important_input_columns], df.results[important_output_columns]),
+        axis=1,
+    )
+    # df_readable.set_index(important_input_columns.to_list(), inplace=True)
+    df_readable.columns = ["_".join(col) for col in df_readable.columns.values]
+    # param_index = "--".join(["_".join(name) for name in df_readable.index.names])
+    # df_readable.index = df_readable.index.to_flat_index()
+    # df_readable.index.rename(param_index, inplace=True)
+    df_readable = df_readable.dropna()
+    df_readable.to_csv("plots.csv", index=False)
+    df_readable = df_readable.set_index(df_readable.columns[0])
+    dict_readable = df_readable.to_dict(orient="index")
+    # add a top level index to let dvc know these are separate experiments
+    dict_readable = {exp_name: dict_readable}
+    with open("metrics.json", "w") as f:
+        json.dump(dict_readable, f, indent=2)
+        f.write("\n")  # add a newline because Py JSON does not
+    # df_readable.to_json("metrics.json", orient="index")
+
+
+def log_cpu(
+    df: pd.DataFrame,
+    dataset: pd.DataFrame,
+    train_param: pd.DataFrame,
+    CPU_kmeans: CPUKMeans,
+    data: np.ndarray,
+    cpu_time: float,
+) -> None:
+    """
+    Logs the CPU results in the experiment
+    """
+    # logging the results
+    cpu_index = (df.inputs.data == dataset).all(axis=1) & (
+        df.inputs.train == train_param
+    ).all(axis=1)
+    df.loc[cpu_index, ("results", "cpu", "times")] = cpu_time
+    df.loc[cpu_index, ("results", "cpu", "train_times")] = CPU_kmeans.train_time_
+    df.loc[
+        cpu_index, ("results", "cpu", "preprocessing_times")
+    ] = CPU_kmeans.preprocessing_timer_
+    df.loc[
+        cpu_index, ("results", "cpu", "single_kmeans_times")
+    ] = CPU_kmeans.main_loop_timer_
+    df.loc[cpu_index, ("results", "cpu", "iterations")] = CPU_kmeans.n_iter_
+    df.loc[cpu_index, ("results", "cpu", "times_one_iter")] = (
+        CPU_kmeans.main_loop_timer_ / CPU_kmeans.n_iter_
+    )
+
+    # computing score
+    df.loc[cpu_index, ("results", "cpu", "score")] = calinski_harabasz_score(
+        data, CPU_kmeans.labels_
+    )
 
 
 def run_benchmark(verbose: bool = False) -> None:
     """
     Runs the benchmark.
     """
-    # get experiment name
-    exp_name = get_exp_name()
-
     # check number of available DPUs
     n_available_dpu = get_available_dpus()
 
     # load the experiments
-    df = get_experiments(exp_name)
+    df, exp_name = get_experiments()
 
     # run the experiments
 
@@ -218,32 +272,34 @@ def run_benchmark(verbose: bool = False) -> None:
             )
             CPU_kmeans.fit(data)
             toc = perf_counter()
+            cpu_time = toc - tic
 
             pbar_train.set_description(f"scoring CPU {desc}")
 
-            # logging the results
-            cpu_index = (df.inputs.data == dataset).all(axis=1) & (
-                df.inputs.train == train_param
-            ).all(axis=1)
-            df.loc[cpu_index, ("results", "cpu", "times")] = toc - tic
-            df.loc[
-                cpu_index, ("results", "cpu", "train_times")
-            ] = CPU_kmeans.train_time_
-            df.loc[
-                cpu_index, ("results", "cpu", "preprocessing_times")
-            ] = CPU_kmeans.preprocessing_timer_
-            df.loc[
-                cpu_index, ("results", "cpu", "single_kmeans_times")
-            ] = CPU_kmeans.main_loop_timer_
-            df.loc[cpu_index, ("results", "cpu", "iterations")] = CPU_kmeans.n_iter_
-            df.loc[cpu_index, ("results", "cpu", "times_one_iter")] = (
-                CPU_kmeans.main_loop_timer_ / CPU_kmeans.n_iter_
-            )
+            log_cpu(df, dataset, train_param, CPU_kmeans, data, cpu_time)
+            # # logging the results
+            # cpu_index = (df.inputs.data == dataset).all(axis=1) & (
+            #     df.inputs.train == train_param
+            # ).all(axis=1)
+            # df.loc[cpu_index, ("results", "cpu", "times")] = toc - tic
+            # df.loc[
+            #     cpu_index, ("results", "cpu", "train_times")
+            # ] = CPU_kmeans.train_time_
+            # df.loc[
+            #     cpu_index, ("results", "cpu", "preprocessing_times")
+            # ] = CPU_kmeans.preprocessing_timer_
+            # df.loc[
+            #     cpu_index, ("results", "cpu", "single_kmeans_times")
+            # ] = CPU_kmeans.main_loop_timer_
+            # df.loc[cpu_index, ("results", "cpu", "iterations")] = CPU_kmeans.n_iter_
+            # df.loc[cpu_index, ("results", "cpu", "times_one_iter")] = (
+            #     CPU_kmeans.main_loop_timer_ / CPU_kmeans.n_iter_
+            # )
 
-            # computing score
-            df.loc[cpu_index, ("results", "cpu", "score")] = calinski_harabasz_score(
-                data, CPU_kmeans.labels_
-            )
+            # # computing score
+            # df.loc[cpu_index, ("results", "cpu", "score")] = calinski_harabasz_score(
+            #     data, CPU_kmeans.labels_
+            # )
 
             pbar_train.set_description(f"running DPU {desc}")
             train_param_df = dataset_df[
@@ -354,39 +410,6 @@ def run_benchmark(verbose: bool = False) -> None:
     # df_readable = df[important_columns]
     # df_readable.to_csv("results.csv", index=False)
     return df
-
-
-def experiment_outputs(df: pd.DataFrame, exp_name:str) -> None:
-    """
-    Outputs the results of the experiment
-    """
-    # output the entire benchmarks table
-    df.to_csv(f"{exp_name}_benchmarks.csv", index=False)
-
-    # output the important results table
-    important_input_columns = df.inputs.columns[df.inputs.nunique() > 1]
-    # if (
-    #     ("data", "n_points_per_dpu") in important_input_columns
-    #     and ("data", "n_points") in important_input_columns
-    # ):
-    #     important_input_columns = important_input_columns.drop(("data", "n_points"))
-    important_output_columns = [(c[1:]) for c in df.columns if c[2] in ("train_times",)]
-
-    df_readable = pd.concat(
-        (df.inputs[important_input_columns], df.results[important_output_columns]),
-        axis=1,
-    )
-    # df_readable.set_index(important_input_columns.to_list(), inplace=True)
-    df_readable.columns = ["_".join(col) for col in df_readable.columns.values]
-    # param_index = "--".join(["_".join(name) for name in df_readable.index.names])
-    # df_readable.index = df_readable.index.to_flat_index()
-    # df_readable.index.rename(param_index, inplace=True)
-    df_readable = df_readable.dropna()
-    df_readable.to_csv(f"{exp_name}_plots.csv", index=False)
-    df_readable = df_readable.set_index(df_readable.columns[0])
-    df_readable.to_json(f"{exp_name}_metrics.json", orient="index")
-    with open(f"{exp_name}_metrics.json", "a") as f:
-        f.write("\n")
 
 
 if __name__ == "__main__":

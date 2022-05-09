@@ -1,5 +1,2 @@
-# information about dimms
-machines_info.yaml
-
-# current host name
-hostname.yaml
+# information about the machines
+dpu_diag.txt

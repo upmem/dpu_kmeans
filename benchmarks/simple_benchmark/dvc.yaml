@@ -1,32 +1,31 @@
 stages:
-  host_name:
-    cmd: ../get_hostname.sh
+  log:
+    cmd: python ../machine_log.py
     outs:
-    - hostname.yaml:
+    - dpu_diag.txt
+    - machine.yaml:
         cache: false
     always_changed: true
-  simple_train:
-    vars:
-    - exp_name: simple
-    cmd: python ../benchmark.py --exp_name ${exp_name}
+  train:
+    cmd: python ../benchmark.py
     deps:
     - ../benchmark.py
     - ../../src/
     params:
-    - ${exp_name}.yaml:
-      - data
-      - train
-      - dimm
-    - hostname.yaml:
-      - name
+    - data
+    - train
+    - dimm
+    - machine.yaml:
+      - hostname
+      - nr_dpus
     outs:
-    - ${exp_name}_benchmarks.csv:
+    - benchmarks.csv:
         cache: false
     metrics:
-    - ${exp_name}_metrics.json:
+    - metrics.json:
         cache: false
     plots:
-    - ${exp_name}_plots.csv:
+    - plots.csv:
         template: multiline.json
         cache: false
         title: Train Times
