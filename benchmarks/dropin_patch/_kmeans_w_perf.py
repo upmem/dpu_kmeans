@@ -938,7 +938,6 @@ class KMeans(TransformerMixin, ClusterMixin, BaseEstimator):
         self.preprocessing_timer_ = None
         self.train_time_ = None
         self.main_loop_timer_ = None
-        self.train_time_ = None
 
     def _check_params(self, X):
         # n_init
