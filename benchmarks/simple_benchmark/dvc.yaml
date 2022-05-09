@@ -2,7 +2,8 @@ stages:
   log:
     cmd: python ../machine_log.py
     outs:
-    - dpu_diag.txt
+    - dpu_diag.txt:
+        cache: true
     - machine.yaml:
         cache: false
     always_changed: true
