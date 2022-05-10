@@ -1,7 +1,7 @@
 exp_name: dimension
 data:
   synthetic: true
-  n_points: 409600.0
+  n_points: 4096.e+5
   n_dim:
   - 16
   - 8
@@ -16,4 +16,4 @@ train:
   n_clusters: 16
   random_state: 42
 dimm:
-  n_dpu: 512
+  n_dpu: 0
