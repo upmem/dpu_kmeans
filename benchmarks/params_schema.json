@@ -1,0 +1,133 @@
+{
+  "title": "params.yaml",
+  "type": "object",
+  "properties": {
+    "exp_name": {
+      "title": "Experiment name",
+      "description": "Name to be used for filtering different experiments",
+      "allOf": [
+        {
+          "$ref": "#/definitions/ExpName"
+        }
+      ]
+    },
+    "data": {
+      "title": "Data",
+      "description": "Parameters for the experimental dataset",
+      "type": "object",
+      "properties": {
+        "synthetic": {
+          "title": "Synthetic data",
+          "description": "Whether to use synthetic data",
+          "type": "boolean"
+        },
+        "n_points": {
+          "title": "Number of points",
+          "description": "Total number of points to be generated in the dataset",
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "float"
+            }
+          ]
+        },
+        "n_points_per_dpu": {
+          "title": "Number of points per DPU",
+          "description": "Number of points to be generated per DPU",
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "float"
+            }
+          ]
+        },
+        "n_dim": {
+          "title": "Number of dimensions",
+          "description": "Number of dimensions of the dataset",
+          "type": "integer"
+        },
+        "centers": {
+          "title": "Centers",
+          "description": "Number of clusters to be generated",
+          "type": "integer"
+        },
+        "random_state": {
+          "title": "Random state",
+          "description": "Random state to be used for the generation of the dataset",
+          "type": "integer"
+        },
+        "name": {
+          "title": "Name",
+          "description": "Name of the dataset to be imported",
+          "type": "string"
+        }
+      },
+      "required": [
+        "synthetic"
+      ],
+      "if": {
+        "properties": {
+          "synthetic": {
+            "constant": true
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "n_points"
+        ]
+      },
+      "else": {
+        "required": [
+          "name"
+        ]
+      }
+    },
+    "train": {
+      "title": "Train",
+      "description": "Parameters for the training",
+      "type": "object",
+      "additionalProperties": {
+        "allOf": [
+          {
+            "$ref": "#/definitions/Train"
+          }
+        ]
+      }
+    },
+    "dimm": {
+      "title": "DIMM",
+      "description": "Parameters for the DPUs",
+      "type": "object",
+      "additionalProperties": {
+        "allOf": [
+          {
+            "$ref": "#/definitions/Dimm"
+          }
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "ExpName": {
+      "title": "Experiment name",
+      "type": "string"
+    },
+    "Data": {
+      "title": "Data",
+      "type": "object"
+    },
+    "Train": {
+      "title": "Train",
+      "type": "object"
+    },
+    "Dimm": {
+      "title": "DIMM",
+      "type": "object"
+    }
+  }
+}
