@@ -1,3 +1,4 @@
+exp_name: strong_scaling
 data:
   synthetic: true
   n_points: 256.e+5
@@ -16,4 +17,4 @@ dimm:
     - 512
     - 1024
     - 2048
-    - 2523
+    - 0

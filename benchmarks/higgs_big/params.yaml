@@ -1,3 +1,4 @@
+exp_name: higgs
 data:
   synthetic: false
   name: ../../higgs/data/higgs

@@ -1,0 +1,34 @@
+stages:
+  log:
+    cmd: python ../machine_log.py
+    outs:
+    - dpu_diag.txt:
+        cache: true
+    - machine.yaml:
+        cache: false
+    always_changed: true
+  train:
+    cmd: python ../benchmark.py
+    deps:
+    - ../benchmark.py
+    - ../../src/
+    params:
+    - data
+    - train
+    - dimm
+    - machine.yaml:
+      - hostname
+      - nr_dpus
+    outs:
+    - benchmarks.csv:
+        cache: false
+    metrics:
+    - metrics.json:
+        cache: false
+    plots:
+    - plots.csv:
+        template: multiline.json
+        cache: false
+        title: Train Times
+        x: dimm_n_dpu
+        y: cpu_train_times

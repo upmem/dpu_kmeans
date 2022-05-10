@@ -1,23 +1,25 @@
 stages:
-  host_name:
-    cmd: ../get_hostname.sh
+  log:
+    cmd: python ../machine_log.py
     outs:
-    - hostname.yaml:
+    - dpu_diag.txt:
+        cache: true
+    - machine.yaml:
         cache: false
     always_changed: true
-  higgs:
+  train:
     cmd: python ../benchmark.py
     deps:
     - ../benchmark.py
     - ../../src/
     - ../higgs/data/higgs.pq
     params:
-    - params.yaml:
-      - data
-      - train
-      - dimm
-    - hostname.yaml:
-      - name
+    - data
+    - train
+    - dimm
+    - machine.yaml:
+      - hostname
+      - nr_dpus
     outs:
     - benchmarks.csv:
         cache: false
@@ -25,5 +27,9 @@ stages:
     - metrics.json:
         cache: false
     plots:
-    - results.csv:
+    - plots.csv:
+        template: multiline.json
         cache: false
+        title: Train Times
+        x: dimm_n_dpu
+        y: cpu_train_times
