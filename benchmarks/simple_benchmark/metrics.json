@@ -1,16 +1,16 @@
 {
   "simple": {
     "64": {
-      "cpu_train_times": 0.41878319904208183,
-      "dpu_train_times": 0.1435866840183735
+      "cpu_train_times": 0.29655557638034225,
+      "dpu_train_times": 0.13228423427790403
     },
     "128": {
-      "cpu_train_times": 0.41878319904208183,
-      "dpu_train_times": 0.16783855529502034
+      "cpu_train_times": 0.29655557638034225,
+      "dpu_train_times": 0.17202862678095698
     },
     "256": {
-      "cpu_train_times": 0.41878319904208183,
-      "dpu_train_times": 0.22175080375745893
+      "cpu_train_times": 0.29655557638034225,
+      "dpu_train_times": 0.2525746375322342
     }
   }
 }
