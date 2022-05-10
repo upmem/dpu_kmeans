@@ -4,7 +4,7 @@ stages:
     cmd: python ../machine_log.py
     outs:
     - path: dpu_diag.txt
-      md5: b7be554f362a5c300e130202add721c8
+      md5: ce614e257f758d2a49b3878a7b4cf4bc
       size: 5084
     - path: machine.yaml
       md5: c987f498d066a7bdedb8a18892245ffa
@@ -23,7 +23,7 @@ stages:
       params.yaml:
         data:
           synthetic: true
-          n_points: 4096000.0
+          n_points: 409600.0
           n_dim:
           - 16
           - 8
@@ -44,11 +44,11 @@ stages:
         nr_dpus: 1024
     outs:
     - path: benchmarks.csv
-      md5: c86084b363843e9b826495c2d7a83b2f
-      size: 2348
+      md5: fc2ec449066fa8f71d54fad179a857e8
+      size: 2424
     - path: metrics.json
-      md5: 3684118b7136a728453b67fd5c8be3c4
-      size: 450
+      md5: 31b9d40eea3b4e46cd82498dd39bf48c
+      size: 453
     - path: plots.csv
-      md5: ed1b5473dddc4dc319d44e7d65c7907a
-      size: 201
+      md5: 2f32cebcdc54670f2e27e866041a44ad
+      size: 204

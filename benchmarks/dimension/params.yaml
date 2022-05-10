@@ -1,13 +1,12 @@
-exp_name:
-  dimension
+exp_name: dimension
 data:
   synthetic: true
-  n_points: 4096.e+3
+  n_points: 409600.0
   n_dim:
-    - 16
-    - 8
-    - 4
-    - 2
+  - 16
+  - 8
+  - 4
+  - 2
   centers: 16
   random_state: 42
 train:
