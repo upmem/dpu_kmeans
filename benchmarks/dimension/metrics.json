@@ -1,0 +1,20 @@
+{
+  "dimension": {
+    "16": {
+      "cpu_train_times": 6.7269071522168815,
+      "dpu_train_times": 13.330109540373087
+    },
+    "8": {
+      "cpu_train_times": 6.847838209476322,
+      "dpu_train_times": 6.2474927846342325
+    },
+    "4": {
+      "cpu_train_times": 10.600736326072365,
+      "dpu_train_times": 6.764995313249528
+    },
+    "2": {
+      "cpu_train_times": 20.333144079428166,
+      "dpu_train_times": 10.02603412186727
+    }
+  }
+}
