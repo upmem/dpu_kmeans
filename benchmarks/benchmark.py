@@ -16,7 +16,7 @@ from sklearn.datasets import make_blobs
 from sklearn.metrics import adjusted_rand_score, calinski_harabasz_score
 from tqdm import tqdm
 
-from dpu_kmeans import KMeans as DPU_KMeans
+from dpu_kmeans import KMeans as DPUKMeans
 from dpu_kmeans import _dimm
 
 
@@ -165,6 +165,8 @@ def experiment_outputs(df: pd.DataFrame, exp_name: str) -> None:
     #     and ("data", "n_points") in important_input_columns
     # ):
     #     important_input_columns = important_input_columns.drop(("data", "n_points"))
+    if important_input_columns.empty:
+        important_input_columns = ("dimm", "n_dpu")
     important_output_columns = [(c[1:]) for c in df.columns if c[2] in ("train_times",)]
 
     df_readable = pd.concat(
@@ -178,6 +180,7 @@ def experiment_outputs(df: pd.DataFrame, exp_name: str) -> None:
     # df_readable.index.rename(param_index, inplace=True)
     df_readable = df_readable.dropna()
     df_readable.to_csv("plots.csv", index=False)
+
     df_readable = df_readable.set_index(df_readable.columns[0])
     dict_readable = df_readable.to_dict(orient="index")
     # add a top level index to let dvc know these are separate experiments
@@ -220,6 +223,63 @@ def log_cpu(
     df.loc[cpu_index, ("results", "cpu", "score")] = calinski_harabasz_score(
         data, CPU_kmeans.labels_
     )
+
+
+def log_dpu(
+    df: pd.DataFrame,
+    dataset: pd.DataFrame,
+    train_param: pd.DataFrame,
+    dimm_param: pd.DataFrame,
+    DPU_kmeans: DPUKMeans,
+    CPU_kmeans: CPUKMeans,
+    data: np.ndarray,
+    dpu_time: float,
+    DPU_init_time: float,
+) -> None:
+    """
+    Logs the DPU results in the experiment
+    """
+    # logging the results
+    dimm_index = (
+        (df.inputs.data == dataset).all(axis=1)
+        & (df.inputs.train == train_param).all(axis=1)
+        & (df.inputs.dimm == dimm_param).all(axis=1)
+    )
+    df.loc[dimm_index, ("results", "dpu", "times")] = dpu_time
+    df.loc[dimm_index, ("results", "dpu", "train_times")] = DPU_kmeans.train_time_
+    df.loc[dimm_index, ("results", "dpu", "init_times")] = DPU_init_time
+    df.loc[
+        dimm_index, ("results", "dpu", "preprocessing_times")
+    ] = DPU_kmeans.preprocessing_timer_
+    df.loc[dimm_index, ("results", "dpu", "cpu_pim_times")] = DPU_kmeans.cpu_pim_time_
+    df.loc[dimm_index, ("results", "dpu", "pim_cpu_times")] = DPU_kmeans.pim_cpu_time_
+    df.loc[dimm_index, ("results", "dpu", "inertia_times")] = DPU_kmeans.inertia_timer_
+    df.loc[
+        dimm_index, ("results", "dpu", "reallocate_times")
+    ] = DPU_kmeans.reallocate_timer_
+    df.loc[
+        dimm_index, ("results", "dpu", "single_kmeans_times")
+    ] = DPU_kmeans.main_loop_timer_
+    df.loc[dimm_index, ("results", "dpu", "kernel_runtime")] = DPU_kmeans.dpu_run_time_
+    df.loc[dimm_index, ("results", "dpu", "inter_pim_core_times")] = (
+        DPU_kmeans.main_loop_timer_ - DPU_kmeans.dpu_run_time_
+    )
+    df.loc[dimm_index, ("results", "dpu", "iterations")] = DPU_kmeans.n_iter_
+    df.loc[dimm_index, ("results", "dpu", "times_one_iter")] = (
+        DPU_kmeans.main_loop_timer_ / DPU_kmeans.n_iter_
+    )
+
+    # computing score
+    df.loc[dimm_index, ("results", "dpu", "score")] = calinski_harabasz_score(
+        data, DPU_kmeans.labels_
+    )
+    df.loc[dimm_index, ("results", "dpu", "cross_score")] = adjusted_rand_score(
+        CPU_kmeans.labels_, DPU_kmeans.labels_
+    )
+
+    # logging real number of DPUs
+    if dimm_param["n_dpu"] == 0:
+        df.loc[dimm_index, ("inputs", "dimm", "n_dpu")] = _dimm.ctr.get_nr_dpus()
 
 
 def run_benchmark(verbose: bool = False) -> None:
@@ -276,30 +336,8 @@ def run_benchmark(verbose: bool = False) -> None:
 
             pbar_train.set_description(f"scoring CPU {desc}")
 
+            # logging the results
             log_cpu(df, dataset, train_param, CPU_kmeans, data, cpu_time)
-            # # logging the results
-            # cpu_index = (df.inputs.data == dataset).all(axis=1) & (
-            #     df.inputs.train == train_param
-            # ).all(axis=1)
-            # df.loc[cpu_index, ("results", "cpu", "times")] = toc - tic
-            # df.loc[
-            #     cpu_index, ("results", "cpu", "train_times")
-            # ] = CPU_kmeans.train_time_
-            # df.loc[
-            #     cpu_index, ("results", "cpu", "preprocessing_times")
-            # ] = CPU_kmeans.preprocessing_timer_
-            # df.loc[
-            #     cpu_index, ("results", "cpu", "single_kmeans_times")
-            # ] = CPU_kmeans.main_loop_timer_
-            # df.loc[cpu_index, ("results", "cpu", "iterations")] = CPU_kmeans.n_iter_
-            # df.loc[cpu_index, ("results", "cpu", "times_one_iter")] = (
-            #     CPU_kmeans.main_loop_timer_ / CPU_kmeans.n_iter_
-            # )
-
-            # # computing score
-            # df.loc[cpu_index, ("results", "cpu", "score")] = calinski_harabasz_score(
-            #     data, CPU_kmeans.labels_
-            # )
 
             pbar_train.set_description(f"running DPU {desc}")
             train_param_df = dataset_df[
@@ -332,7 +370,7 @@ def run_benchmark(verbose: bool = False) -> None:
 
                 # perform the clustering on DPU
                 tic = perf_counter()
-                DPU_kmeans = DPU_KMeans(
+                DPU_kmeans = DPUKMeans(
                     init="random",
                     verbose=verbose,
                     copy_x=False,
@@ -341,77 +379,28 @@ def run_benchmark(verbose: bool = False) -> None:
                 )
                 DPU_kmeans.fit(data)
                 toc = perf_counter()
+                dpu_time = toc - tic
 
                 pbar_dimm.set_description(f"scoring {desc}")
 
                 # logging the results
-                dimm_index = (
-                    (df.inputs.data == dataset).all(axis=1)
-                    & (df.inputs.train == train_param).all(axis=1)
-                    & (df.inputs.dimm == dimm_param).all(axis=1)
+                log_dpu(
+                    df,
+                    dataset,
+                    train_param,
+                    dimm_param,
+                    DPU_kmeans,
+                    CPU_kmeans,
+                    data,
+                    dpu_time,
+                    DPU_init_time,
                 )
-                df.loc[dimm_index, ("results", "dpu", "times")] = toc - tic
-                df.loc[
-                    dimm_index, ("results", "dpu", "train_times")
-                ] = DPU_kmeans.train_time_
-                df.loc[dimm_index, ("results", "dpu", "init_times")] = DPU_init_time
-                df.loc[
-                    dimm_index, ("results", "dpu", "preprocessing_times")
-                ] = DPU_kmeans.preprocessing_timer_
-                df.loc[
-                    dimm_index, ("results", "dpu", "cpu_pim_times")
-                ] = DPU_kmeans.cpu_pim_time_
-                df.loc[
-                    dimm_index, ("results", "dpu", "pim_cpu_times")
-                ] = DPU_kmeans.pim_cpu_time_
-                df.loc[
-                    dimm_index, ("results", "dpu", "inertia_times")
-                ] = DPU_kmeans.inertia_timer_
-                df.loc[
-                    dimm_index, ("results", "dpu", "reallocate_times")
-                ] = DPU_kmeans.reallocate_timer_
-                df.loc[
-                    dimm_index, ("results", "dpu", "single_kmeans_times")
-                ] = DPU_kmeans.main_loop_timer_
-                df.loc[
-                    dimm_index, ("results", "dpu", "kernel_runtime")
-                ] = DPU_kmeans.dpu_run_time_
-                df.loc[dimm_index, ("results", "dpu", "inter_pim_core_times")] = (
-                    DPU_kmeans.main_loop_timer_ - DPU_kmeans.dpu_run_time_
-                )
-                df.loc[
-                    dimm_index, ("results", "dpu", "iterations")
-                ] = DPU_kmeans.n_iter_
-                df.loc[dimm_index, ("results", "dpu", "times_one_iter")] = (
-                    DPU_kmeans.main_loop_timer_ / DPU_kmeans.n_iter_
-                )
-
-                # computing score
-                df.loc[
-                    dimm_index, ("results", "dpu", "score")
-                ] = calinski_harabasz_score(data, DPU_kmeans.labels_)
-                df.loc[
-                    dimm_index, ("results", "dpu", "cross_score")
-                ] = adjusted_rand_score(CPU_kmeans.labels_, DPU_kmeans.labels_)
-
-                # logging real number of DPUs
-                if dimm_param["n_dpu"] == 0:
-                    df.loc[
-                        dimm_index, ("inputs", "dimm", "n_dpu")
-                    ] = _dimm.ctr.get_nr_dpus()
 
                 # writing outputs at every iteration in case we crash early
                 experiment_outputs(df, exp_name)
 
-    # print(df)
-    # df.to_csv("benchmarks.csv", index=False)
-    # important_columns = df.columns[df.nunique() > 1]
-    # print(important_columns)
-    # df_readable = df[important_columns]
-    # df_readable.to_csv("results.csv", index=False)
     return df
 
 
 if __name__ == "__main__":
     df = run_benchmark()
-    # experiment_outputs(df)
