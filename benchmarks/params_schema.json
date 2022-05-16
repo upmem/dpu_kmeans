@@ -5,11 +5,7 @@
     "exp_name": {
       "title": "Experiment name",
       "description": "Name to be used for filtering different experiments",
-      "allOf": [
-        {
-          "$ref": "#/definitions/ExpName"
-        }
-      ]
+      "type": "string"
     },
     "data": {
       "title": "Data",
@@ -24,41 +20,27 @@
         "n_points": {
           "title": "Number of points",
           "description": "Total number of points to be generated in the dataset",
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "float"
-            }
-          ]
+          "$ref": "#/definitions/IntegerParam"
         },
         "n_points_per_dpu": {
           "title": "Number of points per DPU",
           "description": "Number of points to be generated per DPU",
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "float"
-            }
-          ]
+          "$ref": "#/definitions/IntegerParam"
         },
         "n_dim": {
           "title": "Number of dimensions",
           "description": "Number of dimensions of the dataset",
-          "type": "integer"
+          "$ref": "#/definitions/IntegerParam"
         },
         "centers": {
           "title": "Centers",
           "description": "Number of clusters to be generated",
-          "type": "integer"
+          "$ref": "#/definitions/IntegerParam"
         },
         "random_state": {
           "title": "Random state",
           "description": "Random state to be used for the generation of the dataset",
-          "type": "integer"
+          "$ref": "#/definitions/IntegerParam"
         },
         "name": {
           "title": "Name",
@@ -77,8 +59,24 @@
         }
       },
       "then": {
-        "required": [
-          "n_points"
+        "Allof": [
+          {
+            "Oneof": [
+              {
+                "required": "n_points"
+              },
+              {
+                "required": "n_points_per_dpu"
+              }
+            ]
+          },
+          {
+            "required": [
+              "n_dim",
+              "centers",
+              "random_state"
+            ]
+          }
         ]
       },
       "else": {
@@ -91,24 +89,59 @@
       "title": "Train",
       "description": "Parameters for the training",
       "type": "object",
-      "additionalProperties": {
-        "allOf": [
-          {
-            "$ref": "#/definitions/Train"
-          }
-        ]
-      }
+      "properties": {
+        "n_init": {
+          "title": "Number of initializations",
+          "description": "Number of times the algorithm will be run with different random initializations",
+          "$ref": "#/definitions/IntegerParam"
+        },
+        "max_iter": {
+          "title": "Maximum number of iterations",
+          "description": "Maximum number of iterations to be performed",
+          "$ref": "#/definitions/IntegerParam"
+        },
+        "tol": {
+          "title": "Tolerance",
+          "description": "Tolerance for the stopping criterion",
+          "$ref": "#/definitions/NumberParam"
+        },
+        "n_clusters": {
+          "title": "Number of clusters",
+          "description": "Number of clusters for the clustering algorithm",
+          "$ref": "#/definitions/IntegerParam"
+        },
+        "random_state": {
+          "title": "Random state",
+          "description": "Random state to be used for the clustering algorithm",
+          "Oneof": [
+            {
+              "$ref": "#/definitions/IntegerParam"
+            },
+            {
+              "type": "string",
+              "const": "like_data"
+            }
+          ]
+        }
+      },
+      "required": [
+        "n_init",
+        "max_iter",
+        "tol",
+        "n_clusters",
+        "random_state"
+      ]
     },
     "dimm": {
       "title": "DIMM",
       "description": "Parameters for the DPUs",
       "type": "object",
-      "additionalProperties": {
-        "allOf": [
-          {
-            "$ref": "#/definitions/Dimm"
-          }
-        ]
+      "properties": {
+        "n_dpu": {
+          "title": "Number of DPUs",
+          "description": "Number of DPUs to be used",
+          "$ref": "#/definitions/IntegerParam"
+        }
       }
     }
   },
@@ -128,6 +161,34 @@
     "Dimm": {
       "title": "DIMM",
       "type": "object"
+    },
+    "IntegerParam": {
+      "title": "Integer parameter",
+      "Oneof": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        }
+      ]
+    },
+    "NumberParam": {
+      "title": "Number parameter",
+      "Oneof": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      ]
     }
   }
 }

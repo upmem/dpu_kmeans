@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../params_schema.json
 exp_name: higgs
 data:
   synthetic: false
