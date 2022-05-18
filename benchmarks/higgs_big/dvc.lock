@@ -4,7 +4,7 @@ stages:
     cmd: python ../machine_log.py
     outs:
     - path: dpu_diag.txt
-      md5: de937daac0ea60734fe3b82eec2c2d3f
+      md5: 26162455057bf0bfe15df19e2f131d1e
       size: 11255
     - path: machine.yaml
       md5: a5baed0c43ef6c5d0147fc64404a7056
@@ -19,36 +19,35 @@ stages:
     - path: ../benchmark.py
       md5: a2e660dd2d504fe1bd8644b14226cfdb
       size: 13729
+    - path: ../higgs/data/higgs.pq
+      md5: da6ee84e78f0b34d28879003ba023524.dir
+      size: 891708998
+      nfiles: 127
     params:
       params.yaml:
         data:
-          synthetic: true
-          n_points: 25600000.0
-          n_dim:
-          - 16
-          - 8
-          - 4
-          - 2
-          centers: 16
-          random_state: 42
+          synthetic: false
+          name: ../../higgs/data/higgs
         dimm:
-          n_dpu: 0
+          n_dpu:
+          - 2048
+          - 0
         train:
           n_init: 10
           max_iter: 500
           tol: 0.0001
-          n_clusters: 16
+          n_clusters: 2
           random_state: 42
       machine.yaml:
         hostname: upmemcloud9
         nr_dpus: 2040
     outs:
     - path: benchmarks.csv
-      md5: 323f4d27d9867c5b0c1c2f8b16858dfe
-      size: 2378
+      md5: 8923741983f8800b97e7dbc582e4855a
+      size: 1313
     - path: metrics.json
-      md5: 6eacbbf8265a38203cb6bf9e4d928488
-      size: 449
+      md5: 70109231c815045ca47e6cd44430d6a6
+      size: 129
     - path: plots.csv
-      md5: 3af6f099828ffaf5cdc8b56eea646f46
-      size: 200
+      md5: 1276e88b559b30f85029d1e86e2c1d66
+      size: 85

@@ -1,2 +1,2 @@
-hostname: upmemcloud1
-nr_dpus: 896
+hostname: upmemcloud9
+nr_dpus: 2040

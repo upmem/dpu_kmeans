@@ -1,20 +1,20 @@
 {
   "dimension": {
     "16": {
-      "cpu_train_times": 3.4250861038453877,
-      "dpu_train_times": 1.7431883504614234
+      "cpu_train_times": 29.384478177991696,
+      "dpu_train_times": 17.486819597892463
     },
     "8": {
-      "cpu_train_times": 1.8980949483811855,
-      "dpu_train_times": 1.2474908884614706
+      "cpu_train_times": 35.21912284102291,
+      "dpu_train_times": 11.932741621043533
     },
     "4": {
-      "cpu_train_times": 1.2138504600152373,
-      "dpu_train_times": 0.7773810136131942
+      "cpu_train_times": 37.60792207287159,
+      "dpu_train_times": 8.20327995007392
     },
     "2": {
-      "cpu_train_times": 4.3204156113788486,
-      "dpu_train_times": 1.5083734947256744
+      "cpu_train_times": 106.48304395878222,
+      "dpu_train_times": 15.482087150914595
     }
   }
 }

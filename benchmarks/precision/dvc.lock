@@ -4,7 +4,7 @@ stages:
     cmd: python ../machine_log.py
     outs:
     - path: dpu_diag.txt
-      md5: de937daac0ea60734fe3b82eec2c2d3f
+      md5: f93df736686a2e779da1b1362fed6de8
       size: 11255
     - path: machine.yaml
       md5: a5baed0c43ef6c5d0147fc64404a7056
@@ -23,32 +23,38 @@ stages:
       params.yaml:
         data:
           synthetic: true
-          n_points: 25600000.0
-          n_dim:
-          - 16
-          - 8
-          - 4
-          - 2
+          n_points_per_dpu: 1000.0
+          n_dim: 16
           centers: 16
-          random_state: 42
+          random_state:
+          - 0
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+          - 6
+          - 7
+          - 8
+          - 9
         dimm:
-          n_dpu: 0
+          n_dpu: 1
         train:
           n_init: 10
           max_iter: 500
           tol: 0.0001
           n_clusters: 16
-          random_state: 42
+          random_state: like_data
       machine.yaml:
         hostname: upmemcloud9
         nr_dpus: 2040
     outs:
     - path: benchmarks.csv
-      md5: 323f4d27d9867c5b0c1c2f8b16858dfe
-      size: 2378
+      md5: 919313396c8a675bbbbdb59fc96def22
+      size: 4885
     - path: metrics.json
-      md5: 6eacbbf8265a38203cb6bf9e4d928488
-      size: 449
+      md5: db597f433d347f4586577332fa5be1f1
+      size: 1409
     - path: plots.csv
-      md5: 3af6f099828ffaf5cdc8b56eea646f46
-      size: 200
+      md5: c1e882e1c241a833d7917a1f59bf2b00
+      size: 494

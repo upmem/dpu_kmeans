@@ -2,7 +2,7 @@
 exp_name: dimension
 data:
   synthetic: true
-  n_points: 4096.e+5
+  n_points: 256.e+5
   n_dim:
   - 16
   - 8

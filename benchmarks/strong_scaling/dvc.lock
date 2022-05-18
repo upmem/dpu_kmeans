@@ -4,7 +4,7 @@ stages:
     cmd: python ../machine_log.py
     outs:
     - path: dpu_diag.txt
-      md5: de937daac0ea60734fe3b82eec2c2d3f
+      md5: 09c49435f9cdaba4ac368d295b5efbde
       size: 11255
     - path: machine.yaml
       md5: a5baed0c43ef6c5d0147fc64404a7056
@@ -24,15 +24,16 @@ stages:
         data:
           synthetic: true
           n_points: 25600000.0
-          n_dim:
-          - 16
-          - 8
-          - 4
-          - 2
+          n_dim: 16
           centers: 16
           random_state: 42
         dimm:
-          n_dpu: 0
+          n_dpu:
+          - 256
+          - 512
+          - 1024
+          - 2048
+          - 0
         train:
           n_init: 10
           max_iter: 500
@@ -44,11 +45,11 @@ stages:
         nr_dpus: 2040
     outs:
     - path: benchmarks.csv
-      md5: 323f4d27d9867c5b0c1c2f8b16858dfe
-      size: 2378
+      md5: 2fb9b33678dc6534ba496bef2ffd59d2
+      size: 2590
     - path: metrics.json
-      md5: 6eacbbf8265a38203cb6bf9e4d928488
-      size: 449
+      md5: 6641a11eb141e05ad0d143c6703d84bb
+      size: 465
     - path: plots.csv
-      md5: 3af6f099828ffaf5cdc8b56eea646f46
-      size: 200
+      md5: 13f1aa1039909a26f7426cc5716c34f9
+      size: 211
