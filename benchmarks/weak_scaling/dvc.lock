@@ -4,11 +4,11 @@ stages:
     cmd: python ../machine_log.py
     outs:
     - path: dpu_diag.txt
-      md5: f2a1b6a2b2a1e829f735970844073425
-      size: 11255
+      md5: bd12b5fd763039cac99aef30a00f3e10
+      size: 11254
     - path: machine.yaml
-      md5: a5baed0c43ef6c5d0147fc64404a7056
-      size: 36
+      md5: e6b532e4675d0143b3372b8bcda7e7ad
+      size: 51
   train:
     cmd: python ../benchmark.py
     deps:
@@ -17,8 +17,8 @@ stages:
       size: 75355
       nfiles: 14
     - path: ../benchmark.py
-      md5: a2e660dd2d504fe1bd8644b14226cfdb
-      size: 13729
+      md5: 3fe8c5569236d20103b43fde4215764c
+      size: 14234
     params:
       params.yaml:
         data:
@@ -43,15 +43,16 @@ stages:
           n_clusters: 16
           random_state: 42
       machine.yaml:
+        frequency: 350
         hostname: upmemcloud9
         nr_dpus: 2040
     outs:
     - path: benchmarks.csv
-      md5: 9ed0a48cc861b99a8727c7921a14a7e4
-      size: 3708
+      md5: a3e5a601a67959ef1b68d0d55ebde358
+      size: 3706
     - path: metrics.json
-      md5: 83ca6fc861252af08ed496b575f1cf44
-      size: 993
+      md5: d1839e4eeda95884c88eee30f54aaf23
+      size: 1309
     - path: plots.csv
-      md5: b3f83e5c2a3eb4fdee11397632f61840
-      size: 386
+      md5: 94b27466b365c6242b242d56f739ef13
+      size: 389
