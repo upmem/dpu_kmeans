@@ -183,6 +183,20 @@ def experiment_outputs(df: pd.DataFrame, exp_name: str) -> None:
 
     df_readable = df_readable.set_index(df_readable.columns[0])
     dict_readable = df_readable.to_dict(orient="index")
+    # add a performance ratio
+    for key in dict_readable:
+        if (
+            "cpu_train_times" in dict_readable[key]
+            and "dpu_train_times" in dict_readable[key]
+        ):
+            dict_readable[key]["speedup"] = (
+                dict_readable[key]["cpu_train_times"]
+                / dict_readable[key]["dpu_train_times"]
+            )
+    # add best speedup
+    dict_readable["best_speedup"] = max(
+        exp["speedup"] for exp in dict_readable.values()
+    )
     # add a top level index to let dvc know these are separate experiments
     dict_readable = {exp_name: dict_readable}
     with open("metrics.json", "w") as f:
