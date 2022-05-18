@@ -369,9 +369,8 @@ def run_benchmark(verbose: bool = False) -> None:
                 #                   DPU PERF                     #
                 ##################################################
 
-                try:
-                    assert n_available_dpu >= dimm_param["n_dpu"]
-                except Exception:
+                # check that we have enough available DPUs for this experiment
+                if dimm_param["n_dpu"] > n_available_dpu:
                     continue
 
                 # load the DPUS
