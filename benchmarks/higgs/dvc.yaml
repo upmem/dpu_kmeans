@@ -43,6 +43,7 @@ stages:
     - machine.yaml:
       - hostname
       - nr_dpus
+      - frequency
     outs:
     - benchmarks.csv:
         cache: false

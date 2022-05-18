@@ -26,6 +26,12 @@ if __name__ == "__main__":
     nr_dpus = re.findall(r"\[dpu frequency] (\d+)", dpu_diagnostics)[0]
     nr_dpus = int(nr_dpus)
 
-    machine = {"hostname": hostname, "nr_dpus": nr_dpus}
+    # get dpu frequency
+    dpu_frequency = re.findall(r"\[dpu frequency\] \d+ DPUs @ (\d+)", dpu_diagnostics)[
+        0
+    ]
+    dpu_frequency = int(dpu_frequency)
+
+    machine = {"hostname": hostname, "nr_dpus": nr_dpus, "frequency": dpu_frequency}
     with open("machine.yaml", "w") as f:
         yaml.dump(machine, f)
