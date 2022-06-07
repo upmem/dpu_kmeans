@@ -149,11 +149,12 @@ _skbuild/
 src/dpu_kmeans/dpu_program/
 
 # benchmarks and profiling results
-benchmarks/**/*.pkl
-benchmarks/**/*.csv
-benchmarks/**/*.prof
-benchmarks/**/data/
-benchmarks/**/*.json
+# NOTE: now handled by DVC
+# benchmarks/**/*.pkl
+# benchmarks/**/*.csv
+# benchmarks/**/*.prof
+# benchmarks/**/data/
+# benchmarks/**/*.json
 
 # ignoring local .clangd config file
 .clangd

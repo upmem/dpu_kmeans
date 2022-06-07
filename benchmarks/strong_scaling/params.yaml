@@ -1,9 +1,8 @@
 # yaml-language-server: $schema=../params_schema.json
-exp_name:
-  simple
+exp_name: strong_scaling
 data:
   synthetic: true
-  n_points: 1.e+3
+  n_points: 256.e+5
   n_dim: 16
   centers: 16
   random_state: 42
@@ -15,7 +14,8 @@ train:
   random_state: 42
 dimm:
   n_dpu:
-    - 64
-    - 128
     - 256
-    - 5000
+    - 512
+    - 1024
+    - 2048
+    - 0

@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../params_schema.json
+exp_name: precision
+data:
+  synthetic: true
+  n_points_per_dpu: 1.e+3
+  n_dim: 16
+  centers: 16
+  random_state:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+train:
+  n_init: 10
+  max_iter: 500
+  tol: 1.e-4
+  n_clusters: 16
+  random_state: like_data
+dimm:
+  n_dpu: 1

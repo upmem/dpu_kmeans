@@ -7,11 +7,35 @@ stages:
     - machine.yaml:
         cache: false
     always_changed: true
+  download:
+    wdir: data
+    cmd: wget https://archive.ics.uci.edu/ml/machine-learning-databases/00280/HIGGS.csv.gz
+    deps:
+    - https://archive.ics.uci.edu/ml/machine-learning-databases/00280/HIGGS.csv.gz
+    outs:
+    - HIGGS.csv.gz
+  unzip:
+    wdir: data
+    cmd: gunzip -k HIGGS.csv.gz
+    deps:
+    - HIGGS.csv.gz
+    outs:
+    - HIGGS.csv:
+        cache: false
+  serialize:
+    wdir: data
+    cmd: python convert_to_pq.py
+    deps:
+    - HIGGS.csv
+    outs:
+    - higgs.pq:
+        cache: false
   train:
     cmd: python ../benchmark.py
     deps:
     - ../benchmark.py
     - ../../src/
+    - data/higgs.pq
     params:
     - data
     - train

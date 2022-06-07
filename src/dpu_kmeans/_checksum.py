@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 try:
-    from importlib.resources import files, as_file
+    from importlib.resources import as_file, files
 except ImportError:
     # Try backported to PY<39 `importlib_resources`.
     from importlib_resources import files, as_file

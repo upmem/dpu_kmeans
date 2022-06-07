@@ -1,0 +1,86 @@
+schema: '2.0'
+stages:
+  download:
+    cmd: wget https://archive.ics.uci.edu/ml/machine-learning-databases/00280/HIGGS.csv.gz
+    deps:
+    - path: https://archive.ics.uci.edu/ml/machine-learning-databases/00280/HIGGS.csv.gz
+      checksum: '"a7def932-4f263a606f300"'
+      size: 2816407858
+    outs:
+    - path: HIGGS.csv.gz
+      md5: 6130f7b2e2d59315467ecc0adf4b3271
+      size: 2816407858
+  unzip:
+    cmd: gunzip -k HIGGS.csv.gz
+    deps:
+    - path: HIGGS.csv.gz
+      md5: 6130f7b2e2d59315467ecc0adf4b3271
+      size: 2816407858
+    outs:
+    - path: HIGGS.csv
+      md5: e921e5b01ff78d3bdc899ee204c64e94
+      size: 8035497980
+  serialize:
+    cmd: python convert_to_pq.py
+    deps:
+    - path: HIGGS.csv
+      md5: e921e5b01ff78d3bdc899ee204c64e94
+      size: 8035497980
+    outs:
+    - path: higgs.pq
+      md5: da6ee84e78f0b34d28879003ba023524.dir
+      size: 891708998
+      nfiles: 127
+  log:
+    cmd: python ../machine_log.py
+    outs:
+    - path: dpu_diag.txt
+      md5: 4ecea88e37c61528015f85db8ac365ee
+      size: 11255
+    - path: machine.yaml
+      md5: e6b532e4675d0143b3372b8bcda7e7ad
+      size: 51
+  train:
+    cmd: python ../benchmark.py
+    deps:
+    - path: ../../src/
+      md5: 1266e022f0211d48b7f3ba2dda693e90.dir
+      size: 75355
+      nfiles: 14
+    - path: ../benchmark.py
+      md5: 3fe8c5569236d20103b43fde4215764c
+      size: 14234
+    - path: data/higgs.pq
+      md5: da6ee84e78f0b34d28879003ba023524.dir
+      size: 891708998
+      nfiles: 127
+    params:
+      params.yaml:
+        data:
+          synthetic: false
+          name: higgs
+        dimm:
+          n_dpu:
+          - 256
+          - 512
+          - 1024
+        train:
+          n_init: 10
+          max_iter: 500
+          tol: 0.0001
+          n_clusters: 2
+          random_state: 42
+      machine.yaml:
+        frequency: 350
+        hostname: upmemcloud9
+        nr_dpus: 2040
+    outs:
+    - path: benchmarks.csv
+      md5: 8b5cce9fe25c9bfb59ae75bc1024ce66
+      size: 1919
+    - path: metrics.json
+      md5: c89e99727dbb71cb6faf1dbb0aec712d
+      size: 494
+    - path: plots.csv
+      md5: cb94d8c62939ffa3d33ade5266db4bfe
+      size: 165

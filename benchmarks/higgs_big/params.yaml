@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../params_schema.json
+exp_name: higgs
+data:
+  synthetic: false
+  name: ../../higgs/data/higgs
+train:
+  n_init: 10
+  max_iter: 500
+  tol: 1.e-4
+  n_clusters: 2
+  random_state: 42
+dimm:
+  n_dpu:
+    - 2048
+    - 0

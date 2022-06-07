@@ -12,6 +12,7 @@ stages:
     deps:
     - ../benchmark.py
     - ../../src/
+    - ../higgs/data/higgs.pq
     params:
     - data
     - train
