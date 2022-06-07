@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+
+# Authors: Sylvan Brocard <sbrocard@upmem.com>
+# License: MIT
+
 host_reduction_timer = 0
 host_quantize_timer = 0
 host_unquantize_timer = 0

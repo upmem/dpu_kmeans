@@ -2,6 +2,7 @@
  * @file kmeans_dpu_kernel.c
  * @author Sylvan Brocard (sbrocard@upmem.com)
  * @brief DPU side of the KMeans algorithm.
+ * @copyright 2021 UPMEM
  */
 
 #ifndef _KMEANS_DPU_KERNEL_H_

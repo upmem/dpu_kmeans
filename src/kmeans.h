@@ -2,7 +2,7 @@
  * @file kmeans.h
  * @author Sylvan Brocard (sbrocard@upmem.com)
  * @brief Header file for the KMeans project
- *
+ * @copyright 2021 UPMEM
  */
 
 #ifndef _H_KMEANS

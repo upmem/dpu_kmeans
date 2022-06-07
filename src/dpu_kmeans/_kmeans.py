@@ -1,8 +1,21 @@
 # -*- coding: utf-8 -*-
 """K-means clustering on DPU"""
 
-# Author: Sylvan Brocard <sbrocard@upmem.com>
+# Authors: Sylvan Brocard <sbrocard@upmem.com>
 # License: MIT
+
+# Disclaimer: Part of this code is adapted from scikit-learn
+# with the following license:
+# Authors: Gael Varoquaux <gael.varoquaux@normalesup.org>
+#          Thomas Rueckstiess <ruecksti@in.tum.de>
+#          James Bergstra <james.bergstra@umontreal.ca>
+#          Jan Schlueter <scikit-learn@jan-schlueter.de>
+#          Nelle Varoquaux
+#          Peter Prettenhofer <peter.prettenhofer@gmail.com>
+#          Olivier Grisel <olivier.grisel@ensta.org>
+#          Mathieu Blondel <mathieu@mblondel.org>
+#          Robert Layton <robertlayton@gmail.com>
+# License: BSD 3 clause
 
 import time
 import warnings

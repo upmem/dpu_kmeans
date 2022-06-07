@@ -1,3 +1,10 @@
+/**
+ * @file main.cpp
+ * @author Sylvan Brocard (sbrocard@upmem.com)
+ * @brief Binding file for the KMeans project
+ * @copyright 2021 UPMEM
+ */
+
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>

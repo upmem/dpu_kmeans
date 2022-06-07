@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+# Authors: Sylvan Brocard <sbrocard@upmem.com>
+# License: MIT
+
 try:
     from importlib.resources import as_file, files
 except ImportError:
