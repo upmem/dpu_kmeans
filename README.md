@@ -31,7 +31,7 @@ from dpu_kmeans import KMeans
 X = np.array([[1, 2], [1, 4], [1, 0],[10, 2], [10, 4], [10, 0]])
 
 kmeans = KMeans(2)
-kmeans.fit(dimm_data)
+kmeans.fit(X)
 
 print(kmeans.cluster_centers_)
 ```
