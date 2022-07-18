@@ -7,6 +7,8 @@
 
 #include "../kmeans.h"
 
+static inline int64_t MAX(int64_t a, int64_t b) { return ((a) > (b) ? a : b); }
+
 /**
  * @brief Returns the seconds elapsed between two timeval structures.
  *
@@ -94,30 +96,25 @@ void populateDpu(Params *p,             /**< Algorithm parameters */
   uint32_t each_dpu;
 
   int *nreal_points; /* number of real data points on each dpu */
-  int64_t remaining_points = p->npoints; /* number of yet unassigned points */
+  int64_t padding_points =
+      p->npadded - p->npoints; /* number of padding points */
 
   struct timeval tic, toc;
 
   gettimeofday(&tic, NULL);
 
+  nreal_points = (int *)malloc(p->ndpu * sizeof(*nreal_points));
+  int64_t next = 0;
   DPU_FOREACH(p->allset, dpu, each_dpu) {
-    int next;
-    next = each_dpu * p->npointperdpu;
+    int64_t current = next;
     DPU_ASSERT(dpu_prepare_xfer(dpu, feature[next]));
+    padding_points -= p->npointperdpu;
+    next = MAX(0, -padding_points);
+    nreal_points[each_dpu] = next - current;
   }
   DPU_ASSERT(dpu_push_xfer(p->allset, DPU_XFER_TO_DPU, "t_features", 0,
                            p->npointperdpu * p->nfeatures * sizeof(int_feature),
                            DPU_XFER_DEFAULT));
-
-  // telling each DPU how many real points it has to process
-  nreal_points = (int *)malloc(p->ndpu * sizeof(*nreal_points));
-  for (int idpu = 0; idpu < p->ndpu; idpu++) {
-    nreal_points[idpu] = (remaining_points <= 0) ? 0
-                         : (remaining_points > p->npointperdpu)
-                             ? p->npointperdpu
-                             : remaining_points;
-    remaining_points -= p->npointperdpu;
-  }
 
   /* DEBUG : print the number of non-padding points assigned to each DPU */
   // printf("nreal_points :\n");
