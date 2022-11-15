@@ -52,7 +52,6 @@ Development
 - `cd dpu_kmeans`
 - `pre-commit install`
 - `pip install -e .`
-- `python setup.py clean`
 
 OR
 
