@@ -19,6 +19,8 @@ from tqdm import tqdm
 from dpu_kmeans import KMeans as DPUKMeans
 from dpu_kmeans import _dimm
 
+MAX_FEATURES_DPU = 30504024
+
 
 def get_int_keys(d: dict, prefix=()) -> list:
     """
@@ -371,6 +373,13 @@ def run_benchmark(verbose: bool = False) -> None:
 
                 # check that we have enough available DPUs for this experiment
                 if dimm_param["n_dpu"] > n_available_dpu:
+                    continue
+
+                # check that the DPUs memory can hold the dataset
+                if data.size > dimm_param["n_dpu"] * MAX_FEATURES_DPU or (
+                    dimm_param["n_dpu"] == 0
+                    and data.size > n_available_dpu * MAX_FEATURES_DPU
+                ):
                     continue
 
                 # load the DPUS
