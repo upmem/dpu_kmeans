@@ -376,10 +376,10 @@ def run_benchmark(verbose: bool = False) -> None:
                     continue
 
                 # check that the DPUs memory can hold the dataset
-                if data.size > dimm_param["n_dpu"] * MAX_FEATURES_DPU or (
-                    dimm_param["n_dpu"] == 0
-                    and data.size > n_available_dpu * MAX_FEATURES_DPU
-                ):
+                if (
+                    dimm_param["n_dpu"] != 0
+                    and data.size > dimm_param["n_dpu"] * MAX_FEATURES_DPU
+                ) or data.size > n_available_dpu * MAX_FEATURES_DPU:
                     continue
 
                 # load the DPUS
