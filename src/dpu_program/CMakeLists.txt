@@ -14,19 +14,28 @@ if(NOT DEFINED UPMEM_HOME)
 endif()
 
 include("${UPMEM_HOME}/share/upmem/cmake/dpu.cmake")
+include(CheckIPOSupported)
+check_ipo_supported(RESULT ipo_supported OUTPUT error)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(CMAKE_C_FLAGS_DEBUG "-g -Og")
-set(CMAKE_C_FLAGS_RELEASE "-g0 -O3 -flto=thin")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Og")
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -g0")
 
 add_executable(trivial_checksum_example trivial_checksum_example.c)
 add_executable(kmeans_dpu_kernel kmeans_dpu_kernel.c)
 
 target_compile_definitions(kmeans_dpu_kernel PUBLIC NR_TASKLETS=${NR_TASKLETS})
 target_link_options(kmeans_dpu_kernel PUBLIC -DNR_TASKLETS=${NR_TASKLETS})
+
+if( ipo_supported )
+  message(STATUS "IPO / LTO enabled")
+  set_target_properties(kmeans_dpu_kernel PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+else()
+  message(STATUS "IPO / LTO not supported: <${error}>")
+endif()
 
 install(TARGETS trivial_checksum_example DESTINATION .)
 install(TARGETS kmeans_dpu_kernel DESTINATION .)
