@@ -1,8 +1,8 @@
-cmake_minimum_required(VERSION 3.15...3.19)
+cmake_minimum_required(VERSION 3.15...3.27)
 set(CMAKE_C_COMPILER "gcc")
 set(CMAKE_CXX_COMPILER "g++")
 
-project(dpu_kmeans VERSION ${VERSION})
+project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION})
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -18,7 +18,7 @@ include(ExternalProject)
 ExternalProject_Add(
   dpu_program
   SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/dpu_program
-  INSTALL_DIR ./dpu_program
+  INSTALL_DIR ${SKBUILD_PLATLIB_DIR}/${SKBUILD_PROJECT_NAME}/dpu_program
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
              -DNR_TASKLETS=${NR_TASKLETS} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
   BUILD_ALWAYS TRUE
@@ -31,19 +31,20 @@ install(DIRECTORY ${DPU_PROGRAM_INSTALL_DIR} DESTINATION .)
 
 # =================== BUILDING THE HOST BINARY ======================
 
-if(SKBUILD)
-  # Scikit-Build does not add your site-packages to the search path
-  # automatically, so we need to add it _or_ the pybind11 specific directory
-  # here.
-  execute_process(
-    COMMAND "${PYTHON_EXECUTABLE}" -c
-            "import pybind11; print(pybind11.get_cmake_dir())"
-    OUTPUT_VARIABLE _tmp_dir
-    OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ECHO STDOUT)
-  list(APPEND CMAKE_PREFIX_PATH "${_tmp_dir}")
-endif()
+# if(SKBUILD)
+#   # Scikit-Build does not add your site-packages to the search path
+#   # automatically, so we need to add it _or_ the pybind11 specific directory
+#   # here.
+#   execute_process(
+#     COMMAND "${PYTHON_EXECUTABLE}" -c
+#             "import pybind11; print(pybind11.get_cmake_dir())"
+#     OUTPUT_VARIABLE _tmp_dir
+#     OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ECHO STDOUT)
+#   list(APPEND CMAKE_PREFIX_PATH "${_tmp_dir}")
+# endif()
 
 # Now we can find pybind11
+find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 find_package(pybind11 CONFIG REQUIRED)
 
 set(PKG_CONFIG_EXECUTABLE "dpu-pkg-config")
@@ -51,6 +52,14 @@ find_package(PkgConfig REQUIRED)
 pkg_search_module(DPU REQUIRED IMPORTED_TARGET dpu)
 
 find_package(OpenMP REQUIRED)
+
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED TRUE)
+
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Ofast")
+
+include(CheckIPOSupported)
+check_ipo_supported(RESULT ipo_supported OUTPUT error)
 
 pybind11_add_module(
   _core MODULE src/main.cpp src/host_program/trivial_checksum_example_host.c
@@ -61,15 +70,17 @@ target_include_directories(_core PUBLIC PkgConfig::DPU)
 
 target_compile_definitions(
   _core
-  PUBLIC VERSION_INFO=${PROJECT_VERSION}
+  PUBLIC VERSION_INFO=${SKBUILD_PROJECT_VERSION}
   PUBLIC NR_TASKLETS=${NR_TASKLETS})
 
-set(CMAKE_C_STANDARD 99)
-set(CMAKE_C_STANDARD_REQUIRED TRUE)
+if( ipo_supported )
+  message(STATUS "IPO / LTO enabled")
+  set_target_properties(_core PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+else()
+  message(STATUS "IPO / LTO not supported: <${error}>")
+endif()
 
-set(CMAKE_C_FLAGS_RELEASE "-Ofast")
-
-install(TARGETS _core DESTINATION .)
+install(TARGETS _core LIBRARY DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/src/dpu_kmeans)
 
 # copying the compilation database for language servers
 add_custom_target(
