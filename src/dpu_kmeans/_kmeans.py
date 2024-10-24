@@ -344,12 +344,11 @@ class KMeans(KMeansCPU):
     --------
 
     >>> import numpy as np
-    >>> from dpu_kmeans import DIMM_data, KMeans
-    >>> X = np.array([[1, 2], [1, 4], [1, 0],[10, 2], [10, 4], [10, 0]])
-    >>> dimm_data = DIMM_data(X)
+    >>> from dpu_kmeans import KMeans
+    >>> X = np.array([[1, 2], [1, 4], [1, 0], [10, 2], [10, 4], [10, 0]])
     >>> kmeans = KMeans(2)
-    >>> centroids, iterations, time = kmeans.fit(dimm_data)
-    >>> print(centroids)
+    >>> kmeans.fit(X)
+    >>> print(kmeans.cluster_centers_)
     [[ 0.9998627  2.       ]
     [10.000137   2.       ]]
     """
@@ -386,7 +385,7 @@ class KMeans(KMeansCPU):
 
         Returns
         -------
-        self : object
+        self : KMeans
             Fitted estimator.
         """
         tic = time.perf_counter()

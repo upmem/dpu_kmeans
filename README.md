@@ -1,19 +1,22 @@
-dpu_kmeans
-==========
+dpu_kmeans README
+=================
 
-|      CI              | status |
-|----------------------|--------|
-| pip builds           | [![Pip Actions Status][actions-pip-badge]][actions-pip-link] |
+| CI         | status                                                       |
+| ---------- | ------------------------------------------------------------ |
+| pip builds | [![Pip Actions Status][actions-pip-badge]][actions-pip-link] |
+| docs       | [![Doc Status][actions-docs-badge]][actions-docs-link]       |
 
 A project built with [pybind11](https://github.com/pybind/pybind11) and [scikit-build](https://github.com/scikit-build/scikit-build), running the KMeans algorithm on in-memory processors with the UPMEM SDK.
 
-[actions-badge]:           https://github.com/upmem/dpu_kmeans/workflows/Tests/badge.svg
-[actions-conda-link]:      https://github.com/upmem/dpu_kmeans/actions?query=workflow%3AConda
-[actions-conda-badge]:     https://github.com/upmem/dpu_kmeans/workflows/Conda/badge.svg
 [actions-pip-link]:        https://github.com/upmem/dpu_kmeans/actions?query=workflow%3APip
 [actions-pip-badge]:       https://github.com/upmem/dpu_kmeans/workflows/Pip/badge.svg
-[actions-wheels-link]:     https://github.com/upmem/dpu_kmeans/actions?query=workflow%3AWheels
-[actions-wheels-badge]:    https://github.com/upmem/dpu_kmeans/workflows/Wheels/badge.svg
+[actions-docs-link]:       https://github.com/upmem/dpu_kmeans/actions?query=workflow%3Adocumentation
+[actions-docs-badge]:      https://github.com/upmem/dpu_kmeans/workflows/documentation/badge.svg
+
+Documentation
+-------------
+
+- [API documentation](https://upmem.github.io/dpu_kmeans/)
 
 Installation
 ------------
@@ -115,5 +118,3 @@ dpu_kmeans.test_checksum()
 ```
 
 Expected return: `0x007f8000`
-
-[`cibuildwheel`]:          https://cibuildwheel.readthedocs.io

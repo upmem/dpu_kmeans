@@ -1,0 +1,37 @@
+name: documentation
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  docs:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.9
+      - name: Download SDK
+        run: wget http://sdk-releases.upmem.com/2024.2.0/ubuntu_22.04/upmem_2024.2.0_amd64.deb
+      - name: Install SDK
+        run: sudo apt install -y ./upmem_2024.2.0_amd64.deb
+      - name: Build and install
+        run: pip install --verbose .[doc]
+      - name: Sphinx build
+        run: |
+          sphinx-build docs _build
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+        with:
+          publish_branch: gh-pages
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: _build/
+          force_orphan: true
