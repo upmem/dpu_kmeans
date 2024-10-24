@@ -45,7 +45,6 @@ for i_ndim, ndim in enumerate(n_dim_set):
     n_clusters_iter = []
 
     for n_clusters in tqdm(n_cluster_set, file=sys.stdout):
-
         timer = 0
         iter_counter = 0
 

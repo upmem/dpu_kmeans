@@ -18,17 +18,17 @@ env:
 jobs:
   build_sdist:
     name: Build SDist
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v2
       with:
         submodules: true
 
     - name: Download SDK
-      run: wget http://sdk-releases.upmem.com/2021.2.0/ubuntu_20.04/upmem_2021.2.0_amd64.deb
+      run: wget http://sdk-releases.upmem.com/2024.2.0/ubuntu_22.04/upmem_2024.2.0_amd64.deb
 
     - name: Install SDK
-      run: sudo apt install -y ./upmem_2021.2.0_amd64.deb
+      run: sudo apt install -y ./upmem_2024.2.0_amd64.deb
 
     - name: Build SDist
       run: pipx run build --sdist

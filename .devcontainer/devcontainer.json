@@ -5,53 +5,51 @@
     "build": {
         "dockerfile": "Dockerfile",
         // Update 'VARIANT' to pick an Ubuntu version: hirsute, focal, bionic
-        "args": { "VARIANT": "focal" }
+        "args": {
+            "VARIANT": "jammy"
+        }
     },
     // "runArgs": [ "--init", "--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined"],
-
-    // Set *default* container specific settings.json values on container create.
-    "settings": {
-        "python.pythonPath": "/usr/bin/python",
-        "python.languageServer": "Pylance",
-        "python.linting.enabled": true,
-        "python.linting.pylintEnabled": true,
-        "python.formatting.autopep8Path": "/usr/local/py-utils/bin/autopep8",
-        "python.formatting.blackPath": "/usr/local/py-utils/bin/black",
-        "python.formatting.yapfPath": "/usr/local/py-utils/bin/yapf",
-        "python.formatting.provider": "black",
-        "python.linting.banditPath": "/usr/local/py-utils/bin/bandit",
-        "python.linting.flake8Path": "/usr/local/py-utils/bin/flake8",
-        "python.linting.mypyPath": "/usr/local/py-utils/bin/mypy",
-        "python.linting.pycodestylePath": "/usr/local/py-utils/bin/pycodestyle",
-        "python.linting.pydocstylePath": "/usr/local/py-utils/bin/pydocstyle",
-        "python.linting.pylintPath": "/usr/local/py-utils/bin/pylint",
-        "python.linting.pylintArgs": [
-            "--extension-pkg-whitelist=dpu_kmeans._core",
-            "--ignored-modules=dpu_kmeans._core"
-        ],
+    "customizations": {
+        "vscode": {
+            // Set *default* container specific settings.json values on container create.
+            "settings": {
+                "python.pythonPath": "/usr/bin/python",
+                "python.languageServer": "Pylance",
+                "[python]": {
+                    "editor.defaultFormatter": "charliermarsh.ruff"
+                },
+                "ruff.lint.select": [
+                    "ALL"
+                ]
+            },
+            // Add the IDs of extensions you want installed when the container is created.
+            "extensions": [
+                "llvm-vs-code-extensions.vscode-clangd",
+                "twxs.cmake",
+                "donjayamanne.githistory",
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "cschlosser.doxdocgen",
+                "charliermarsh.ruff",
+                "mhutchie.git-graph",
+                "tamasfe.even-better-toml"
+            ]
+        }
     },
-
-    // Add the IDs of extensions you want installed when the container is created.
-    "extensions": [
-        "llvm-vs-code-extensions.vscode-clangd",
-        "twxs.cmake",
-        "donjayamanne.githistory",
-        "ms-python.python",
-        "ms-python.vscode-pylance",
-        "cschlosser.doxdocgen"
-    ],
-
     "features": {
-        "git": "os-provided",
-        "python": "os-provided"
+        "ghcr.io/devcontainers/features/git:1": {},
+        "ghcr.io/devcontainers/features/python:1": {
+            "installTools": false
+        }
     },
 
     // Use 'forwardPorts' to make a list of ports inside the container available locally.
     // "forwardPorts": [],
 
     // Use 'postCreateCommand' to run commands after the container is created.
-    "postCreateCommand": "pip install --upgrade pip nox pre-commit scikit-build pybind11[global] twine setuptools_scm hurry.filesize && pre-commit install && python setup.py clean && pip install --no-build-isolation -e .[test]",
+    "postCreateCommand": "pre-commit install && pip install -e .[test]",
 
     // Comment out connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
-    "remoteUser": "vscode",
+    "remoteUser": "vscode"
 }

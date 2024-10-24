@@ -13,23 +13,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest]
+        platform: [ubuntu-22.04]
         python-version: ["3.7", "3.8", "3.9", "3.10"]
 
     runs-on: ${{ matrix.platform }}
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-    - uses: actions/setup-python@v2
+    - uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Download SDK
-      run: wget http://sdk-releases.upmem.com/2021.2.0/ubuntu_20.04/upmem_2021.2.0_amd64.deb
+      run: wget http://sdk-releases.upmem.com/2024.2.0/ubuntu_22.04/upmem_2024.2.0_amd64.deb
 
     - name: Install SDK
-      run: sudo apt install -y ./upmem_2021.2.0_amd64.deb
+      run: sudo apt install -y ./upmem_2024.2.0_amd64.deb
 
     - name: Build and install
       run: pip install --verbose .[test]
@@ -42,30 +44,32 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest]
+        platform: [ubuntu-22.04]
         python-version: ["3.7", "3.8", "3.9", "3.10"]
 
     runs-on: ${{ matrix.platform }}
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
+      with:
+          fetch-depth: 0
 
-    - uses: actions/setup-python@v2
+    - uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Download SDK
-      run: wget http://sdk-releases.upmem.com/2021.2.0/ubuntu_20.04/upmem-2021.2.0-Linux-x86_64.tar.gz
+      run: wget http://sdk-releases.upmem.com/2024.2.0/ubuntu_22.04/upmem-2024.2.0-Linux-x86_64.tar.gz
 
     - name: Untar SDK
-      run: tar -zxvf upmem-2021.2.0-Linux-x86_64.tar.gz
+      run: tar -zxvf upmem-2024.2.0-Linux-x86_64.tar.gz
 
     - name: Build and install
       run: |
-        source upmem-2021.2.0-Linux-x86_64/upmem_env.sh
+        source upmem-2024.2.0-Linux-x86_64/upmem_env.sh
         pip install --verbose .[test]
 
     - name: Test
       run: |
-        source upmem-2021.2.0-Linux-x86_64/upmem_env.sh
+        source upmem-2024.2.0-Linux-x86_64/upmem_env.sh
         pytest

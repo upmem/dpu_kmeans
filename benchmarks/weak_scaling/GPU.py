@@ -100,7 +100,10 @@ for i_n_dpu, n_dpu in enumerate(pbar := tqdm(n_dpu_set, file=sys.stdout)):
     toc = time.perf_counter()
 
     # read output
-    (GPU_centroids, GPU_iter_counter,) = (
+    (
+        GPU_centroids,
+        GPU_iter_counter,
+    ) = (
         GPU_kmeans.cluster_centers_,
         GPU_kmeans.n_iter_,
     )
@@ -127,7 +130,10 @@ for i_n_dpu, n_dpu in enumerate(pbar := tqdm(n_dpu_set, file=sys.stdout)):
     toc = time.perf_counter()
 
     # read output
-    (CPU_centroids, CPU_iter_counter,) = (
+    (
+        CPU_centroids,
+        CPU_iter_counter,
+    ) = (
         CPU_kmeans.cluster_centers_,
         CPU_kmeans.n_iter_,
     )

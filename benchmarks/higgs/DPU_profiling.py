@@ -32,9 +32,10 @@ else:
     higgs_file = "data/higgs.pq"
 df = pd.read_parquet(higgs_file)
 
-data, tags = np.require(
-    df.iloc[:, 1:].to_numpy(dtype=np.float32), requirements=["C", "A", "O"]
-), np.require(df.iloc[:, 0].to_numpy(dtype=int), requirements=["O"])
+data, tags = (
+    np.require(df.iloc[:, 1:].to_numpy(dtype=np.float32), requirements=["C", "A", "O"]),
+    np.require(df.iloc[:, 0].to_numpy(dtype=int), requirements=["O"]),
+)
 
 n_points, n_dim = data.shape
 

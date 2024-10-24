@@ -51,9 +51,10 @@ else:
     higgs_file = "data/higgs.pq"
 df = pd.read_parquet(higgs_file)
 
-data, tags = np.require(
-    df.iloc[:, 1:].to_numpy(dtype=np.float32), requirements=["C", "A", "O"]
-), np.require(df.iloc[:, 0].to_numpy(dtype=int), requirements=["O"])
+data, tags = (
+    np.require(df.iloc[:, 1:].to_numpy(dtype=np.float32), requirements=["C", "A", "O"]),
+    np.require(df.iloc[:, 0].to_numpy(dtype=int), requirements=["O"]),
+)
 
 n_points, n_dim = data.shape
 
@@ -92,7 +93,10 @@ GPU_kmeans.fit(data)
 toc = time.perf_counter()
 
 # read output
-(GPU_centroids, GPU_iter_counter,) = (
+(
+    GPU_centroids,
+    GPU_iter_counter,
+) = (
     GPU_kmeans.cluster_centers_,
     GPU_kmeans.n_iter_,
 )
@@ -119,7 +123,10 @@ CPU_kmeans.fit(data)
 toc = time.perf_counter()
 
 # read output
-(CPU_centroids, CPU_iter_counter,) = (
+(
+    CPU_centroids,
+    CPU_iter_counter,
+) = (
     CPU_kmeans.cluster_centers_,
     CPU_kmeans.n_iter_,
 )
