@@ -1,5 +1,0 @@
-include pyproject.toml
-include README.md
-include LICENSE
-include CMakeLists.txt
-recursive-include src *.py *.c *.cpp *.h *.txt
