@@ -1,14 +1,22 @@
-cmake_minimum_required(VERSION 3.15...3.19)
+cmake_minimum_required(VERSION 3.15...3.27)
 set(CMAKE_C_COMPILER "gcc")
 set(CMAKE_CXX_COMPILER "g++")
 
-project(dpu_kmeans VERSION ${VERSION})
+project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION})
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # set(CMAKE_VERBOSE_MAKEFILE ON)
 
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
+  message(FATAL_ERROR "CMAKE_BUILD_TYPE must be set")
+endif()
+
+if(NOT DEFINED UPMEM_HOME)
+  if("$ENV{UPMEM_HOME}" STREQUAL "")
+    set(UPMEM_HOME "/usr")
+  else()
+    set(UPMEM_HOME $ENV{UPMEM_HOME})
+  endif()
 endif()
 
 # =================== BUILDING THE DPU BINARY ======================
@@ -18,58 +26,53 @@ include(ExternalProject)
 ExternalProject_Add(
   dpu_program
   SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/dpu_program
-  INSTALL_DIR ./dpu_program
+  INSTALL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/dpu_kmeans
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
-             -DNR_TASKLETS=${NR_TASKLETS} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-  BUILD_ALWAYS TRUE
-  USES_TERMINAL_BUILD TRUE)
-
-ExternalProject_Get_Property(dpu_program INSTALL_DIR)
-set(DPU_PROGRAM_INSTALL_DIR ${INSTALL_DIR})
-
-install(DIRECTORY ${DPU_PROGRAM_INSTALL_DIR} DESTINATION .)
+             -DNR_TASKLETS=${NR_TASKLETS}
+             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+             # temporary workaround until SDK distributes fixed toolchain file
+             -DCMAKE_TOOLCHAIN_FILE=${CMAKE_CURRENT_SOURCE_DIR}/src/dpu.cmake)
 
 # =================== BUILDING THE HOST BINARY ======================
 
-if(SKBUILD)
-  # Scikit-Build does not add your site-packages to the search path
-  # automatically, so we need to add it _or_ the pybind11 specific directory
-  # here.
-  execute_process(
-    COMMAND "${PYTHON_EXECUTABLE}" -c
-            "import pybind11; print(pybind11.get_cmake_dir())"
-    OUTPUT_VARIABLE _tmp_dir
-    OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ECHO STDOUT)
-  list(APPEND CMAKE_PREFIX_PATH "${_tmp_dir}")
-endif()
-
-# Now we can find pybind11
+find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 find_package(pybind11 CONFIG REQUIRED)
 
-set(PKG_CONFIG_EXECUTABLE "dpu-pkg-config")
-find_package(PkgConfig REQUIRED)
-pkg_search_module(DPU REQUIRED IMPORTED_TARGET dpu)
+include(CheckIPOSupported)
+include(${UPMEM_HOME}/share/upmem/cmake/include/host/DpuHost.cmake)
 
 find_package(OpenMP REQUIRED)
+
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Ofast")
 
 pybind11_add_module(
   _core MODULE src/main.cpp src/host_program/trivial_checksum_example_host.c
   src/host_program/lloyd_iter.c src/host_program/dimm_manager.c)
-target_link_libraries(_core PRIVATE PkgConfig::DPU OpenMP::OpenMP_CXX
+target_link_libraries(_core PRIVATE ${DPU_HOST_LIBRARIES} OpenMP::OpenMP_CXX
                                     OpenMP::OpenMP_C)
-target_include_directories(_core PUBLIC PkgConfig::DPU)
+target_include_directories(_core PUBLIC ${DPU_HOST_INCLUDE_DIRECTORIES})
+target_link_directories(_core PUBLIC ${DPU_HOST_LINK_DIRECTORIES})
+
+target_compile_features(_core PUBLIC c_std_99)
 
 target_compile_definitions(
   _core
-  PUBLIC VERSION_INFO=${PROJECT_VERSION}
+  PUBLIC VERSION_INFO=${SKBUILD_PROJECT_VERSION}
   PUBLIC NR_TASKLETS=${NR_TASKLETS})
 
-set(CMAKE_C_STANDARD 99)
-set(CMAKE_C_STANDARD_REQUIRED TRUE)
+check_ipo_supported(RESULT ipo_supported OUTPUT error)
+if(ipo_supported)
+  message(STATUS "IPO / LTO enabled")
+  set_target_properties(_core PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE
+                                         TRUE)
+else()
+  message(STATUS "IPO / LTO not supported: <${error}>")
+endif()
 
-set(CMAKE_C_FLAGS_RELEASE "-Ofast")
-
-install(TARGETS _core DESTINATION .)
+# install in-source rather than in the temporary build directory that way
+# linting tools can find the compiled extension
+install(TARGETS _core
+        LIBRARY DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/src/dpu_kmeans)
 
 # copying the compilation database for language servers
 add_custom_target(

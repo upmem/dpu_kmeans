@@ -21,6 +21,12 @@ Installation
 - install the [UPMEM SDK](https://sdk.upmem.com/)
 - `pip install dpu-kmeans`
 
+If you get an error about RANLIB, create a symlink to `llvm-ar`:
+
+```bash
+sudo ln -s /usr/bin/llvm-ar /usr/bin/llvm-ranlib
+```
+
 Usage
 -----
 
