@@ -12,10 +12,12 @@
 #
 # See https://github.com/pre-commit/pre-commit
 
+exclude: '(_core.pyi|_kmeans_w_perf.py)'
+
 repos:
 # Standard hooks
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v4.2.0
+  rev: v4.6.0
   hooks:
   - id: check-added-large-files
   - id: check-case-conflict
@@ -27,29 +29,20 @@ repos:
   - id: mixed-line-ending
   - id: requirements-txt-fixer
   - id: trailing-whitespace
-  - id: fix-encoding-pragma
 
-# isort
-- repo: https://github.com/PyCQA/isort
-  rev: 5.10.1
+# format with Ruff
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.4.2
   hooks:
-  - id: isort
-    name: isort (python)
-    args: ["--profile", "black", "--filter-files"]
+    - id: ruff-format
+      exclude: ^(docs)
 
-# Black, the code formatter, natively supports pre-commit
-- repo: https://github.com/psf/black
-  rev: 22.3.0
-  hooks:
-  - id: black
-    exclude: ^(docs)
-
-# C/C++ files code formatting
+# C/C++ files code formatting and linting
 - repo: https://github.com/pocc/pre-commit-hooks
   rev: v1.3.5
   hooks:
     - id: clang-format
-      args: ["--style=Google", "-i"]
+      args: ["-i"]
     - id: cppcheck
 
 # Changes tabs to spaces
