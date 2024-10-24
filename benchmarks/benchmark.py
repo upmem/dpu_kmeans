@@ -224,12 +224,12 @@ def log_cpu(
     ).all(axis=1)
     df.loc[cpu_index, ("results", "cpu", "times")] = cpu_time
     df.loc[cpu_index, ("results", "cpu", "train_times")] = CPU_kmeans.train_time_
-    df.loc[
-        cpu_index, ("results", "cpu", "preprocessing_times")
-    ] = CPU_kmeans.preprocessing_timer_
-    df.loc[
-        cpu_index, ("results", "cpu", "single_kmeans_times")
-    ] = CPU_kmeans.main_loop_timer_
+    df.loc[cpu_index, ("results", "cpu", "preprocessing_times")] = (
+        CPU_kmeans.preprocessing_timer_
+    )
+    df.loc[cpu_index, ("results", "cpu", "single_kmeans_times")] = (
+        CPU_kmeans.main_loop_timer_
+    )
     df.loc[cpu_index, ("results", "cpu", "iterations")] = CPU_kmeans.n_iter_
     df.loc[cpu_index, ("results", "cpu", "times_one_iter")] = (
         CPU_kmeans.main_loop_timer_ / CPU_kmeans.n_iter_
@@ -264,18 +264,18 @@ def log_dpu(
     df.loc[dimm_index, ("results", "dpu", "times")] = dpu_time
     df.loc[dimm_index, ("results", "dpu", "train_times")] = DPU_kmeans.train_time_
     df.loc[dimm_index, ("results", "dpu", "init_times")] = DPU_init_time
-    df.loc[
-        dimm_index, ("results", "dpu", "preprocessing_times")
-    ] = DPU_kmeans.preprocessing_timer_
+    df.loc[dimm_index, ("results", "dpu", "preprocessing_times")] = (
+        DPU_kmeans.preprocessing_timer_
+    )
     df.loc[dimm_index, ("results", "dpu", "cpu_pim_times")] = DPU_kmeans.cpu_pim_time_
     df.loc[dimm_index, ("results", "dpu", "pim_cpu_times")] = DPU_kmeans.pim_cpu_time_
     df.loc[dimm_index, ("results", "dpu", "inertia_times")] = DPU_kmeans.inertia_timer_
-    df.loc[
-        dimm_index, ("results", "dpu", "reallocate_times")
-    ] = DPU_kmeans.reallocate_timer_
-    df.loc[
-        dimm_index, ("results", "dpu", "single_kmeans_times")
-    ] = DPU_kmeans.main_loop_timer_
+    df.loc[dimm_index, ("results", "dpu", "reallocate_times")] = (
+        DPU_kmeans.reallocate_timer_
+    )
+    df.loc[dimm_index, ("results", "dpu", "single_kmeans_times")] = (
+        DPU_kmeans.main_loop_timer_
+    )
     df.loc[dimm_index, ("results", "dpu", "kernel_runtime")] = DPU_kmeans.dpu_run_time_
     df.loc[dimm_index, ("results", "dpu", "inter_pim_core_times")] = (
         DPU_kmeans.main_loop_timer_ - DPU_kmeans.dpu_run_time_
