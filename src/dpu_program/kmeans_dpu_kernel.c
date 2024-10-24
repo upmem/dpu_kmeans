@@ -254,7 +254,7 @@ void initialize(uint8_t tasklet_id) {
  */
 #ifndef PERF_COUNTER
 void task_reduce(uint8_t tasklet_id, uint8_t icluster, int point_global_index,
-                 uint16_t point_base_index, int_feature *w_features) {
+                 uint16_t point_base_index, const int_feature *w_features) {
 #else
 void task_reduce(uint8_t tasklet_id, uint8_t icluster, int point_global_index,
                  uint16_t point_base_index, int_feature *w_features,
