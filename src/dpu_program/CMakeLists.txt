@@ -19,8 +19,18 @@ if(NOT CMAKE_BUILD_TYPE)
   message(FATAL_ERROR "CMAKE_BUILD_TYPE must be set")
 endif()
 
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Og")
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -g0")
+set(CHIP_VERSION "v1A") # Default value
+if(EXISTS "/sys/class/dpu_rank/dpu_rank0/dpu_chip_id")
+  file(READ "/sys/class/dpu_rank/dpu_rank0/dpu_chip_id" CHIP_ID_NUMBER)
+  if(CHIP_ID_NUMBER GREATER 8)
+    set(CHIP_VERSION "v1B")
+  endif()
+endif()
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcpu=${CHIP_VERSION}")
+
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -Og")
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
 
 add_executable(trivial_checksum_example trivial_checksum_example.c)
 add_executable(kmeans_dpu_kernel kmeans_dpu_kernel.c)

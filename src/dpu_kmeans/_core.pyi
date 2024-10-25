@@ -77,4 +77,4 @@ def subtract(arg0: int, arg1: int) -> int:
             Some other explanation about the subtract function.
     """
 FEATURE_TYPE: int = 16
-__version__: str = '0.2.0'
+__version__: str = '0.2.1'

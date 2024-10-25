@@ -27,11 +27,13 @@ ExternalProject_Add(
   dpu_program
   SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/dpu_program
   INSTALL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/dpu_kmeans
-  CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
-             -DNR_TASKLETS=${NR_TASKLETS}
-             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-             # temporary workaround until SDK distributes fixed toolchain file
-             -DCMAKE_TOOLCHAIN_FILE=${CMAKE_CURRENT_SOURCE_DIR}/src/dpu.cmake)
+  CMAKE_ARGS
+    -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+    -DNR_TASKLETS=${NR_TASKLETS}
+    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+    # temporary workaround until SDK distributes fixed toolchain file
+    -DCMAKE_TOOLCHAIN_FILE=${CMAKE_CURRENT_SOURCE_DIR}/src/dpu_program/dpu.cmake
+)
 
 # =================== BUILDING THE HOST BINARY ======================
 
