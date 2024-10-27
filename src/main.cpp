@@ -37,13 +37,13 @@ namespace py = pybind11;
 class Container {
  private:
   Params p_{}; /**< Struct containing various algorithm parameters. */
-  int_feature **features_int_{};      /**< The discretized dataset features as a
-                                         jagged array. */
-  int64_t *partial_sums_per_dpu_{};   /**< Iteration buffer to read feature sums
-                                      from the DPUs. */
-  int *points_in_clusters_per_dpu_{}; /**< Iteration buffer to read cluster
-                                      counts from the DPUs. */
-  uint64_t *inertia_per_dpu_{};  /**< Iteration buffer to read inertia from the
+  int_feature **features_int_{}; /**< The discretized dataset features as a
+                                    jagged array. */
+  std::vector<int64_t> partial_sums_per_dpu_;   /**< Iteration buffer to read
+                                       feature sums from the DPUs. */
+  std::vector<int> points_in_clusters_per_dpu_; /**< Iteration buffer to read
+                                       cluster counts from the DPUs. */
+  std::vector<uint64_t> inertia_per_dpu_;  /**< Iteration buffer to read inertia from the
                                     DPUs. */
   bool host_memory_allocated_{}; /**< Whether the iteration buffers have been
                                  allocated. */
@@ -121,21 +121,18 @@ class Container {
       deallocate_host_memory();
     }
 
-    /* allocate array to read coordinates sums from the DPUs */
-    partial_sums_per_dpu_ = static_cast<int64_t *>(malloc(
-        p_.nclusters * p_.ndpu * p_.nfeatures * sizeof(*partial_sums_per_dpu_)));
+    /* allocate buffer to read coordinates sums from the DPUs */
+    partial_sums_per_dpu_.resize(p_.nclusters * p_.ndpu * p_.nfeatures);
 
-    /* allocate array to read clusters counts from the DPUs */
-    size_t count_in_8bytes = 8 / sizeof(*points_in_clusters_per_dpu_);
+    /* allocate buffer to read clusters counts from the DPUs */
+    size_t count_in_8bytes = 8 / sizeof(points_in_clusters_per_dpu_.back());
     size_t nclusters_aligned =
         ((p_.nclusters + count_in_8bytes - 1) / count_in_8bytes) *
         count_in_8bytes;
-    points_in_clusters_per_dpu_ = static_cast<int *>(malloc(
-        p_.ndpu * nclusters_aligned * sizeof(*points_in_clusters_per_dpu_)));
+    points_in_clusters_per_dpu_.resize(p_.ndpu * nclusters_aligned);
 
-    /* allocate array to read inertia from the DPUs */
-    inertia_per_dpu_ =
-        static_cast<uint64_t *>(malloc(p_.ndpu * sizeof(*inertia_per_dpu_)));
+    /* allocate buffer to read inertia from the DPUs */
+    inertia_per_dpu_.resize(p_.ndpu);
 
     host_memory_allocated_ = true;
   }
@@ -145,9 +142,9 @@ class Container {
    *
    */
   void deallocate_host_memory() {
-    free(partial_sums_per_dpu_);
-    free(points_in_clusters_per_dpu_);
-    free(inertia_per_dpu_);
+    partial_sums_per_dpu_.clear();
+    points_in_clusters_per_dpu_.clear();
+    inertia_per_dpu_.clear();
 
     host_memory_allocated_ = false;
   }
@@ -199,7 +196,7 @@ class Container {
     int *new_centers_len = static_cast<int *>(points_in_clusters.request().ptr);
 
     lloydIter(&p_, old_centers, new_centers, new_centers_len,
-              points_in_clusters_per_dpu_, partial_sums_per_dpu_);
+              points_in_clusters_per_dpu_.data(), partial_sums_per_dpu_.data());
   }
 
   /**
@@ -213,7 +210,7 @@ class Container {
       -> uint64_t {
     int_feature *old_centers =
         static_cast<int_feature *>(centers_old_int.request().ptr);
-    return lloydIterWithInertia(&p_, old_centers, inertia_per_dpu_);
+    return lloydIterWithInertia(&p_, old_centers, inertia_per_dpu_.data());
   }
 };
 
