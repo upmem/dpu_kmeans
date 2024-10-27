@@ -5,14 +5,12 @@
  * @copyright 2021 UPMEM
  */
 
+#include <cstddef>
+#include <cstdint>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 #include <pybind11/stl.h>
-#include <stddef.h>
-#include <stdint.h>
-
-#include <iostream>
 
 extern "C" {
 #include <dpu.h>
