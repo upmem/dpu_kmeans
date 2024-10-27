@@ -181,7 +181,6 @@ def load_data(X, verbose: int = False):
             Xt,
             Xt.shape[0],
             Xt.shape[1],
-            verbose,
         )
         _data_size = sys.getsizeof(Xt)
     elif verbose:

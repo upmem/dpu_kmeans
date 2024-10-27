@@ -79,10 +79,9 @@ class Container {
    * @param npoints Number of points.
    * @param nfeatures Number of features.
    * @param threshold Parameter to declare convergence.
-   * @param verbose Verbosity level.
    */
   void load_array_data(py::array_t<int_feature> data_int, uint64_t npoints,
-                       int nfeatures, int verbose) {
+                       int nfeatures) {
     int_feature *data_int_ptr = (int_feature *)data_int.request().ptr;
 
     p.npoints = npoints;
@@ -91,7 +90,7 @@ class Container {
     p.npointperdpu = p.npadded / p.ndpu;
 
     build_jagged_array_int(p.npadded, p.nfeatures, data_int_ptr, &features_int);
-    transfer_data(verbose);
+    transfer_data();
   }
 
   /**
@@ -145,10 +144,8 @@ class Container {
 
   /**
    * @brief Preprocesses and transfers quantized data to the DPUs.
-   *
-   * @param verbose Verbosity level.
    */
-  void transfer_data(int verbose) {
+  void transfer_data() {
     populateDpu(&p, features_int);
     broadcastParameters(&p);
 #ifdef FLT_REDUCE
