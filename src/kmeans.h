@@ -93,7 +93,7 @@ typedef int32_t int_feature;
  * @brief Struct holding various algorithm parameters.
  *
  */
-typedef struct Params {
+typedef struct {
   uint64_t npoints;      /**< Number of points */
   uint64_t npadded;      /**< Number of points with padding */
   uint64_t npointperdpu; /**< Number of points per dpu */
