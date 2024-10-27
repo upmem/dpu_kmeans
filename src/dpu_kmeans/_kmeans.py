@@ -154,7 +154,7 @@ def _kmeans_single_lloyd_dpu(
     tol=1e-4,
     n_threads=1,
 ):
-    """A single run of k-means lloyd on DPU, assumes preparation completed prior.
+    """Perform a single run of k-means lloyd on DPU, assumes preparation completed prior.
 
     Parameters
     ----------
@@ -203,6 +203,7 @@ def _kmeans_single_lloyd_dpu(
 
     n_iter : int
         Number of iterations run.
+
     """
     compute_inertia = _dimm.ctr.compute_inertia
     scale_factor = _dimm.ld.scale_factor
@@ -283,7 +284,7 @@ def _kmeans_single_lloyd_dpu(
 
 
 class KMeans(KMeansCPU):
-    """KMeans estimator object
+    """KMeans estimator object.
 
     Parameters
     ----------
