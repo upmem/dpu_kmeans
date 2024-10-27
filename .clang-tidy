@@ -60,3 +60,5 @@ CheckOptions:
     value: lower_case
   - key: readability-identifier-naming.StructCase
     value: lower_case
+  - key: readability-identifier-length.IgnoredVariableNames
+    value: 'i|j|m|p'

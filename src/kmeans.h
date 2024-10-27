@@ -113,7 +113,7 @@ typedef struct {
 /**@{*/
 void allocate_dpus(Params *p);
 void free_dpus(Params *p);
-void load_kernel(Params *p, const char *DPU_BINARY);
+void load_kernel(Params *p, const char *binary_path);
 void build_jagged_array_int(uint64_t x_size, size_t y_size, int_feature *data,
                             int_feature ***features_out);
 void broadcastNumberOfClusters(Params *p, size_t nclusters);

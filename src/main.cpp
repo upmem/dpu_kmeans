@@ -73,9 +73,9 @@ class Container {
   /**
    * @brief Loads binary into the DPUs
    *
-   * @param DPU_BINARY Path to the binary.
+   * @param binary_path Path to the binary.
    */
-  void load_kernel(const char *DPU_BINARY) { ::load_kernel(&p_, DPU_BINARY); }
+  void load_kernel(const char *binary_path) { ::load_kernel(&p_, binary_path); }
 
   /**
    * @brief Loads data into the DPUs from a python array

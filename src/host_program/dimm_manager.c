@@ -51,8 +51,8 @@ void free_dpus(Params *p) { DPU_ASSERT(dpu_free(p->allset)); }
  * @param p Algorithm parameters.
  * @param DPU_BINARY path to the binary
  */
-void load_kernel(Params *p, const char *DPU_BINARY) {
-  DPU_ASSERT(dpu_load(p->allset, DPU_BINARY, NULL));
+void load_kernel(Params *p, const char *binary_path) {
+  DPU_ASSERT(dpu_load(p->allset, binary_path, NULL));
 }
 
 /**
