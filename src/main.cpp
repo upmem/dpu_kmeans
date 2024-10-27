@@ -37,31 +37,19 @@ namespace py = pybind11;
  */
 class Container {
  private:
-  Params p; /**< Struct containing various algorithm parameters. */
-  int_feature *
-      *features_int; /**< The discretized dataset features as a jagged array. */
-  int64_t *partial_sums_per_dpu; /**< Iteration buffer to read feature sums from
-                                    the DPUs. */
-  int *points_in_clusters_per_dpu; /**< Iteration buffer to read cluster counts
+  Params p{}; /**< Struct containing various algorithm parameters. */
+  int_feature **features_int{};      /**< The discretized dataset features as a
+                                         jagged array. */
+  int64_t *partial_sums_per_dpu{};   /**< Iteration buffer to read feature sums
                                       from the DPUs. */
-  uint64_t
-      *inertia_per_dpu; /**< Iteration buffer to read inertia from the DPUs. */
-  bool host_memory_allocated; /**< Whether the iteration buffers have been
+  int *points_in_clusters_per_dpu{}; /**< Iteration buffer to read cluster
+                                      counts from the DPUs. */
+  uint64_t *inertia_per_dpu{};  /**< Iteration buffer to read inertia from the
+                                    DPUs. */
+  bool host_memory_allocated{}; /**< Whether the iteration buffers have been
                                  allocated. */
 
  public:
-  /**
-   * @brief Construct a new Container object
-   *
-   */
-  Container()
-      : p(),
-        features_int(nullptr),
-        partial_sums_per_dpu(nullptr),
-        points_in_clusters_per_dpu(nullptr),
-        host_memory_allocated(false),
-        inertia_per_dpu(nullptr) {}
-
   /**
    * @brief Allocates all DPUs.
    */
