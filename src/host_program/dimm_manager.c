@@ -30,7 +30,7 @@ static double time_seconds(struct timeval tic, struct timeval toc) {
  *
  * @param p Algorithm parameters.
  */
-void allocate_dpus(Params *p) {
+void allocate_dpus(kmeans_params *p) {
   if (!p->ndpu)
     DPU_ASSERT(dpu_alloc(DPU_ALLOCATE_ALL, NULL, &p->allset));
   else
@@ -43,7 +43,7 @@ void allocate_dpus(Params *p) {
  *
  * @param p Algorithm parameters.
  */
-void free_dpus(Params *p) { DPU_ASSERT(dpu_free(p->allset)); }
+void free_dpus(kmeans_params *p) { DPU_ASSERT(dpu_free(p->allset)); }
 
 /**
  * @brief Loads a binary in the DPUs.
@@ -51,7 +51,7 @@ void free_dpus(Params *p) { DPU_ASSERT(dpu_free(p->allset)); }
  * @param p Algorithm parameters.
  * @param DPU_BINARY path to the binary
  */
-void load_kernel(Params *p, const char *binary_path) {
+void load_kernel(kmeans_params *p, const char *binary_path) {
   DPU_ASSERT(dpu_load(p->allset, binary_path, NULL));
 }
 
@@ -78,61 +78,11 @@ void build_jagged_array_int(
  * @param p Algorithm parameters.
  * @param nclusters Number of clusters.
  */
-void broadcastNumberOfClusters(Params *p, size_t nclusters) {
+void broadcastNumberOfClusters(kmeans_params *p, size_t nclusters) {
   /* inform DPUs of the current number of clusters */
   unsigned int nclusters_short = nclusters;
   DPU_ASSERT(dpu_broadcast_to(p->allset, "nclusters_host", 0, &nclusters_short,
                               sizeof(nclusters_short), DPU_XFER_DEFAULT));
-}
-
-/**
- * @brief Fills the DPUs with their assigned points.
- */
-void populateDpu(Params *p,             /**< Algorithm parameters */
-                 int_feature **feature) /**< array: [npoints][nfeatures] */
-{
-  /* Iteration variables for the DPUs. */
-  struct dpu_set_t dpu;
-  uint32_t each_dpu;
-
-  int *nreal_points; /* number of real data points on each dpu */
-  int64_t padding_points =
-      p->npadded - p->npoints; /* number of padding points */
-
-  struct timeval tic, toc;
-
-  gettimeofday(&tic, NULL);
-
-  nreal_points = (int *)malloc(p->ndpu * sizeof(*nreal_points));
-  int64_t next = 0;
-  DPU_FOREACH(p->allset, dpu, each_dpu) {
-    int64_t current = next;
-    DPU_ASSERT(dpu_prepare_xfer(dpu, feature[next]));
-    padding_points -= p->npointperdpu;
-    next = MAX(0, -padding_points);
-    nreal_points[each_dpu] = next - current;
-  }
-  DPU_ASSERT(dpu_push_xfer(p->allset, DPU_XFER_TO_DPU, "t_features", 0,
-                           p->npointperdpu * p->nfeatures * sizeof(int_feature),
-                           DPU_XFER_DEFAULT));
-
-  /* DEBUG : print the number of non-padding points assigned to each DPU */
-  // printf("nreal_points :\n");
-  // for(int idpu = 0; idpu < ndpu; idpu++)
-  // {
-  //     printf("%d ", nreal_points[idpu]);
-  // }
-  // printf("\n");
-
-  DPU_FOREACH(p->allset, dpu, each_dpu) {
-    DPU_ASSERT(dpu_prepare_xfer(dpu, &nreal_points[each_dpu]));
-  }
-  DPU_ASSERT(dpu_push_xfer(p->allset, DPU_XFER_TO_DPU, "npoints", 0,
-                           sizeof(int), DPU_XFER_DEFAULT));
-  free(nreal_points);
-
-  gettimeofday(&toc, NULL);
-  p->cpu_pim_time = time_seconds(tic, toc);
 }
 
 /**
@@ -159,7 +109,7 @@ static int get_lcm(int n1, int n2) {
  * @param p Algorithm parameters.
  * @return The task size in bytes.
  */
-static unsigned int get_task_size(Params *p) {
+static unsigned int get_task_size(kmeans_params *p) {
   unsigned int task_size_in_points;
   unsigned int task_size_in_bytes;
   unsigned int task_size_in_features;
@@ -202,7 +152,7 @@ static unsigned int get_task_size(Params *p) {
  *
  * @param p Algorithm parameters.
  */
-void broadcastParameters(Params *p) {
+void broadcastParameters(kmeans_params *p) {
   /* parameters to calculate once here and send to the DPUs. */
   unsigned int task_size_in_points;
   unsigned int task_size_in_bytes;

@@ -45,12 +45,14 @@ include(${UPMEM_HOME}/share/upmem/cmake/include/host/DpuHost.cmake)
 
 find_package(OpenMP REQUIRED)
 
-# set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Ofast")
-# set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Ofast")
-
 pybind11_add_module(
-  _core MODULE src/main.cpp src/host_program/trivial_checksum_example_host.c
-  src/host_program/lloyd_iter.c src/host_program/dimm_manager.c)
+  _core
+  MODULE
+  src/main.cpp
+  src/host_program/trivial_checksum_example_host.c
+  src/host_program/lloyd_iter.c
+  src/host_program/dimm_manager.c
+  src/host_program/dimm_manager.cpp)
 target_link_libraries(_core PRIVATE ${DPU_HOST_LIBRARIES} OpenMP::OpenMP_CXX
                                     OpenMP::OpenMP_C)
 target_include_directories(_core SYSTEM PUBLIC ${DPU_HOST_INCLUDE_DIRECTORIES})

@@ -45,7 +45,7 @@ static double time_seconds(struct timeval tic, struct timeval toc) {
  * results.
  */
 void lloydIter(
-    Params *p, /**< Algorithm parameters. */
+    kmeans_params *p, /**< Algorithm parameters. */
     int_feature
         *old_centers, /**< [in] Discretized current centroids coordinates. */
     int64_t *new_centers, /**< [out] Discretized updated centroids coordinates
@@ -201,7 +201,7 @@ void lloydIter(
  * inertia only.
  */
 uint64_t lloydIterWithInertia(
-    Params *p, /**< Algorithm parameters. */
+    kmeans_params *p, /**< Algorithm parameters. */
     int_feature
         *old_centers, /**< [in] Discretized current centroids coordinates. */
     uint64_t *inertia_psum /**< Buffer to read inertia per DPU. */

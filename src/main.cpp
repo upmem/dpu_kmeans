@@ -13,6 +13,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "host_program/dimm_manager.hpp"
+
 extern "C" {
 #include <dpu.h>
 
@@ -36,19 +38,30 @@ namespace py = pybind11;
  */
 class Container {
  private:
-  Params p_{}; /**< Struct containing various algorithm parameters. */
-  int_feature **features_int_{}; /**< The discretized dataset features as a
-                                    jagged array. */
+  kmeans_params p_{}; /**< Struct containing various algorithm parameters. */
   std::vector<int64_t> partial_sums_per_dpu_;   /**< Iteration buffer to read
                                        feature sums from the DPUs. */
   std::vector<int> points_in_clusters_per_dpu_; /**< Iteration buffer to read
                                        cluster counts from the DPUs. */
-  std::vector<uint64_t> inertia_per_dpu_;  /**< Iteration buffer to read inertia from the
-                                    DPUs. */
+  std::vector<uint64_t> inertia_per_dpu_; /**< Iteration buffer to read inertia
+                                   from the DPUs. */
   bool host_memory_allocated_{}; /**< Whether the iteration buffers have been
                                  allocated. */
 
+  /**
+   * @brief Preprocesses and transfers quantized data to the DPUs.
+   */
+  void transfer_data(const py::array_t<int_feature> &data_int) {
+    populate_dpus(&p_, data_int);
+    broadcastParameters(&p_);
+#ifdef FLT_REDUCE
+    allocateMembershipTable(&p);
+#endif
+  }
+
  public:
+  Container() = default;
+
   /**
    * @brief Allocates all DPUs.
    */
@@ -87,17 +100,12 @@ class Container {
    */
   void load_array_data(const py::array_t<int_feature> &data_int,
                        uint64_t npoints, int nfeatures) {
-    int_feature *data_int_ptr =
-        static_cast<int_feature *>(data_int.request().ptr);
-
     p_.npoints = npoints;
     p_.nfeatures = nfeatures;
     p_.npadded = ((p_.npoints + 8 * p_.ndpu - 1) / (8 * p_.ndpu)) * 8 * p_.ndpu;
     p_.npointperdpu = p_.npadded / p_.ndpu;
 
-    build_jagged_array_int(p_.npadded, p_.nfeatures, data_int_ptr,
-                           &features_int_);
-    transfer_data();
+    transfer_data(data_int);
   }
 
   /**
@@ -150,23 +158,11 @@ class Container {
   }
 
   /**
-   * @brief Preprocesses and transfers quantized data to the DPUs.
-   */
-  void transfer_data() {
-    populateDpu(&p_, features_int_);
-    broadcastParameters(&p_);
-#ifdef FLT_REDUCE
-    allocateMembershipTable(&p);
-#endif
-  }
-
-  /**
    * @brief Frees the data.
    * Only the jagged pointers are freed. The feature values themselves are
    * managed by Python.
    */
   void free_data() {
-    free(features_int_);
 #ifdef FLT_REDUCE
     deallocateMembershipTable();
 #endif

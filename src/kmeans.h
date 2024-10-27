@@ -105,28 +105,27 @@ typedef struct {
   double time_seconds;   /**< Perf counter */
   double cpu_pim_time;   /**< Time to populate the DPUs */
   double pim_cpu_time;   /**< Time to transfer inertia from the CPU */
-} Params;
+} kmeans_params;
 
 /* Function declarations */
 
 /** @name dimmm_manager.c */
 /**@{*/
-void allocate_dpus(Params *p);
-void free_dpus(Params *p);
-void load_kernel(Params *p, const char *binary_path);
+void allocate_dpus(kmeans_params *p);
+void free_dpus(kmeans_params *p);
+void load_kernel(kmeans_params *p, const char *binary_path);
 void build_jagged_array_int(uint64_t x_size, size_t y_size, int_feature *data,
                             int_feature ***features_out);
-void broadcastNumberOfClusters(Params *p, size_t nclusters);
-void populateDpu(Params *p, int_feature **feature);
-void broadcastParameters(Params *p);
+void broadcastNumberOfClusters(kmeans_params *p, size_t nclusters);
+void broadcastParameters(kmeans_params *p);
 /**@}*/
 
 /** @name lloyd_iter.c */
 /**@{*/
-void lloydIter(Params *p, int_feature *old_centers, int64_t *new_centers,
+void lloydIter(kmeans_params *p, int_feature *old_centers, int64_t *new_centers,
                int *new_centers_len, int *centers_pcount,
                int64_t *centers_psum);
-uint64_t lloydIterWithInertia(Params *p, int_feature *old_centers,
+uint64_t lloydIterWithInertia(kmeans_params *p, int_feature *old_centers,
                               uint64_t *inertia_psum);
 /**@}*/
 #endif  // ifndef _KMEANS_DPU_KERNEL_H_
