@@ -109,14 +109,6 @@ typedef struct {
 
 /* Function declarations */
 
-/** @name dimmm_manager.c */
-/**@{*/
-void allocate_dpus(kmeans_params *p);
-void free_dpus(kmeans_params *p);
-void load_kernel(kmeans_params *p, const char *binary_path);
-void broadcastNumberOfClusters(kmeans_params *p, size_t nclusters);
-/**@}*/
-
 /** @name lloyd_iter.c */
 /**@{*/
 void lloydIter(kmeans_params *p, int_feature *old_centers, int64_t *new_centers,

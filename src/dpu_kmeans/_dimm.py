@@ -152,7 +152,7 @@ def load_kernel(kernel: str, verbose: int = False):
         _kernel = kernel
         ref = _kernels_lib[kernel]
         with as_file(ref) as dpu_binary:
-            ctr.load_kernel(str(dpu_binary))
+            ctr.load_kernel(dpu_binary)
         _data_id = None
         _data_checksum = None
         _data_size = None

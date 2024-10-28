@@ -16,6 +16,7 @@
 """
 from __future__ import annotations
 import numpy
+import os
 __all__ = ['Container', 'FEATURE_TYPE', 'add', 'checksum', 'subtract']
 class Container:
     """
@@ -52,7 +53,7 @@ class Container:
         ...
     def load_array_data(self, arg0: numpy.ndarray[numpy.int16], arg1: int, arg2: int) -> None:
         ...
-    def load_kernel(self, arg0: str) -> None:
+    def load_kernel(self, arg0: os.PathLike) -> None:
         ...
     def load_n_clusters(self, arg0: int) -> None:
         ...

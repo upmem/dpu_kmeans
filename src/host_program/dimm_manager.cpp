@@ -8,7 +8,6 @@
 #include "dimm_manager.hpp"
 
 #include <fmt/core.h>
-#include <pybind11/numpy.h>
 
 #include <algorithm>
 #include <chrono>
@@ -22,9 +21,54 @@ extern "C" {
 }
 
 /**
+ * @brief Allocates all DPUs
+ *
+ * @param p Algorithm parameters.
+ */
+void allocate_dpus(kmeans_params &p) {
+  if (!p.ndpu) {
+    DPU_ASSERT(dpu_alloc(DPU_ALLOCATE_ALL, nullptr, &p.allset));
+  } else {
+    DPU_ASSERT(dpu_alloc(p.ndpu, nullptr, &p.allset));
+  }
+  DPU_ASSERT(dpu_get_nr_dpus(p.allset, &p.ndpu));
+}
+
+/**
+ * @brief Frees the DPUs.
+ *
+ * @param p Algorithm parameters.
+ */
+void free_dpus(const kmeans_params &p) { DPU_ASSERT(dpu_free(p.allset)); }
+
+/**
+ * @brief Loads a binary in the DPUs.
+ *
+ * @param p Algorithm parameters.
+ * @param DPU_BINARY path to the binary
+ */
+void load_kernel_internal(const kmeans_params &p,
+                          const std::filesystem::path &binary_path) {
+  DPU_ASSERT(dpu_load(p.allset, binary_path.c_str(), nullptr));
+}
+
+/**
+ * @brief Broadcast current number of clusters to the DPUs
+ *
+ * @param p Algorithm parameters.
+ * @param nclusters Number of clusters.
+ */
+void broadcast_number_of_clusters(const kmeans_params &p, int nclusters) {
+  /* inform DPUs of the current number of clusters */
+  unsigned int nclusters_short = nclusters;
+  DPU_ASSERT(dpu_broadcast_to(p.allset, "nclusters_host", 0, &nclusters_short,
+                              sizeof(nclusters_short), DPU_XFER_DEFAULT));
+}
+
+/**
  * @brief Fills the DPUs with their assigned points.
  */
-void populate_dpus(kmeans_params *p, /**< Algorithm parameters */
+void populate_dpus(kmeans_params &p, /**< Algorithm parameters */
                    const py::array_t<int_feature>
                        &py_features) /**< array: [npoints][nfeatures] */
 {
@@ -35,19 +79,18 @@ void populate_dpus(kmeans_params *p, /**< Algorithm parameters */
   uint32_t each_dpu = 0;
 
   std::vector<int> nreal_points(
-      p->ndpu); /* number of real data points on each dpu */
-  int64_t padding_points =
-      p->npadded - p->npoints; /* number of padding points */
+      p.ndpu); /* number of real data points on each dpu */
+  int64_t padding_points = p.npadded - p.npoints; /* number of padding points */
 
   const auto tic = std::chrono::steady_clock::now();
 
   int64_t next = 0;
-  DPU_FOREACH(p->allset, dpu, each_dpu) {
+  DPU_FOREACH(p.allset, dpu, each_dpu) {
     int64_t current = next;
     /* The C API takes a non-const pointer but does not modify the data */
     DPU_ASSERT(dpu_prepare_xfer(
         dpu, const_cast<int_feature *>(features.data(next, 0))));
-    padding_points -= p->npointperdpu;
+    padding_points -= p.npointperdpu;
     next = std::max(0L, -padding_points);
 
     int64_t nreal_points_dpu = next - current;
@@ -57,18 +100,18 @@ void populate_dpus(kmeans_params *p, /**< Algorithm parameters */
     }
     nreal_points[each_dpu] = static_cast<int>(nreal_points_dpu);
   }
-  DPU_ASSERT(dpu_push_xfer(p->allset, DPU_XFER_TO_DPU, "t_features", 0,
-                           p->npointperdpu * p->nfeatures * sizeof(int_feature),
+  DPU_ASSERT(dpu_push_xfer(p.allset, DPU_XFER_TO_DPU, "t_features", 0,
+                           p.npointperdpu * p.nfeatures * sizeof(int_feature),
                            DPU_XFER_DEFAULT));
 
-  DPU_FOREACH(p->allset, dpu, each_dpu) {
+  DPU_FOREACH(p.allset, dpu, each_dpu) {
     DPU_ASSERT(dpu_prepare_xfer(dpu, &nreal_points[each_dpu]));
   }
-  DPU_ASSERT(dpu_push_xfer(p->allset, DPU_XFER_TO_DPU, "npoints", 0,
-                           sizeof(int), DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_push_xfer(p.allset, DPU_XFER_TO_DPU, "npoints", 0, sizeof(int),
+                           DPU_XFER_DEFAULT));
 
   const auto toc = std::chrono::steady_clock::now();
-  p->cpu_pim_time = std::chrono::duration<double>{toc - tic}.count();
+  p.cpu_pim_time = std::chrono::duration<double>{toc - tic}.count();
 }
 
 /**

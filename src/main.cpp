@@ -9,9 +9,11 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 #include <pybind11/stl.h>
+#include <pybind11/stl/filesystem.h>
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 
 #include "host_program/dimm_manager.hpp"
 
@@ -52,7 +54,7 @@ class Container {
    * @brief Preprocesses and transfers quantized data to the DPUs.
    */
   void transfer_data(const py::array_t<int_feature> &data_int) {
-    populate_dpus(&p_, data_int);
+    populate_dpus(p_, data_int);
     broadcast_parameters(p_);
 #ifdef FLT_REDUCE
     allocateMembershipTable(&p);
@@ -65,7 +67,7 @@ class Container {
   /**
    * @brief Allocates all DPUs.
    */
-  void allocate() { ::allocate_dpus(&p_); }
+  void allocate() { ::allocate_dpus(p_); }
 
   [[nodiscard]] auto get_ndpu() const -> size_t { return p_.ndpu; }
 
@@ -88,7 +90,9 @@ class Container {
    *
    * @param binary_path Path to the binary.
    */
-  void load_kernel(const char *binary_path) { ::load_kernel(&p_, binary_path); }
+  void load_kernel(const std::filesystem::path &binary_path) {
+    load_kernel_internal(p_, binary_path);
+  }
 
   /**
    * @brief Loads data into the DPUs from a python array
@@ -116,7 +120,7 @@ class Container {
   void load_nclusters(int nclusters) {
     p_.nclusters = nclusters;
 
-    broadcastNumberOfClusters(&p_, nclusters);
+    broadcast_number_of_clusters(p_, nclusters);
     allocate_host_memory();
   }
 
@@ -171,7 +175,7 @@ class Container {
   /**
    * @brief Frees the DPUs
    */
-  void free_dpus() { ::free_dpus(&p_); }
+  void free_dpus() { ::free_dpus(p_); }
 
   /**
    * @brief Runs one iteration of the K-Means Lloyd algorithm.
