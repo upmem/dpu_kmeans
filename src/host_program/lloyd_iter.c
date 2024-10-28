@@ -73,13 +73,6 @@ void lloydIter(
   gettimeofday(&toc, NULL);
   p->time_seconds += time_seconds(tic, toc);
 
-  /* DEBUG : read logs */
-  // DPU_FOREACH(p->allset, dpu, each_dpu) {
-  //     if (each_dpu >= 0)
-  //         DPU_ASSERT(dpu_log_read(dpu, stdout));
-  // }
-  // exit(0);
-
   /* Performance tracking */
 #ifdef PERF_COUNTER
   DPU_FOREACH(p->allset, dpu, each_dpu) {
