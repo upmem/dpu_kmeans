@@ -15,5 +15,6 @@ namespace py = pybind11;
 
 /** @name dimmm_manager.cpp */
 /**@{*/
-void populate_dpus(kmeans_params *p, const py::array_t<int_feature> &py_features);
+void populate_dpus(kmeans_params *p,
+                   const py::array_t<int_feature> &py_features);
 /**@}*/

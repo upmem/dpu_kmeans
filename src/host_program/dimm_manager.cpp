@@ -7,11 +7,11 @@
 
 #include "dimm_manager.hpp"
 
+#include <pybind11/numpy.h>
+
 #include <algorithm>
 #include <chrono>
 #include <vector>
-
-#include <pybind11/numpy.h>
 
 extern "C" {
 #include <dpu.h>
@@ -20,8 +20,9 @@ extern "C" {
 /**
  * @brief Fills the DPUs with their assigned points.
  */
-void populate_dpus(kmeans_params *p,             /**< Algorithm parameters */
-                 const py::array_t<int_feature> &py_features) /**< array: [npoints][nfeatures] */
+void populate_dpus(kmeans_params *p, /**< Algorithm parameters */
+                   const py::array_t<int_feature>
+                       &py_features) /**< array: [npoints][nfeatures] */
 {
   auto features = py_features.unchecked<2>();
 
@@ -29,7 +30,8 @@ void populate_dpus(kmeans_params *p,             /**< Algorithm parameters */
   dpu_set_t dpu{};
   uint32_t each_dpu = 0;
 
-  std::vector<int> nreal_points(p->ndpu); /* number of real data points on each dpu */
+  std::vector<int> nreal_points(
+      p->ndpu); /* number of real data points on each dpu */
   int64_t padding_points =
       p->npadded - p->npoints; /* number of padding points */
 
@@ -38,7 +40,8 @@ void populate_dpus(kmeans_params *p,             /**< Algorithm parameters */
   int64_t next = 0;
   DPU_FOREACH(p->allset, dpu, each_dpu) {
     int64_t current = next;
-    DPU_ASSERT(dpu_prepare_xfer(dpu, const_cast<int_feature *>(features.data(next, 0))));
+    DPU_ASSERT(dpu_prepare_xfer(
+        dpu, const_cast<int_feature *>(features.data(next, 0))));
     padding_points -= p->npointperdpu;
     next = std::max(0L, -padding_points);
     nreal_points[each_dpu] = next - current;

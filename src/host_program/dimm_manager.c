@@ -75,40 +75,40 @@ static int get_lcm(int n1, int n2) {
  * @param p Algorithm parameters.
  * @return The task size in bytes.
  */
-static unsigned int get_task_size(kmeans_params *p) {
-  unsigned int task_size_in_points;
-  unsigned int task_size_in_bytes;
-  unsigned int task_size_in_features;
-
+static int get_task_size(kmeans_params *p) {
   /* how many points we can fit in w_features */
-  unsigned int max_task_size =
-      (WRAM_FEATURES_SIZE / sizeof(int_feature)) / p->nfeatures;
+  int max_task_size =
+      (WRAM_FEATURES_SIZE / (int)sizeof(int_feature)) / p->nfeatures;
 
   /* number of tasks as the smallest multiple of NR_TASKLETS higher than
    * npointperdu / max_task_size */
-  unsigned int ntasks = (p->npointperdpu + max_task_size - 1) / max_task_size;
+  int ntasks = (int)((p->npointperdpu + max_task_size - 1) / max_task_size);
   ntasks = ((ntasks + NR_TASKLETS - 1) / NR_TASKLETS) * NR_TASKLETS;
 
   /* task size has to be at least 1 */
-  task_size_in_points =
+  int task_size_in_points =
       (((p->npointperdpu + ntasks - 1) / ntasks) < max_task_size)
-          ? ((p->npointperdpu + ntasks - 1) / ntasks)
+          ? (int)(((p->npointperdpu + ntasks - 1) / ntasks))
           : max_task_size;
-  if (task_size_in_points == 0) task_size_in_points = 1;
+  if (task_size_in_points == 0) {
+    task_size_in_points = 1;
+  }
 
-  task_size_in_features = task_size_in_points * p->nfeatures;
-  task_size_in_bytes = task_size_in_features * sizeof(int_feature);
+  int task_size_in_features = task_size_in_points * p->nfeatures;
+  int task_size_in_bytes = task_size_in_features * (int)sizeof(int_feature);
 
   /* task size in bytes must be a multiple of 8 for DMA alignment and also a
    * multiple of number of features x byte size of integers */
-  int lcm = get_lcm(sizeof(int_feature) * p->nfeatures, 8);
+  int lcm = get_lcm((int)sizeof(int_feature) * p->nfeatures, 8);
   task_size_in_bytes = task_size_in_bytes / lcm * lcm;
   if (task_size_in_bytes > WRAM_FEATURES_SIZE) {
     printf("error: tasks will not fit in WRAM");
     exit(EXIT_FAILURE);
   }
   /* minimal size */
-  if (task_size_in_bytes < lcm) task_size_in_bytes = lcm;
+  if (task_size_in_bytes < lcm) {
+    task_size_in_bytes = lcm;
+  }
 
   return task_size_in_bytes;
 }
@@ -120,17 +120,13 @@ static unsigned int get_task_size(kmeans_params *p) {
  */
 void broadcastParameters(kmeans_params *p) {
   /* parameters to calculate once here and send to the DPUs. */
-  unsigned int task_size_in_points;
-  unsigned int task_size_in_bytes;
-  unsigned int task_size_in_features;
 
   /* compute the iteration variables for the DPUs */
-
-  task_size_in_bytes = get_task_size(p);
+  int task_size_in_bytes = get_task_size(p);
 
   /* realign task size in features and points */
-  task_size_in_features = task_size_in_bytes / sizeof(int_feature);
-  task_size_in_points = task_size_in_features / p->nfeatures;
+  int task_size_in_features = task_size_in_bytes / (int)sizeof(int_feature);
+  int task_size_in_points = task_size_in_features / p->nfeatures;
 
   /* send computation parameters to the DPUs */
   DPU_ASSERT(dpu_broadcast_to(p->allset, "nfeatures_host", 0, &p->nfeatures,
@@ -147,9 +143,9 @@ void broadcastParameters(kmeans_params *p) {
                               sizeof(task_size_in_features), DPU_XFER_DEFAULT));
 
   if (p->isOutput) {
-    printf("points per DPU : %lu\n", p->npointperdpu);
-    printf("task size in points : %u\n", task_size_in_points);
-    printf("task size in bytes : %u\n", task_size_in_bytes);
-    printf("tasks per DPU: %lu\n", p->npointperdpu / task_size_in_points);
+    printf("points per DPU : %ld\n", p->npointperdpu);
+    printf("task size in points : %d\n", task_size_in_points);
+    printf("task size in bytes : %d\n", task_size_in_bytes);
+    printf("tasks per DPU: %ld\n", p->npointperdpu / task_size_in_points);
   }
 }

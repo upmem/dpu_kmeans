@@ -94,17 +94,17 @@ typedef int32_t int_feature;
  *
  */
 typedef struct {
-  uint64_t npoints;      /**< Number of points */
-  uint64_t npadded;      /**< Number of points with padding */
-  uint64_t npointperdpu; /**< Number of points per dpu */
-  int nfeatures;         /**< Number of features */
-  size_t nclusters;      /**< Number of clusters */
-  int isOutput;          /**< Whether to print debug information */
-  uint32_t ndpu;         /**< Number of allocated dpu */
-  dpu_set allset;        /**< Struct of the allocated dpu set */
-  double time_seconds;   /**< Perf counter */
-  double cpu_pim_time;   /**< Time to populate the DPUs */
-  double pim_cpu_time;   /**< Time to transfer inertia from the CPU */
+  int64_t npoints;      /**< Number of points */
+  int64_t npadded;      /**< Number of points with padding */
+  int64_t npointperdpu; /**< Number of points per dpu */
+  int nfeatures;        /**< Number of features */
+  int nclusters;        /**< Number of clusters */
+  int isOutput;         /**< Whether to print debug information */
+  uint32_t ndpu;        /**< Number of allocated dpu */
+  dpu_set allset;       /**< Struct of the allocated dpu set */
+  double time_seconds;  /**< Perf counter */
+  double cpu_pim_time;  /**< Time to populate the DPUs */
+  double pim_cpu_time;  /**< Time to transfer inertia from the CPU */
 } kmeans_params;
 
 /* Function declarations */
@@ -114,8 +114,6 @@ typedef struct {
 void allocate_dpus(kmeans_params *p);
 void free_dpus(kmeans_params *p);
 void load_kernel(kmeans_params *p, const char *binary_path);
-void build_jagged_array_int(uint64_t x_size, size_t y_size, int_feature *data,
-                            int_feature ***features_out);
 void broadcastNumberOfClusters(kmeans_params *p, size_t nclusters);
 void broadcastParameters(kmeans_params *p);
 /**@}*/

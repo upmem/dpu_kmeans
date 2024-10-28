@@ -99,7 +99,7 @@ class Container {
    * @param threshold Parameter to declare convergence.
    */
   void load_array_data(const py::array_t<int_feature> &data_int,
-                       uint64_t npoints, int nfeatures) {
+                       int64_t npoints, int nfeatures) {
     p_.npoints = npoints;
     p_.nfeatures = nfeatures;
     p_.npadded = ((p_.npoints + 8 * p_.ndpu - 1) / (8 * p_.ndpu)) * 8 * p_.ndpu;
@@ -113,7 +113,7 @@ class Container {
    *
    * @param nclusters Number of clusters.
    */
-  void load_nclusters(unsigned int nclusters) {
+  void load_nclusters(int nclusters) {
     p_.nclusters = nclusters;
 
     broadcastNumberOfClusters(&p_, nclusters);
