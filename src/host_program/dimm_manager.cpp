@@ -132,10 +132,15 @@ static constexpr auto get_task_size(const kmeans_params &p) -> int {
       static_cast<int>((p.npointperdpu + max_task_size - 1) / max_task_size);
   ntasks = ((ntasks + NR_TASKLETS - 1) / NR_TASKLETS) * NR_TASKLETS;
 
-  int task_size_in_points = std::min(
-      static_cast<int>((p.npointperdpu + ntasks - 1) / ntasks), max_task_size);
-  /* task size has to be at least 1 */
-  task_size_in_points = std::max(task_size_in_points, 1);
+  /* task size in points should fit in an int */
+  int64_t task_size_in_points_64 = (p.npointperdpu + ntasks - 1) / ntasks;
+  if (task_size_in_points_64 > std::numeric_limits<int>::max()) {
+    throw std::length_error(fmt::format("task size in points is too large: {}",
+                                        task_size_in_points_64));
+  }
+  /* task size has to be at least 1 and at most max_task_size */
+  int task_size_in_points =
+      std::clamp(static_cast<int>(task_size_in_points_64), 1, max_task_size);
 
   int task_size_in_features = task_size_in_points * p.nfeatures;
   int task_size_in_bytes =
