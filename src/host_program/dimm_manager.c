@@ -52,21 +52,30 @@ void broadcastNumberOfClusters(kmeans_params *p, size_t nclusters) {
 }
 
 /**
+ * @brief Computes the greatest common divisor of two integers.
+ *
+ * @param i First integer.
+ * @param j Second integer.
+ * @return Their greatest common divisor.
+ */
+static int get_gcd(int i, int j) {
+  while (j != 0) {
+    int temp = i;
+    i = j;
+    j = temp % j;
+  }
+  return i;
+}
+
+/**
  * @brief Computes the lowest common multiple of two integers.
  *
- * @param n1 First integer.
- * @param n2 Second integer.
+ * @param i First integer.
+ * @param j Second integer.
  * @return Their lowest common multiple.
  */
-static int get_lcm(int n1, int n2) {
-  static int max = 1;
-  if (max % n1 == 0 && max % n2 == 0) {
-    return max;
-  } else {
-    max++;
-    get_lcm(n1, n2);
-    return max;
-  }
+static int get_lcm(int i, int j) {
+  return (int)((int64_t)i * j) / get_gcd(i, j);
 }
 
 /**
