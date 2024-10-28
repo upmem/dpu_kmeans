@@ -50,30 +50,3 @@ void broadcastNumberOfClusters(kmeans_params *p, size_t nclusters) {
   DPU_ASSERT(dpu_broadcast_to(p->allset, "nclusters_host", 0, &nclusters_short,
                               sizeof(nclusters_short), DPU_XFER_DEFAULT));
 }
-
-/**
- * @brief Computes the greatest common divisor of two integers.
- *
- * @param i First integer.
- * @param j Second integer.
- * @return Their greatest common divisor.
- */
-static int get_gcd(int i, int j) {
-  while (j != 0) {
-    int temp = i;
-    i = j;
-    j = temp % j;
-  }
-  return i;
-}
-
-/**
- * @brief Computes the lowest common multiple of two integers.
- *
- * @param i First integer.
- * @param j Second integer.
- * @return Their lowest common multiple.
- */
-static int get_lcm(int i, int j) {
-  return (int)((int64_t)i * j) / get_gcd(i, j);
-}

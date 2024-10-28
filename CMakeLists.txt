@@ -42,8 +42,19 @@ find_package(pybind11 CONFIG REQUIRED)
 
 include(CheckIPOSupported)
 include(${UPMEM_HOME}/share/upmem/cmake/include/host/DpuHost.cmake)
+include(cmake/CPM.cmake)
 
 find_package(OpenMP REQUIRED)
+
+cpmaddpackage(
+  NAME
+  fmt
+  GITHUB_REPOSITORY
+  fmtlib/fmt
+  GIT_TAG
+  11.0.2
+  OPTIONS
+  "CMAKE_POSITION_INDEPENDENT_CODE True")
 
 pybind11_add_module(
   _core
@@ -54,11 +65,11 @@ pybind11_add_module(
   src/host_program/dimm_manager.c
   src/host_program/dimm_manager.cpp)
 target_link_libraries(_core PRIVATE ${DPU_HOST_LIBRARIES} OpenMP::OpenMP_CXX
-                                    OpenMP::OpenMP_C)
+                                    OpenMP::OpenMP_C fmt)
 target_include_directories(_core SYSTEM PUBLIC ${DPU_HOST_INCLUDE_DIRECTORIES})
 target_link_directories(_core PUBLIC ${DPU_HOST_LINK_DIRECTORIES})
 
-target_compile_features(_core PUBLIC c_std_99)
+target_compile_features(_core PUBLIC c_std_99 cxx_std_17)
 target_compile_options(_core PRIVATE -Wall -Wextra $<$<CONFIG:RELEASE>:-Ofast>)
 
 target_compile_definitions(

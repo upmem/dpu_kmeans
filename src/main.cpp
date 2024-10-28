@@ -53,7 +53,7 @@ class Container {
    */
   void transfer_data(const py::array_t<int_feature> &data_int) {
     populate_dpus(&p_, data_int);
-    broadcastParameters(&p_);
+    broadcast_parameters(p_);
 #ifdef FLT_REDUCE
     allocateMembershipTable(&p);
 #endif

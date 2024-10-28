@@ -17,5 +17,5 @@ namespace py = pybind11;
 /**@{*/
 void populate_dpus(kmeans_params *p,
                    const py::array_t<int_feature> &py_features);
-void broadcastParameters(kmeans_params *p);
+void broadcast_parameters(const kmeans_params &p);
 /**@}*/

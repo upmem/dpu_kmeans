@@ -143,14 +143,6 @@ void lloydIter(
                            0, sizeof(*centers_pcount) * nclusters_aligned,
                            DPU_XFER_DEFAULT));
 
-  /* DEBUG : print outputed centroids counts per DPU */
-  // for (int dpu_id = 0; dpu_id < p->ndpu; dpu_id++) {
-  //   for (int cluster_id = 0; cluster_id < p->nclusters; cluster_id++) {
-  //     printf("%d ", centers_pcount[dpu_id * p->nclusters + cluster_id]);
-  //   }
-  //   printf("\n");
-  // }
-
   /* copy back centroids partial averages (device to host) */
   DPU_FOREACH(p->allset, dpu, each_dpu) {
     DPU_ASSERT(dpu_prepare_xfer(
@@ -177,23 +169,8 @@ void lloydIter(
     }
   }
 
-  /* average the new centers */
-  /* this has been moved to the python code */
-  // for (int cluster_id = 0; cluster_id < p->nclusters; cluster_id++) {
-  //   if (new_centers_len[cluster_id])
-  //     for (int feature_id = 0; feature_id < p->nfeatures; feature_id++) {
-  //       new_centers[cluster_id * p->nfeatures + feature_id] /=
-  //           new_centers_len[cluster_id];
-  //     }
-  // }
-
-  /* DEBUG: print new clusters */
-  // printf("new clusters :\n");
-  // for (int cluster_id = 0; cluster_id < p->nclusters; cluster_id++) {
-  //   for (int feature_id = 0; feature_id < p->nfeatures; feature_id++) {
-  //     printf(new_centers[cluster_id * p->nclusters + feature_id])
-  //   }
-  // }
+  /* averaging the new centers
+   * has been moved to the python code */
 }
 
 /**
