@@ -115,7 +115,6 @@ void allocate_dpus(kmeans_params *p);
 void free_dpus(kmeans_params *p);
 void load_kernel(kmeans_params *p, const char *binary_path);
 void broadcastNumberOfClusters(kmeans_params *p, size_t nclusters);
-void broadcastParameters(kmeans_params *p);
 /**@}*/
 
 /** @name lloyd_iter.c */
