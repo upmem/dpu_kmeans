@@ -7,34 +7,17 @@
 
 #include "../kmeans.h"
 
-static inline int64_t MAX(int64_t a, int64_t b) { return ((a) > (b) ? a : b); }
-
-/**
- * @brief Returns the seconds elapsed between two timeval structures.
- *
- * @param tic [in] First timeval.
- * @param toc [in] Second timeval.
- * @return double Elapsed time in seconds.
- */
-static double time_seconds(struct timeval tic, struct timeval toc) {
-  struct timeval timing;
-  timing.tv_sec = toc.tv_sec - tic.tv_sec;
-  timing.tv_usec = toc.tv_usec - tic.tv_usec;
-  double time = ((double)(timing.tv_sec * 1000000 + timing.tv_usec)) / 1000000;
-
-  return time;
-}
-
 /**
  * @brief Allocates all DPUs
  *
  * @param p Algorithm parameters.
  */
 void allocate_dpus(kmeans_params *p) {
-  if (!p->ndpu)
+  if (!p->ndpu) {
     DPU_ASSERT(dpu_alloc(DPU_ALLOCATE_ALL, NULL, &p->allset));
-  else
+  } else {
     DPU_ASSERT(dpu_alloc(p->ndpu, NULL, &p->allset));
+  }
   DPU_ASSERT(dpu_get_nr_dpus(p->allset, &p->ndpu));
 }
 
@@ -53,23 +36,6 @@ void free_dpus(kmeans_params *p) { DPU_ASSERT(dpu_free(p->allset)); }
  */
 void load_kernel(kmeans_params *p, const char *binary_path) {
   DPU_ASSERT(dpu_load(p->allset, binary_path, NULL));
-}
-
-/**
- * @brief Formats a flat integer array into a bidimensional representation.
- */
-void build_jagged_array_int(
-    uint64_t x_size,             /**< [in] Size of the first dimension. */
-    size_t y_size,               /**< [in] Size of the second dimension. */
-    int_feature *data,           /**< [in] The data as a flat table */
-    int_feature ***features_out) /**< [out] The data as two dimensional table */
-{
-  int_feature **features = (int_feature **)malloc(x_size * sizeof(*features));
-  features[0] = data;
-  for (int ipoint = 1; ipoint < x_size; ipoint++)
-    features[ipoint] = features[ipoint - 1] + y_size;
-
-  *features_out = features;
 }
 
 /**
