@@ -138,9 +138,10 @@ void lloydIter(kmeans_params &p, const py::array_t<int_feature> &old_centers,
     DPU_ASSERT(dpu_prepare_xfer(
         dpu, &centers_psum[offset(0, 0, each_dpu, p.nfeatures, p.nclusters)]));
   }
-  DPU_ASSERT(dpu_push_xfer(p.allset, DPU_XFER_FROM_DPU, "centers_sum_mram", 0,
-                           p.nfeatures * p.nclusters * sizeof(int64_t),
-                           DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_push_xfer(
+      p.allset, DPU_XFER_FROM_DPU, "centers_sum_mram", 0,
+      static_cast<long>(p.nfeatures) * p.nclusters * sizeof(int64_t),
+      DPU_XFER_DEFAULT));
 
   new_centers[py::make_tuple(py::ellipsis())] = 0LL;
   new_centers_len[py::make_tuple(py::ellipsis())] = 0;
