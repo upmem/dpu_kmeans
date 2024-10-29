@@ -107,16 +107,6 @@ typedef struct {
   double pim_cpu_time;  /**< Time to transfer inertia from the CPU */
 } kmeans_params;
 
-/* Function declarations */
-
-/** @name lloyd_iter.c */
-/**@{*/
-void lloydIter(kmeans_params *p, int_feature *old_centers, int64_t *new_centers,
-               int *new_centers_len, int *centers_pcount,
-               int64_t *centers_psum);
-uint64_t lloydIterWithInertia(kmeans_params *p, int_feature *old_centers,
-                              uint64_t *inertia_psum);
-/**@}*/
 #endif  // ifndef _KMEANS_DPU_KERNEL_H_
 
 #endif  // ifndef _H_KMEANS

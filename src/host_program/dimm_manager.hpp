@@ -1,3 +1,5 @@
+#pragma once
+
 /**
  * @file dimm_manager.hpp
  * @author Sylvan Brocard (sbrocard@upmem.com)

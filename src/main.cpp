@@ -11,11 +11,10 @@
 #include <pybind11/stl.h>
 #include <pybind11/stl/filesystem.h>
 
-#include <cstddef>
-#include <cstdint>
 #include <filesystem>
 
 #include "host_program/dimm_manager.hpp"
+#include "host_program/lloyd_iter.hpp"
 
 extern "C" {
 #include <dpu.h>
@@ -45,7 +44,7 @@ class Container {
                                        feature sums from the DPUs. */
   std::vector<int> points_in_clusters_per_dpu_; /**< Iteration buffer to read
                                        cluster counts from the DPUs. */
-  std::vector<uint64_t> inertia_per_dpu_; /**< Iteration buffer to read inertia
+  std::vector<int64_t> inertia_per_dpu_; /**< Iteration buffer to read inertia
                                    from the DPUs. */
   bool host_memory_allocated_{}; /**< Whether the iteration buffers have been
                                  allocated. */
@@ -187,16 +186,10 @@ class Container {
    * @param points_in_clusters [out] Counts of points per cluster.
    */
   void lloyd_iter(const py::array_t<int_feature> &centers_old_int,
-                  const py::array_t<int64_t> &centers_new_int,
-                  const py::array_t<int> &points_in_clusters) {
-    int_feature *old_centers =
-        static_cast<int_feature *>(centers_old_int.request().ptr);
-    int64_t *new_centers =
-        static_cast<int64_t *>(centers_new_int.request().ptr);
-    int *new_centers_len = static_cast<int *>(points_in_clusters.request().ptr);
-
-    lloydIter(&p_, old_centers, new_centers, new_centers_len,
-              points_in_clusters_per_dpu_.data(), partial_sums_per_dpu_.data());
+                  py::array_t<int64_t> &centers_new_int,
+                  py::array_t<int> &points_in_clusters) {
+    lloydIter(p_, centers_old_int, centers_new_int, points_in_clusters,
+              points_in_clusters_per_dpu_, partial_sums_per_dpu_);
   }
 
   /**

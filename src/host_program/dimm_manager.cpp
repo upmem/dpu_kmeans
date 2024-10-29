@@ -1,7 +1,7 @@
 /**
- * @file dimm_manager.c
+ * @file dimm_manager.cpp
  * @author Sylvan Brocard (sbrocard@upmem.com)
- * @brief Nanny functions for the DPUs in C++.
+ * @brief Nanny functions for the DPUs.
  *
  */
 
