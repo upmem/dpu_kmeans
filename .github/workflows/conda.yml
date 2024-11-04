@@ -32,7 +32,7 @@ jobs:
         run: sudo apt install -y ./upmem_2021.2.0_amd64.deb
 
       - name: Get conda
-        uses: conda-incubator/setup-miniconda@v3.0.4
+        uses: conda-incubator/setup-miniconda@v3.1.0
         with:
           python-version: ${{ matrix.python-version }}
           channels: conda-forge
