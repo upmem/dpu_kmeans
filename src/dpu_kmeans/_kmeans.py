@@ -51,6 +51,7 @@ def _lloyd_iter_dpu(
     centers_old_int,
     centers_new_int,
     centers_sum_int,
+    centers_sum_int_per_dpu,
     points_in_clusters,
     points_in_clusters_per_dpu,
     X,
@@ -88,6 +89,7 @@ def _lloyd_iter_dpu(
     dpu_iter(
         centers_old_int,
         centers_sum_int,
+        centers_sum_int_per_dpu,
         points_in_clusters,
         points_in_clusters_per_dpu,
     )
@@ -140,6 +142,7 @@ def _lloyd_iter_dpu(
         toc = time.perf_counter()
         reallocate_timer = toc - tic
 
+    centers_sum_int = centers_sum_int_per_dpu.sum(axis=0)
     np.floor_divide(
         centers_sum_int,
         points_in_clusters[:, None],
@@ -229,6 +232,10 @@ def _kmeans_single_lloyd_dpu(
     # centers_new = np.empty_like(centers, dtype=np.float32)
     centers_new_int = np.empty_like(centers, dtype=dtype)
     centers_sum_int = np.empty_like(centers, dtype=np.int64)
+    centers_sum_int_per_dpu = np.empty(
+        (_dimm.get_n_dpu(), centers.shape[0], centers.shape[1]),
+        dtype=np.int64,
+    )
     points_in_clusters = np.empty(n_clusters, dtype=np.int32)
     points_in_clusters_per_dpu = np.empty(
         (_dimm.get_n_dpu(), _align_8_bytes(n_clusters, np.dtype(np.int32))),
@@ -254,6 +261,7 @@ def _kmeans_single_lloyd_dpu(
                 centers_int,
                 centers_new_int,
                 centers_sum_int,
+                centers_sum_int_per_dpu,
                 points_in_clusters,
                 points_in_clusters_per_dpu,
                 X,

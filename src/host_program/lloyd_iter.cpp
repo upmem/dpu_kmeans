@@ -49,6 +49,7 @@ static int offset(int feature, int cluster, int dpu, int nfeatures,
  */
 void lloydIter(kmeans_params &p, const py::array_t<int_feature> &old_centers,
                py::array_t<int64_t> &new_centers,
+               py::array_t<int64_t> &new_centers_per_dpu,
                py::array_t<int> &new_centers_len,
                py::array_t<int> &centers_pcount,
                std::vector<int64_t> &centers_psum) {
@@ -137,33 +138,37 @@ void lloydIter(kmeans_params &p, const py::array_t<int_feature> &old_centers,
                            centers_pcount.itemsize() * centers_pcount.shape(1),
                            DPU_XFER_DEFAULT));
 
-  /* copy back centroids partial averages (device to host) */
+  /* copy back centroids partial sums (device to host) */
   DPU_FOREACH(p.allset, dpu, each_dpu) {
-    DPU_ASSERT(dpu_prepare_xfer(
-        dpu, &centers_psum[offset(0, 0, each_dpu, p.nfeatures, p.nclusters)]));
+    // DPU_ASSERT(dpu_prepare_xfer(
+    //     dpu, &centers_psum[offset(0, 0, each_dpu, p.nfeatures,
+    //     p.nclusters)]));
+    DPU_ASSERT(
+        dpu_prepare_xfer(dpu, new_centers_per_dpu.mutable_data(each_dpu)));
   }
   DPU_ASSERT(dpu_push_xfer(
       p.allset, DPU_XFER_FROM_DPU, "centers_sum_mram", 0,
       static_cast<long>(p.nfeatures) * p.nclusters * sizeof(int64_t),
       DPU_XFER_DEFAULT));
 
-  new_centers[py::make_tuple(py::ellipsis())] = 0LL;
+  // new_centers[py::make_tuple(py::ellipsis())] = 0LL;
   // new_centers_len[py::make_tuple(py::ellipsis())] = 0;
 
-  for (int dpu_id = 0; dpu_id < p.ndpu; dpu_id++) {
-    for (int cluster_id = 0; cluster_id < p.nclusters; cluster_id++) {
-      /* sum membership counts
-       * moved to the python code */
-      // new_centers_len.mutable_at(cluster_id) +=
-      //     centers_pcount[dpu_id * nclusters_aligned + cluster_id];
+  // for (int dpu_id = 0; dpu_id < p.ndpu; dpu_id++) {
+  //   for (int cluster_id = 0; cluster_id < p.nclusters; cluster_id++) {
+  //     /* sum membership counts
+  //      * moved to the python code */
+  //     // new_centers_len.mutable_at(cluster_id) +=
+  //     //     centers_pcount[dpu_id * nclusters_aligned + cluster_id];
 
-      /* compute the new centroids sum */
-      for (int feature_id = 0; feature_id < p.nfeatures; feature_id++) {
-        new_centers.mutable_at(cluster_id, feature_id) += centers_psum[offset(
-            feature_id, cluster_id, dpu_id, p.nfeatures, p.nclusters)];
-      }
-    }
-  }
+  //     /* compute the new centroids sum */
+  //     for (int feature_id = 0; feature_id < p.nfeatures; feature_id++) {
+  //       new_centers.mutable_at(cluster_id, feature_id) +=
+  //       centers_psum[offset(
+  //           feature_id, cluster_id, dpu_id, p.nfeatures, p.nclusters)];
+  //     }
+  //   }
+  // }
 
   /* averaging the new centers
    * has been moved to the python code */
