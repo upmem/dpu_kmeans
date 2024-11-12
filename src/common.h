@@ -1,24 +1,17 @@
 /**
- * @file kmeans.h
+ * @file common.h
  * @author Sylvan Brocard (sbrocard@upmem.com)
- * @brief Header file for the KMeans project
- * @copyright 2021 UPMEM
+ * @brief Common definitions for CPU and DPU code.
+ * @copyright 2024 UPMEM
  */
 
 #pragma once
 
-#ifndef _KMEANS_DPU_KERNEL_H_
-#include <dpu.h>
+#ifdef __cplusplus
+#include <cstdint>
+#else
 #include <stdint.h>
-#include <sys/time.h>
-
-typedef struct dpu_set_t dpu_set;
-
-#endif  // ifndef _KMEANS_DPU_KERNEL_H_
-
-#ifndef FLT_MAX
-#define FLT_MAX 3.40282347e+38
-#endif  // ifndef FLT_MAX
+#endif
 
 /** @name MEMsize
  * @brief DIMM memory sizes
@@ -82,24 +75,3 @@ typedef int32_t int_feature;
   (MRAM_SIZE / FEATURE_TYPE * 8 /                                         \
    2) /**< How many features we fit into one DPU's MRAM. Can be increased \
          further. */
-
-#ifndef _KMEANS_DPU_KERNEL_H_
-/**
- * @brief Struct holding various algorithm parameters.
- *
- */
-typedef struct {
-  int64_t npoints;      /**< Number of points */
-  int64_t npadded;      /**< Number of points with padding */
-  int64_t npointperdpu; /**< Number of points per dpu */
-  int nfeatures;        /**< Number of features */
-  int nclusters;        /**< Number of clusters */
-  int isOutput;         /**< Whether to print debug information */
-  uint32_t ndpu;        /**< Number of allocated dpu */
-  dpu_set allset;       /**< Struct of the allocated dpu set */
-  double time_seconds;  /**< Perf counter */
-  double cpu_pim_time;  /**< Time to populate the DPUs */
-  double pim_cpu_time;  /**< Time to transfer inertia from the CPU */
-} kmeans_params;
-
-#endif  // ifndef _KMEANS_DPU_KERNEL_H_

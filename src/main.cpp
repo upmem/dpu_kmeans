@@ -15,11 +15,12 @@
 
 #include "host_program/dimm_manager.hpp"
 #include "host_program/lloyd_iter.hpp"
+#include "kmeans.hpp"
 
 extern "C" {
 #include <dpu.h>
 
-#include "kmeans.h"
+#include "common.h"
 }
 
 #define STRINGIFY(x) #x

@@ -11,8 +11,10 @@
 
 #include <filesystem>
 
+#include "../kmeans.hpp"
+
 extern "C" {
-#include "../kmeans.h"
+#include "../common.h"
 }
 
 namespace py = pybind11;

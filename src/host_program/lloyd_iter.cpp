@@ -17,8 +17,12 @@
 #include <array>
 #endif
 
+#include "../kmeans.hpp"
+
 extern "C" {
-#include "../kmeans.h"
+#include <dpu.h>
+
+#include "../common.h"
 }
 
 /**
