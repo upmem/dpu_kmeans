@@ -2,13 +2,11 @@
  * @file main.cpp
  * @author Sylvan Brocard (sbrocard@upmem.com)
  * @brief Binding file for the KMeans project
- * @copyright 2021 UPMEM
+ * @copyright 2024 UPMEM
  */
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
-#include <pybind11/pytypes.h>
-#include <pybind11/stl.h>
 #include <pybind11/stl/filesystem.h>
 
 #include <filesystem>
@@ -32,121 +30,48 @@ extern "C" auto checksum(char *) -> int;
 
 namespace py = pybind11;
 
-/**
- * @brief Container class for interfacing with python
- *
- * This class holds data that can be reused
- * during different runs of the k-means algorithm.
- */
-class Container {
- private:
-  kmeans_params p_{}; /**< Struct containing various algorithm parameters. */
-  std::vector<int64_t> inertia_per_dpu_; /**< Iteration buffer to read inertia
-                                   from the DPUs. */
+void Container::transfer_data(const py::array_t<int_feature> &data_int) {
+  populate_dpus(p_, data_int);
+  broadcast_parameters(p_);
+}
 
-  /**
-   * @brief Preprocesses and transfers quantized data to the DPUs.
-   */
-  void transfer_data(const py::array_t<int_feature> &data_int) {
-    populate_dpus(p_, data_int);
-    broadcast_parameters(p_);
-  }
+void Container::allocate() {
+  allocate_dpus(p_);
+  inertia_per_dpu_.resize(p_.ndpu);
+}
 
- public:
-  Container() = default;
+void Container::load_kernel(const std::filesystem::path &binary_path) {
+  load_kernel_internal(p_, binary_path);
+}
 
-  /**
-   * @brief Allocates all DPUs.
-   */
-  void allocate() {
-    ::allocate_dpus(p_);
-    inertia_per_dpu_.resize(p_.ndpu);
-  }
+void Container::load_array_data(const py::array_t<int_feature> &data_int,
+                                int64_t npoints, int nfeatures) {
+  p_.npoints = npoints;
+  p_.nfeatures = nfeatures;
+  p_.npadded = ((p_.npoints + 8 * p_.ndpu - 1) / (8 * p_.ndpu)) * 8 * p_.ndpu;
+  p_.npointperdpu = p_.npadded / p_.ndpu;
 
-  [[nodiscard]] auto get_ndpu() const -> size_t { return p_.ndpu; }
+  transfer_data(data_int);
+}
 
-  void set_ndpu(uint32_t ndpu) { p_.ndpu = ndpu; }
+void Container::load_nclusters(int nclusters) {
+  p_.nclusters = nclusters;
 
-  void reset_timer() { p_.time_seconds = 0.0; }
+  broadcast_number_of_clusters(p_, nclusters);
+}
 
-  [[nodiscard]] auto get_dpu_run_time() const -> double {
-    return p_.time_seconds;
-  }
-  [[nodiscard]] auto get_cpu_pim_time() const -> double {
-    return p_.cpu_pim_time;
-  }
-  [[nodiscard]] auto get_pim_cpu_time() const -> double {
-    return p_.pim_cpu_time;
-  }
+void Container::free_dpus() { ::free_dpus(p_); }
 
-  /**
-   * @brief Loads binary into the DPUs
-   *
-   * @param binary_path Path to the binary.
-   */
-  void load_kernel(const std::filesystem::path &binary_path) {
-    load_kernel_internal(p_, binary_path);
-  }
+void Container::lloyd_iter(const py::array_t<int_feature> &old_centers,
+                           py::array_t<int64_t> &centers_psum,
+                           py::array_t<int> &centers_pcount) {
+  ::lloyd_iter(p_, old_centers, centers_psum, centers_pcount);
+}
 
-  /**
-   * @brief Loads data into the DPUs from a python array
-   *
-   * @param data A python ndarray.
-   * @param npoints Number of points.
-   * @param nfeatures Number of features.
-   * @param threshold Parameter to declare convergence.
-   */
-  void load_array_data(const py::array_t<int_feature> &data_int,
-                       int64_t npoints, int nfeatures) {
-    p_.npoints = npoints;
-    p_.nfeatures = nfeatures;
-    p_.npadded = ((p_.npoints + 8 * p_.ndpu - 1) / (8 * p_.ndpu)) * 8 * p_.ndpu;
-    p_.npointperdpu = p_.npadded / p_.ndpu;
-
-    transfer_data(data_int);
-  }
-
-  /**
-   * @brief Informs the DPUs of the number of clusters for that iteration.
-   *
-   * @param nclusters Number of clusters.
-   */
-  void load_nclusters(int nclusters) {
-    p_.nclusters = nclusters;
-
-    broadcast_number_of_clusters(p_, nclusters);
-  }
-
-  /**
-   * @brief Frees the DPUs
-   */
-  void free_dpus() { ::free_dpus(p_); }
-
-  /**
-   * @brief Runs one iteration of the K-Means Lloyd algorithm.
-   *
-   * @param old_centers [in] Discretized coordinates of the current
-   * centroids.
-   * @param centers_psum [out] Sum of points coordinates per cluster per dpu
-   * @param centers_pcount [out] Count of elements in each cluster per dpu.
-   */
-  void lloyd_iter(const py::array_t<int_feature> &old_centers,
-                  py::array_t<int64_t> &centers_psum,
-                  py::array_t<int> &centers_pcount) {
-    ::lloyd_iter(p_, old_centers, centers_psum, centers_pcount);
-  }
-
-  /**
-   * @brief Runs one E step of the K-Means algorithm and gets inertia.
-   *
-   * @param old_centers [in] Discretized coordinates of the current
-   * centroids.
-   * @return int64_t The inertia.
-   */
-  auto compute_inertia(const py::array_t<int_feature> &old_centers) -> int64_t {
-    return lloyd_iter_with_inertia(p_, old_centers, inertia_per_dpu_);
-  }
-};
+auto Container::compute_inertia(const py::array_t<int_feature> &old_centers)
+    -> int64_t {
+  return lloyd_iter_with_inertia(p_, old_centers, inertia_per_dpu_);
+}
 
 PYBIND11_MODULE(_core, m) {
   m.doc() = R"pbdoc(

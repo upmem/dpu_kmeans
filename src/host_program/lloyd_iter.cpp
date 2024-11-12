@@ -121,10 +121,10 @@ void lloyd_iter(kmeans_params &p, const py::array_t<int_feature> &old_centers,
   DPU_FOREACH(p.allset, dpu, each_dpu) {
     DPU_ASSERT(dpu_prepare_xfer(dpu, centers_psum.mutable_data(each_dpu)));
   }
-  DPU_ASSERT(dpu_push_xfer(
-      p.allset, DPU_XFER_FROM_DPU, "centers_sum_mram", 0,
-      static_cast<long>(p.nfeatures) * p.nclusters * sizeof(int64_t),
-      DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_push_xfer(p.allset, DPU_XFER_FROM_DPU, "centers_sum_mram", 0,
+                           static_cast<long>(p.nfeatures) * p.nclusters *
+                               sizeof(centers_psum.get_type()),
+                           DPU_XFER_DEFAULT));
 
   /* averaging the new centers and summing the centers count
    * has been moved to the python code */
