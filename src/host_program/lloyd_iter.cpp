@@ -50,7 +50,7 @@ static int offset(int feature, int cluster, int dpu, int nfeatures,
 void lloydIter(kmeans_params &p, const py::array_t<int_feature> &old_centers,
                py::array_t<int64_t> &new_centers,
                py::array_t<int> &new_centers_len,
-               std::vector<int> &centers_pcount,
+               py::array_t<int> &centers_pcount,
                std::vector<int64_t> &centers_psum) {
   dpu_set_t dpu{};       /* Iteration variable for the DPUs. */
   uint32_t each_dpu = 0; /* Iteration variable for the DPUs. */
@@ -122,15 +122,19 @@ void lloydIter(kmeans_params &p, const py::array_t<int_feature> &old_centers,
 #endif
 
   /* copy back membership count per dpu (device to host) */
-  size_t count_in_8bytes = 8 / sizeof(centers_pcount.back());
-  size_t nclusters_aligned =
-      ((p.nclusters + count_in_8bytes - 1) / count_in_8bytes) * count_in_8bytes;
+  // size_t count_in_8bytes = 8 / sizeof(centers_pcount.at(0, 0));
+  // size_t nclusters_aligned =
+  //     ((p.nclusters + count_in_8bytes - 1) / count_in_8bytes) *
+  //     count_in_8bytes;
   DPU_FOREACH(p.allset, dpu, each_dpu) {
     DPU_ASSERT(
-        dpu_prepare_xfer(dpu, &(centers_pcount[each_dpu * nclusters_aligned])));
+        // TODO: direct access
+        // dpu_prepare_xfer(dpu, &(centers_pcount[each_dpu *
+        // nclusters_aligned])));
+        dpu_prepare_xfer(dpu, centers_pcount.mutable_data(each_dpu)));
   }
   DPU_ASSERT(dpu_push_xfer(p.allset, DPU_XFER_FROM_DPU, "centers_count_mram", 0,
-                           sizeof(centers_pcount.back()) * nclusters_aligned,
+                           centers_pcount.itemsize() * centers_pcount.shape(1),
                            DPU_XFER_DEFAULT));
 
   /* copy back centroids partial averages (device to host) */
@@ -144,13 +148,15 @@ void lloydIter(kmeans_params &p, const py::array_t<int_feature> &old_centers,
       DPU_XFER_DEFAULT));
 
   new_centers[py::make_tuple(py::ellipsis())] = 0LL;
-  new_centers_len[py::make_tuple(py::ellipsis())] = 0;
+  // new_centers_len[py::make_tuple(py::ellipsis())] = 0;
 
   for (int dpu_id = 0; dpu_id < p.ndpu; dpu_id++) {
     for (int cluster_id = 0; cluster_id < p.nclusters; cluster_id++) {
-      /* sum membership counts */
-      new_centers_len.mutable_at(cluster_id) +=
-          centers_pcount[dpu_id * nclusters_aligned + cluster_id];
+      /* sum membership counts
+       * moved to the python code */
+      // new_centers_len.mutable_at(cluster_id) +=
+      //     centers_pcount[dpu_id * nclusters_aligned + cluster_id];
+
       /* compute the new centroids sum */
       for (int feature_id = 0; feature_id < p.nfeatures; feature_id++) {
         new_centers.mutable_at(cluster_id, feature_id) += centers_psum[offset(

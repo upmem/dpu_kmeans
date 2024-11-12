@@ -42,11 +42,17 @@ from sklearn.utils.validation import _check_sample_weight
 from . import _dimm
 
 
+def _align_8_bytes(n: int, dtype: np.dtype) -> int:
+    """Align n to 8 bytes for the DPU."""
+    return (n * dtype.itemsize + 7) // 8 * 8 // dtype.itemsize
+
+
 def _lloyd_iter_dpu(
     centers_old_int,
     centers_new_int,
     centers_sum_int,
     points_in_clusters,
+    points_in_clusters_per_dpu,
     X,
     sample_weight,
     x_squared_norms,
@@ -83,7 +89,11 @@ def _lloyd_iter_dpu(
         centers_old_int,
         centers_sum_int,
         points_in_clusters,
+        points_in_clusters_per_dpu,
     )
+
+    n_clusters = points_in_clusters.shape[0]
+    points_in_clusters[:] = points_in_clusters_per_dpu.sum(axis=0)[:n_clusters]
 
     reallocate_timer = 0
     if any(points_in_clusters == 0):
@@ -220,6 +230,10 @@ def _kmeans_single_lloyd_dpu(
     centers_new_int = np.empty_like(centers, dtype=dtype)
     centers_sum_int = np.empty_like(centers, dtype=np.int64)
     points_in_clusters = np.empty(n_clusters, dtype=np.int32)
+    points_in_clusters_per_dpu = np.empty(
+        (_dimm.get_n_dpu(), _align_8_bytes(n_clusters, np.dtype(np.int32))),
+        dtype=np.int32,
+    )
 
     # points_in_clusters_per_dpu = np.empty((n_dpu, n_clusters_round), dtype=np.int32)
     # partial_sums = np.empty((n_clusters, n_dpu, n_features), dtype=np.int64)
@@ -241,6 +255,7 @@ def _kmeans_single_lloyd_dpu(
                 centers_new_int,
                 centers_sum_int,
                 points_in_clusters,
+                points_in_clusters_per_dpu,
                 X,
                 sample_weight,
                 x_squared_norms,

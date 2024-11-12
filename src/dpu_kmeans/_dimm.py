@@ -136,6 +136,11 @@ def set_n_dpu(n_dpu: int):
         _allocated = True
 
 
+def get_n_dpu():
+    """Returns the number of allocated DPUs."""
+    return ctr.get_nr_dpus()
+
+
 def load_kernel(kernel: str, verbose: int = False):
     """Loads a given kernel into the allocated DPUs."""
     global _kernel

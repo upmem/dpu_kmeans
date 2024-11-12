@@ -187,9 +187,10 @@ class Container {
    */
   void lloyd_iter(const py::array_t<int_feature> &centers_old_int,
                   py::array_t<int64_t> &centers_new_int,
-                  py::array_t<int> &points_in_clusters) {
+                  py::array_t<int> &points_in_clusters,
+                  py::array_t<int> &points_in_clusters_per_dpu) {
     lloydIter(p_, centers_old_int, centers_new_int, points_in_clusters,
-              points_in_clusters_per_dpu_, partial_sums_per_dpu_);
+              points_in_clusters_per_dpu, partial_sums_per_dpu_);
   }
 
   /**
