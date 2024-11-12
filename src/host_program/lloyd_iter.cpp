@@ -11,6 +11,7 @@
 #include <pybind11/pybind11.h>
 
 #include <chrono>
+#include <numeric>
 
 #ifdef PERF_COUNTER
 #include <array>
@@ -21,38 +22,17 @@ extern "C" {
 }
 
 /**
- * @brief Utility function for three dimensional arrays.
- *
- * @param feature current feature
- * @param cluster current cleaster
- * @param dpu current dpu
- * @param nfeatures number of features
- * @param nclusters number of clusters
- * @return array index
- */
-static int offset(int feature, int cluster, int dpu, int nfeatures,
-                  int nclusters) {
-  return (dpu * nclusters * nfeatures) + (cluster * nfeatures) + feature;
-}
-
-/**
  * @brief Performs one iteration of the Lloyd algorithm on DPUs and gets the
  * results.
  *
  * @param p Algorithm parameters.
  * @param old_centers [in] Discretized current centroids coordinates.
- * @param new_centers [out] Discretized updated centroids coordinates (before
- * division by cluster count).
- * @param new_centers_len [out] Number of elements in each cluster.
- * @param centers_pcount Buffer to read cluster counts per DPU.
- * @param centers_psum Buffer to read coordinates sum per DPU.
+ * @param centers_psum [out] Sum of points coordinates per cluster per dpu.
+ * @param centers_pcount [out] Count of elements in each cluster per dpu.
  */
-void lloydIter(kmeans_params &p, const py::array_t<int_feature> &old_centers,
-               py::array_t<int64_t> &new_centers,
-               py::array_t<int64_t> &new_centers_per_dpu,
-               py::array_t<int> &new_centers_len,
-               py::array_t<int> &centers_pcount,
-               std::vector<int64_t> &centers_psum) {
+void lloyd_iter(kmeans_params &p, const py::array_t<int_feature> &old_centers,
+                py::array_t<int64_t> &centers_psum,
+                py::array_t<int> &centers_pcount) {
   dpu_set_t dpu{};       /* Iteration variable for the DPUs. */
   uint32_t each_dpu = 0; /* Iteration variable for the DPUs. */
 
@@ -61,9 +41,10 @@ void lloydIter(kmeans_params &p, const py::array_t<int_feature> &old_centers,
   std::vector<std::array<uint64_t, HOST_COUNTERS>> counters(p.ndpu);
 #endif
 
-  DPU_ASSERT(dpu_broadcast_to(p.allset, "c_clusters", 0, old_centers.data(0, 0),
-                              p.nclusters * p.nfeatures * sizeof(int_feature),
-                              DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(
+      p.allset, "c_clusters", 0, old_centers.data(0, 0),
+      static_cast<size_t>(p.nclusters) * p.nfeatures * sizeof(int_feature),
+      DPU_XFER_DEFAULT));
 
   const auto tic = std::chrono::steady_clock::now();
   //============RUNNING ONE LLOYD ITERATION ON THE DPU==============
@@ -123,15 +104,9 @@ void lloydIter(kmeans_params &p, const py::array_t<int_feature> &old_centers,
 #endif
 
   /* copy back membership count per dpu (device to host) */
-  // size_t count_in_8bytes = 8 / sizeof(centers_pcount.at(0, 0));
-  // size_t nclusters_aligned =
-  //     ((p.nclusters + count_in_8bytes - 1) / count_in_8bytes) *
-  //     count_in_8bytes;
   DPU_FOREACH(p.allset, dpu, each_dpu) {
     DPU_ASSERT(
         // TODO: direct access
-        // dpu_prepare_xfer(dpu, &(centers_pcount[each_dpu *
-        // nclusters_aligned])));
         dpu_prepare_xfer(dpu, centers_pcount.mutable_data(each_dpu)));
   }
   DPU_ASSERT(dpu_push_xfer(p.allset, DPU_XFER_FROM_DPU, "centers_count_mram", 0,
@@ -140,91 +115,70 @@ void lloydIter(kmeans_params &p, const py::array_t<int_feature> &old_centers,
 
   /* copy back centroids partial sums (device to host) */
   DPU_FOREACH(p.allset, dpu, each_dpu) {
-    // DPU_ASSERT(dpu_prepare_xfer(
-    //     dpu, &centers_psum[offset(0, 0, each_dpu, p.nfeatures,
-    //     p.nclusters)]));
-    DPU_ASSERT(
-        dpu_prepare_xfer(dpu, new_centers_per_dpu.mutable_data(each_dpu)));
+    DPU_ASSERT(dpu_prepare_xfer(dpu, centers_psum.mutable_data(each_dpu)));
   }
   DPU_ASSERT(dpu_push_xfer(
       p.allset, DPU_XFER_FROM_DPU, "centers_sum_mram", 0,
       static_cast<long>(p.nfeatures) * p.nclusters * sizeof(int64_t),
       DPU_XFER_DEFAULT));
 
-  // new_centers[py::make_tuple(py::ellipsis())] = 0LL;
-  // new_centers_len[py::make_tuple(py::ellipsis())] = 0;
-
-  // for (int dpu_id = 0; dpu_id < p.ndpu; dpu_id++) {
-  //   for (int cluster_id = 0; cluster_id < p.nclusters; cluster_id++) {
-  //     /* sum membership counts
-  //      * moved to the python code */
-  //     // new_centers_len.mutable_at(cluster_id) +=
-  //     //     centers_pcount[dpu_id * nclusters_aligned + cluster_id];
-
-  //     /* compute the new centroids sum */
-  //     for (int feature_id = 0; feature_id < p.nfeatures; feature_id++) {
-  //       new_centers.mutable_at(cluster_id, feature_id) +=
-  //       centers_psum[offset(
-  //           feature_id, cluster_id, dpu_id, p.nfeatures, p.nclusters)];
-  //     }
-  //   }
-  // }
-
-  /* averaging the new centers
+  /* averaging the new centers and summing the centers count
    * has been moved to the python code */
 }
 
 /**
  * @brief Performs one E step of the Lloyd algorithm on DPUs and gets the
  * inertia only.
+ *
+ * @param p Algorithm parameters.
+ * @param old_centers [in] Discretized current centroids coordinates.
+ * @param inertia_psum [out] Buffer to read inertia per DPU.
  */
-uint64_t lloydIterWithInertia(
-    kmeans_params *p, /**< Algorithm parameters. */
-    int_feature
-        *old_centers, /**< [in] Discretized current centroids coordinates. */
-    int64_t *inertia_psum /**< Buffer to read inertia per DPU. */
-) {
-  struct dpu_set_t dpu; /* Iteration variable for the DPUs. */
-  uint32_t each_dpu;    /* Iteration variable for the DPUs. */
+auto lloyd_iter_with_inertia(
+    kmeans_params &p, /**< Algorithm parameters. */
+    const py::array_t<int_feature>
+        &old_centers, /**< [in] Discretized current centroids coordinates. */
+    std::vector<int64_t> &inertia_psum /**< Buffer to read inertia per DPU. */
+    ) -> int64_t {
+  dpu_set_t dpu{};       /* Iteration variable for the DPUs. */
+  uint32_t each_dpu = 0; /* Iteration variable for the DPUs. */
 
   int compute_inertia = 1;
 
-  DPU_ASSERT(dpu_broadcast_to(p->allset, "c_clusters", 0, old_centers,
-                              p->nclusters * p->nfeatures * sizeof(int_feature),
-                              DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(p.allset, "c_clusters", 0, old_centers.ptr(),
+                              old_centers.nbytes(), DPU_XFER_DEFAULT));
 
-  DPU_ASSERT(dpu_broadcast_to(p->allset, "compute_inertia", 0, &compute_inertia,
+  DPU_ASSERT(dpu_broadcast_to(p.allset, "compute_inertia", 0, &compute_inertia,
                               sizeof(int), DPU_XFER_DEFAULT));
 
   auto tic = std::chrono::steady_clock::now();
   //============RUNNING ONE LLOYD ITERATION ON THE DPU==============
-  DPU_ASSERT(dpu_launch(p->allset, DPU_SYNCHRONOUS));
+  DPU_ASSERT(dpu_launch(p.allset, DPU_SYNCHRONOUS));
   //================================================================
   auto toc = std::chrono::steady_clock::now();
-  p->time_seconds += std::chrono::duration<double>{toc - tic}.count();
+  p.time_seconds += std::chrono::duration<double>{toc - tic}.count();
 
   tic = std::chrono::steady_clock::now();
   /* copy back inertia (device to host) */
-  DPU_FOREACH(p->allset, dpu, each_dpu) {
+  inertia_psum.resize(p.ndpu);
+  DPU_FOREACH(p.allset, dpu, each_dpu) {
     DPU_ASSERT(dpu_prepare_xfer(dpu, &(inertia_psum[each_dpu])));
   }
-  DPU_ASSERT(dpu_push_xfer(p->allset, DPU_XFER_FROM_DPU, "inertia", 0,
-                           sizeof(*inertia_psum), DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_push_xfer(p.allset, DPU_XFER_FROM_DPU, "inertia", 0,
+                           sizeof(inertia_psum[0]), DPU_XFER_DEFAULT));
 
   /* sum partial inertia */
-  uint64_t inertia = 0;
-  for (int dpu_id = 0; dpu_id < p->ndpu; dpu_id++) {
-    inertia += inertia_psum[dpu_id];
-  }
+  int64_t inertia =
+      std::accumulate(inertia_psum.cbegin(), inertia_psum.cend(), 0LL);
 
   compute_inertia = 0;
 
-  DPU_ASSERT(dpu_broadcast_to(p->allset, "compute_inertia", 0, &compute_inertia,
+  DPU_ASSERT(dpu_broadcast_to(p.allset, "compute_inertia", 0, &compute_inertia,
                               sizeof(int), DPU_XFER_DEFAULT));
 
   toc = std::chrono::steady_clock::now();
 
-  p->pim_cpu_time = std::chrono::duration<double>{toc - tic}.count();
+  p.pim_cpu_time = std::chrono::duration<double>{toc - tic}.count();
 
   return inertia;
 }

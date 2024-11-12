@@ -17,12 +17,10 @@ namespace py = pybind11;
 
 /** @name lloyd_iter.cpp */
 /**@{*/
-void lloydIter(kmeans_params &p, const py::array_t<int_feature> &old_centers,
-               py::array_t<int64_t> &new_centers,
-               py::array_t<int64_t> &new_centers_per_dpu,
-               py::array_t<int> &new_centers_len,
-               py::array_t<int> &centers_pcount,
-               std::vector<int64_t> &centers_psum);
-uint64_t lloydIterWithInertia(kmeans_params *p, int_feature *old_centers,
-                              int64_t *inertia_psum);
+void lloyd_iter(kmeans_params &p, const py::array_t<int_feature> &old_centers,
+                py::array_t<int64_t> &centers_psum,
+                py::array_t<int> &centers_pcount);
+auto lloyd_iter_with_inertia(kmeans_params &p,
+                             const py::array_t<int_feature> &old_centers,
+                             std::vector<int64_t> &inertia_psum) -> int64_t;
 /**@}*/

@@ -40,10 +40,6 @@ namespace py = pybind11;
 class Container {
  private:
   kmeans_params p_{}; /**< Struct containing various algorithm parameters. */
-  std::vector<int64_t> partial_sums_per_dpu_;   /**< Iteration buffer to read
-                                       feature sums from the DPUs. */
-  std::vector<int> points_in_clusters_per_dpu_; /**< Iteration buffer to read
-                                       cluster counts from the DPUs. */
   std::vector<int64_t> inertia_per_dpu_; /**< Iteration buffer to read inertia
                                    from the DPUs. */
   bool host_memory_allocated_{}; /**< Whether the iteration buffers have been
@@ -132,16 +128,6 @@ class Container {
       deallocate_host_memory();
     }
 
-    /* allocate buffer to read coordinates sums from the DPUs */
-    partial_sums_per_dpu_.resize(p_.nclusters * p_.ndpu * p_.nfeatures);
-
-    /* allocate buffer to read clusters counts from the DPUs */
-    size_t count_in_8bytes = 8 / sizeof(points_in_clusters_per_dpu_.back());
-    size_t nclusters_aligned =
-        ((p_.nclusters + count_in_8bytes - 1) / count_in_8bytes) *
-        count_in_8bytes;
-    points_in_clusters_per_dpu_.resize(p_.ndpu * nclusters_aligned);
-
     /* allocate buffer to read inertia from the DPUs */
     inertia_per_dpu_.resize(p_.ndpu);
 
@@ -153,8 +139,6 @@ class Container {
    *
    */
   void deallocate_host_memory() {
-    partial_sums_per_dpu_.clear();
-    points_in_clusters_per_dpu_.clear();
     inertia_per_dpu_.clear();
 
     host_memory_allocated_ = false;
@@ -179,34 +163,26 @@ class Container {
   /**
    * @brief Runs one iteration of the K-Means Lloyd algorithm.
    *
-   * @param centers_old_int [in] Discretized coordinates of the current
+   * @param old_centers [in] Discretized coordinates of the current
    * centroids.
-   * @param centers_new_int [out] Discretized coordinates of the updated
-   * centroids (before division by number of points).
-   * @param points_in_clusters [out] Counts of points per cluster.
+   * @param centers_psum [out] Sum of points coordinates per cluster per dpu
+   * @param centers_pcount [out] Count of elements in each cluster per dpu.
    */
-  void lloyd_iter(const py::array_t<int_feature> &centers_old_int,
-                  py::array_t<int64_t> &centers_new_int,
-                  py::array_t<int64_t> &centers_new_int_per_dpu,
-                  py::array_t<int> &points_in_clusters,
-                  py::array_t<int> &points_in_clusters_per_dpu) {
-    lloydIter(p_, centers_old_int, centers_new_int, centers_new_int_per_dpu,
-              points_in_clusters, points_in_clusters_per_dpu,
-              partial_sums_per_dpu_);
+  void lloyd_iter(const py::array_t<int_feature> &old_centers,
+                  py::array_t<int64_t> &centers_psum,
+                  py::array_t<int> &centers_pcount) {
+    ::lloyd_iter(p_, old_centers, centers_psum, centers_pcount);
   }
 
   /**
    * @brief Runs one E step of the K-Means algorithm and gets inertia.
    *
-   * @param centers_old_int [in] Discretized coordinates of the current
+   * @param old_centers [in] Discretized coordinates of the current
    * centroids.
-   * @return uint64_t The inertia.
+   * @return int64_t The inertia.
    */
-  auto compute_inertia(const py::array_t<int_feature> &centers_old_int)
-      -> uint64_t {
-    int_feature *old_centers =
-        static_cast<int_feature *>(centers_old_int.request().ptr);
-    return lloydIterWithInertia(&p_, old_centers, inertia_per_dpu_.data());
+  auto compute_inertia(const py::array_t<int_feature> &old_centers) -> int64_t {
+    return lloyd_iter_with_inertia(p_, old_centers, inertia_per_dpu_);
   }
 };
 

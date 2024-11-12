@@ -82,15 +82,14 @@ def _lloyd_iter_dpu(
     -------
     center_shift_tot : float
         Distance between old and new centers.
+
     """
     dpu_iter = _dimm.ctr.lloyd_iter
     scale_factor = _dimm.ld.scale_factor
 
     dpu_iter(
         centers_old_int,
-        centers_sum_int,
         centers_sum_int_per_dpu,
-        points_in_clusters,
         points_in_clusters_per_dpu,
     )
 
