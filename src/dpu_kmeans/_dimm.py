@@ -34,7 +34,7 @@ _data_size = None  # size of the currently loaded data
 _kernels_lib = {"kmeans": files("dpu_kmeans").joinpath("dpu_program/kmeans_dpu_kernel")}
 
 ctr = Container()
-ctr.set_nr_dpus(0)
+ctr.nr_dpus = 0
 
 _requested_dpus = 0
 
@@ -131,14 +131,14 @@ def set_n_dpu(n_dpu: int):
         free_dpus()
     if not _allocated:
         _requested_dpus = n_dpu
-        ctr.set_nr_dpus(n_dpu)
+        ctr.nr_dpus = n_dpu
         ctr.allocate()
         _allocated = True
 
 
 def get_n_dpu():
     """Returns the number of allocated DPUs."""
-    return ctr.get_nr_dpus()
+    return ctr.nr_dpus
 
 
 def load_kernel(kernel: str, verbose: int = False):
@@ -197,17 +197,17 @@ def reset_timer(verbose=False):
 
 def get_dpu_run_time():
     """Returns the DPU execution timer."""
-    return ctr.get_dpu_run_time()
+    return ctr.dpu_run_time
 
 
 def get_cpu_pim_time():
     """Returns the time to load the data to the DPU memory."""
-    return ctr.get_cpu_pim_time()
+    return ctr.cpu_pim_time
 
 
 def get_pim_cpu_time():
     """Returns the time to get the inertia from the DPU memory."""
-    return ctr.get_pim_cpu_time()
+    return ctr.pim_cpu_time
 
 
 def free_dpus(verbose: int = False):

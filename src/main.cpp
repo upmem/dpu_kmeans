@@ -168,8 +168,7 @@ PYBIND11_MODULE(_core, m) {
     )pbdoc")
       .def(py::init<>())
       .def("allocate", &Container::allocate)
-      .def("get_nr_dpus", &Container::get_ndpu)
-      .def("set_nr_dpus", &Container::set_ndpu)
+      .def_property("nr_dpus", &Container::get_ndpu, &Container::set_ndpu)
       .def("load_kernel", &Container::load_kernel)
       .def("load_array_data", &Container::load_array_data)
       .def("load_n_clusters", &Container::load_nclusters)
@@ -177,9 +176,9 @@ PYBIND11_MODULE(_core, m) {
       .def("lloyd_iter", &Container::lloyd_iter)
       .def("compute_inertia", &Container::compute_inertia)
       .def("reset_timer", &Container::reset_timer)
-      .def("get_dpu_run_time", &Container::get_dpu_run_time)
-      .def("get_cpu_pim_time", &Container::get_cpu_pim_time)
-      .def("get_pim_cpu_time", &Container::get_pim_cpu_time);
+      .def_property_readonly("dpu_run_time", &Container::get_dpu_run_time)
+      .def_property_readonly("cpu_pim_time", &Container::get_cpu_pim_time)
+      .def_property_readonly("pim_cpu_time", &Container::get_pim_cpu_time);
 
   m.def("add", &add, R"pbdoc(
         Add two numbers
