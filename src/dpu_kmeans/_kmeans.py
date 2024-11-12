@@ -461,7 +461,7 @@ class KMeans(KMeansCPU):
         kmeans_single = _kmeans_single_lloyd_dpu
         self._check_mkl_vcomp(X, X.shape[0])
 
-        best_inertia, best_labels = None, None
+        best_inertia, best_labels, best_centers = None, None, None
 
         toc = time.perf_counter()
         self.preprocessing_timer_ = toc - tic
