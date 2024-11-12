@@ -5,8 +5,7 @@
  * @copyright 2021 UPMEM
  */
 
-#ifndef _H_KMEANS
-#define _H_KMEANS /**< header guard */
+#pragma once
 
 #ifndef _KMEANS_DPU_KERNEL_H_
 #include <dpu.h>
@@ -38,10 +37,6 @@ typedef struct dpu_set_t dpu_set;
 #define WRAM_FEATURES_SIZE \
   512 /**< max size of the WRAM array holding points features in bytes */
 /**@}*/
-
-// Whether or not to keep track of the memberships and do a final float
-// reduction on the CPU #define FLT_REDUCE /**< Instruction to perform a float
-// reduction on the CPU
 
 // Performance tracking
 // #define PERF_COUNTER 0 /* 0 for cycles, 1 for instructions, comment for no
@@ -108,5 +103,3 @@ typedef struct {
 } kmeans_params;
 
 #endif  // ifndef _KMEANS_DPU_KERNEL_H_
-
-#endif  // ifndef _H_KMEANS

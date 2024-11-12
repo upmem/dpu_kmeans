@@ -98,10 +98,6 @@ __mram_noinit int_feature t_features[MAX_FEATURE_DPU];
  * Output arrays
  */
 /**@{*/
-#ifdef FLT_REDUCE
-/** array holding the memberships */
-__mram_noinit uint8_t t_membership[((MAX_FEATURE_DPU / 3) / 8) * 8];
-#endif
 // __mram_noinit int32_t c_clusters_mram[ASSUMED_NR_CLUSTERS *
 // ASSUMED_NR_FEATURES]; (off because of MRAM transfer bug)
 __dma_aligned int centers_count[ASSUMED_NR_CLUSTERS];
@@ -120,9 +116,6 @@ BARRIER_INIT(sync_barrier, NR_TASKLETS);
 MUTEX_INIT(task_mutex);
 MUTEX_INIT(write_mutex);
 MUTEX_INIT(write_count_mutex);
-#ifdef FLT_REDUCE
-MUTEX_INIT(membership_mutex);
-#endif
 
 /*================== PERFORMANCE TRACKING ================*/
 #ifdef PERF_COUNTER
@@ -260,22 +253,6 @@ void task_reduce(uint8_t tasklet_id, uint8_t icluster, int point_global_index,
                  uint16_t point_base_index, int_feature *w_features,
                  perfcounter_t *tasklet_counters) {
   tasklet_counters[LOOP_TIC] = perfcounter_get();
-#endif
-
-// mandatory mutex here because implicit MRAM accesses are not thread safe for
-// variables smaller than 8 bytes
-// TODO : needs a better solution
-#ifdef FLT_REDUCE
-#ifdef PERF_COUNTER
-  tasklet_counters[MUTEX_TIC] = perfcounter_get();
-#endif
-  mutex_lock(membership_mutex);
-  t_membership[point_global_index] = icluster;
-  mutex_unlock(membership_mutex);
-#ifdef PERF_COUNTER
-  tasklet_counters[MUTEX_CTR] +=
-      perfcounter_get() - tasklet_counters[MUTEX_TIC];
-#endif
 #endif
 
   // centers_count_tasklets[tasklet_id][icluster]++;

@@ -176,10 +176,6 @@ def load_data(X, verbose: int = False):
     if _data_checksum != X_checksum:
         if verbose:
             print("loading new data")
-        if _data_checksum:
-            if verbose:
-                print(f"freeing previous data : {_data_checksum}")
-            ctr.free_data()
         _data_checksum = X_checksum
         Xt = ld.fit_transform(X)
         ctr.load_array_data(

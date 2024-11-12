@@ -301,7 +301,6 @@ def _kmeans_single_lloyd_dpu(
     toc = time.perf_counter()
     inertia_timer = toc - tic
 
-    _dimm.ctr.deallocate_host_memory()
     return inertia, centers, i + 1, inertia_timer, reallocate_timer
 
 

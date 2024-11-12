@@ -160,7 +160,6 @@ auto lloyd_iter_with_inertia(
 
   tic = std::chrono::steady_clock::now();
   /* copy back inertia (device to host) */
-  inertia_psum.resize(p.ndpu);
   DPU_FOREACH(p.allset, dpu, each_dpu) {
     DPU_ASSERT(dpu_prepare_xfer(dpu, &(inertia_psum[each_dpu])));
   }

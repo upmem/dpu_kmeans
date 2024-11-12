@@ -42,8 +42,6 @@ class Container {
   kmeans_params p_{}; /**< Struct containing various algorithm parameters. */
   std::vector<int64_t> inertia_per_dpu_; /**< Iteration buffer to read inertia
                                    from the DPUs. */
-  bool host_memory_allocated_{}; /**< Whether the iteration buffers have been
-                                 allocated. */
 
   /**
    * @brief Preprocesses and transfers quantized data to the DPUs.
@@ -51,9 +49,6 @@ class Container {
   void transfer_data(const py::array_t<int_feature> &data_int) {
     populate_dpus(p_, data_int);
     broadcast_parameters(p_);
-#ifdef FLT_REDUCE
-    allocateMembershipTable(&p);
-#endif
   }
 
  public:
@@ -62,7 +57,10 @@ class Container {
   /**
    * @brief Allocates all DPUs.
    */
-  void allocate() { ::allocate_dpus(p_); }
+  void allocate() {
+    ::allocate_dpus(p_);
+    inertia_per_dpu_.resize(p_.ndpu);
+  }
 
   [[nodiscard]] auto get_ndpu() const -> size_t { return p_.ndpu; }
 
@@ -116,43 +114,6 @@ class Container {
     p_.nclusters = nclusters;
 
     broadcast_number_of_clusters(p_, nclusters);
-    allocate_host_memory();
-  }
-
-  /**
-   * @brief Allocates host iteration buffers.
-   *
-   */
-  void allocate_host_memory() {
-    if (host_memory_allocated_) {
-      deallocate_host_memory();
-    }
-
-    /* allocate buffer to read inertia from the DPUs */
-    inertia_per_dpu_.resize(p_.ndpu);
-
-    host_memory_allocated_ = true;
-  }
-
-  /**
-   * @brief Frees the host iteration buffers.
-   *
-   */
-  void deallocate_host_memory() {
-    inertia_per_dpu_.clear();
-
-    host_memory_allocated_ = false;
-  }
-
-  /**
-   * @brief Frees the data.
-   * Only the jagged pointers are freed. The feature values themselves are
-   * managed by Python.
-   */
-  void free_data() {
-#ifdef FLT_REDUCE
-    deallocateMembershipTable();
-#endif
   }
 
   /**
@@ -212,12 +173,9 @@ PYBIND11_MODULE(_core, m) {
       .def("load_kernel", &Container::load_kernel)
       .def("load_array_data", &Container::load_array_data)
       .def("load_n_clusters", &Container::load_nclusters)
-      .def("free_data", &Container::free_data)
       .def("free_dpus", &Container::free_dpus)
       .def("lloyd_iter", &Container::lloyd_iter)
       .def("compute_inertia", &Container::compute_inertia)
-      .def("allocate_host_memory", &Container::allocate_host_memory)
-      .def("deallocate_host_memory", &Container::deallocate_host_memory)
       .def("reset_timer", &Container::reset_timer)
       .def("get_dpu_run_time", &Container::get_dpu_run_time)
       .def("get_cpu_pim_time", &Container::get_cpu_pim_time)
