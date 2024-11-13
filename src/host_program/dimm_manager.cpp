@@ -61,8 +61,7 @@ void Container::broadcast_number_of_clusters() const {
 void Container::populate_dpus(const py::array_t<int_feature> &py_features) {
   auto features = py_features.unchecked<2>();
 
-  std::vector<int> nreal_points(
-      p_.ndpu); /* number of real data points on each dpu */
+  nreal_points_.resize(p_.ndpu);
   int64_t padding_points =
       p_.npadded - p_.npoints; /* number of padding points */
 
@@ -84,14 +83,14 @@ void Container::populate_dpus(const py::array_t<int_feature> &py_features) {
       throw std::length_error(
           fmt::format("Too many points for one DPU : {}", nreal_points_dpu));
     }
-    nreal_points[each_dpu] = static_cast<int>(nreal_points_dpu);
+    nreal_points_[each_dpu] = static_cast<int>(nreal_points_dpu);
   }
   DPU_ASSERT(dpu_push_xfer(p_.allset, DPU_XFER_TO_DPU, "t_features", 0,
                            p_.npointperdpu * p_.nfeatures * sizeof(int_feature),
                            DPU_XFER_DEFAULT));
 
   DPU_FOREACH(p_.allset, dpu, each_dpu) {
-    DPU_ASSERT(dpu_prepare_xfer(dpu, &nreal_points[each_dpu]));
+    DPU_ASSERT(dpu_prepare_xfer(dpu, &nreal_points_[each_dpu]));
   }
   DPU_ASSERT(dpu_push_xfer(p_.allset, DPU_XFER_TO_DPU, "npoints", 0,
                            sizeof(int), DPU_XFER_DEFAULT));

@@ -51,6 +51,7 @@ class Container {
   kmeans_params p_{}; /**< Struct containing various algorithm parameters. */
   std::vector<int64_t> inertia_per_dpu_; /**< Iteration buffer to read inertia
                                    from the DPUs. */
+  std::vector<int> nreal_points_; /* number of real data points on each dpu */
 
   /**
    * @brief Broadcast current number of clusters to the DPUs
