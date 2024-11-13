@@ -35,6 +35,7 @@ struct kmeans_params {
   int isOutput;         /**< Whether to print debug information */
   uint32_t ndpu;        /**< Number of allocated dpu */
   dpu_set_t allset;     /**< Struct of the allocated dpu set */
+  bool allocated;       /**< Whether the DPUs are allocated */
   double time_seconds;  /**< Perf counter */
   double cpu_pim_time;  /**< Time to populate the DPUs */
   double pim_cpu_time;  /**< Time to transfer inertia from the CPU */
@@ -90,6 +91,13 @@ class Container {
 
  public:
   Container() = default;
+
+  ~Container() { free_dpus(); }
+
+  Container(const Container &) = delete;
+  auto operator=(const Container &) -> Container & = delete;
+  Container(Container &&) = default;
+  auto operator=(Container &&) -> Container & = default;
 
   /**
    * @brief Allocates DPUs.

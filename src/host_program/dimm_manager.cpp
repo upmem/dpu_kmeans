@@ -18,6 +18,7 @@
 
 extern "C" {
 #include <dpu.h>
+#include <dpu_types.h>
 }
 
 /**
@@ -31,6 +32,7 @@ void Container::allocate() {
   } else {
     DPU_ASSERT(dpu_alloc(p_.ndpu, nullptr, &p_.allset));
   }
+  p_.allocated = true;
   DPU_ASSERT(dpu_get_nr_dpus(p_.allset, &p_.ndpu));
   inertia_per_dpu_.resize(p_.ndpu);
 }
@@ -40,7 +42,12 @@ void Container::allocate() {
  *
  * @param p Algorithm parameters.
  */
-void Container::free_dpus() { DPU_ASSERT(dpu_free(p_.allset)); }
+void Container::free_dpus() {
+  if (p_.allocated) {
+    DPU_ASSERT(dpu_free(p_.allset));
+    p_.allocated = false;
+  }
+}
 
 /**
  * @brief Loads a binary in the DPUs.

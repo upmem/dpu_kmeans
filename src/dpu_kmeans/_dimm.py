@@ -229,6 +229,3 @@ def free_dpus(verbose: int = False):
         _data_id = None
         _data_checksum = None
         _data_size = None
-
-
-atexit.register(free_dpus)
