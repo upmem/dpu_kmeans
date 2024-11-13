@@ -11,7 +11,6 @@ hence the use of global variables.
 
 import atexit
 import sys
-import time
 
 import numpy as np
 import xxhash
@@ -20,7 +19,7 @@ try:
     from importlib.resources import as_file, files
 except ImportError:
     # Try backported to PY<39 `importlib_resources`.
-    from importlib_resources import files, as_file
+    from importlib_resources import as_file, files
 
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.utils.validation import check_is_fitted
@@ -54,8 +53,7 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
         self.input_dtype = None
 
     def fit(self, X, y=None):
-        """
-        Fit the estimator.
+        """Fit the estimator.
 
         Parameters
         ----------
@@ -64,10 +62,12 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
         y : None
             Ignored. This parameter exists only for compatibility with
             :class:`~sklearn.pipeline.Pipeline`.
+
         Returns
         -------
         self : object
             Returns the instance itself.
+
         """
         X = self._validate_data(X, dtype="numeric")
         self.input_dtype = X.dtype
@@ -81,17 +81,18 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
         return self
 
     def transform(self, X):
-        """
-        Discretize the data.
+        """Discretize the data.
 
         Parameters
         ----------
         X : array-like of shape (n_samples, n_features)
             Data to be quantized.
+
         Returns
         -------
         Xt : ndarray, dtype={np.float32, np.float64}
             Quantized data.
+
         """
         check_is_fitted(self)
 
@@ -100,8 +101,7 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
         return Xt
 
     def inverse_transform(self, Xt):
-        """
-        Transform discretized data back to original feature space.
+        """Transform discretized data back to original feature space.
 
         Note that this function does not regenerate the original data
         due to discretization rounding.
@@ -115,6 +115,7 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
         -------
         Xinv : ndarray, dtype={np.float32, np.float64}
             Data in the original feature space.
+
         """
         check_is_fitted(self)
 
@@ -126,7 +127,7 @@ ld = LinearDiscretizer()  # linear discretization transformer
 
 
 def set_n_dpu(n_dpu: int):
-    """Sets the number of DPUs to ask for during the allocation."""
+    """Set the number of DPUs to ask for during the allocation."""
     global _allocated
     global _requested_dpus
     if _allocated and _requested_dpus != n_dpu:
@@ -139,12 +140,12 @@ def set_n_dpu(n_dpu: int):
 
 
 def get_n_dpu():
-    """Returns the number of allocated DPUs."""
+    """Return the number of allocated DPUs."""
     return ctr.nr_dpus
 
 
 def load_kernel(kernel: str, verbose: int = False):
-    """Loads a given kernel into the allocated DPUs."""
+    """Load a given kernel into the allocated DPUs."""
     global _kernel
     global _allocated
     global _data_id
@@ -166,7 +167,7 @@ def load_kernel(kernel: str, verbose: int = False):
 
 
 def load_data(X, verbose: int = False):
-    """Loads a dataset into the allocated DPUs."""
+    """Load a dataset into the allocated DPUs."""
     global _data_checksum
     global _data_size
 
@@ -191,24 +192,24 @@ def load_data(X, verbose: int = False):
 
 
 def reset_timer(verbose=False):
-    """Resets the DPU execution timer."""
+    """Reset the DPU execution timer."""
     if verbose:
         print("resetting inner timer")
     ctr.reset_timer()
 
 
 def get_dpu_run_time():
-    """Returns the DPU execution timer."""
+    """Return the DPU execution timer."""
     return ctr.dpu_run_time
 
 
 def get_cpu_pim_time():
-    """Returns the time to load the data to the DPU memory."""
+    """Return the time to load the data to the DPU memory."""
     return ctr.cpu_pim_time
 
 
 def get_pim_cpu_time():
-    """Returns the time to get the inertia from the DPU memory."""
+    """Return the time to get the inertia from the DPU memory."""
     return ctr.pim_cpu_time
 
 
