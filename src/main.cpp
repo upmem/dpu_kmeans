@@ -36,9 +36,6 @@ PYBIND11_MODULE(_core, m) {
         .. autosummary::
            :toctree: _generate
 
-           add
-           subtract
-           checksum
            Container
     )pbdoc";
 
@@ -58,24 +55,6 @@ PYBIND11_MODULE(_core, m) {
       .def_property_readonly("dpu_run_time", &Container::get_dpu_run_time)
       .def_property_readonly("cpu_pim_time", &Container::get_cpu_pim_time)
       .def_property_readonly("pim_cpu_time", &Container::get_pim_cpu_time);
-
-  m.def("add", &add, R"pbdoc(
-        Add two numbers
-
-        Some other explanation about the add function.
-    )pbdoc");
-
-  m.def(
-      "subtract", [](int i, int j) { return i - j; },
-      R"pbdoc(
-        Subtract two numbers
-
-        Some other explanation about the subtract function.
-    )pbdoc");
-
-  m.def("checksum", &checksum, R"pbdoc(
-        Checksum test on dpus
-    )pbdoc");
 
   m.attr("FEATURE_TYPE") = py::int_(FEATURE_TYPE);
 

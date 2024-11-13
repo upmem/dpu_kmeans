@@ -3,13 +3,8 @@
 # Authors: Sylvan Brocard <sbrocard@upmem.com>
 # License: MIT
 
-from ._checksum import test_checksum
-from ._core import __version__, add, subtract
+from ._core import __version__
 from ._kmeans import KMeans
-
-
-def add2(x: int, y: int) -> int:
-    return add(x, y)
 
 
 __all__ = ["KMeans"]

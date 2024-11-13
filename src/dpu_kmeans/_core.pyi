@@ -8,16 +8,13 @@
         .. autosummary::
            :toctree: _generate
 
-           add
-           subtract
-           checksum
            Container
     
 """
 from __future__ import annotations
 import numpy
 import os
-__all__ = ['Container', 'FEATURE_TYPE', 'add', 'checksum', 'subtract']
+__all__ = ['Container', 'FEATURE_TYPE']
 class Container:
     """
     
@@ -55,21 +52,5 @@ class Container:
     @property
     def pim_cpu_time(self) -> float:
         ...
-def add(arg0: int, arg1: int) -> int:
-    """
-            Add two numbers
-    
-            Some other explanation about the add function.
-    """
-def checksum(arg0: str) -> int:
-    """
-            Checksum test on dpus
-    """
-def subtract(arg0: int, arg1: int) -> int:
-    """
-            Subtract two numbers
-    
-            Some other explanation about the subtract function.
-    """
 FEATURE_TYPE: int = 16
 __version__: str = '0.2.1'
