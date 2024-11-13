@@ -1,8 +1,8 @@
-# -*- coding: utf-8 -*-
-"""K-means clustering on DPU"""
+"""K-means clustering on DPU.
 
-# Authors: Sylvan Brocard <sbrocard@upmem.com>
-# License: MIT
+:Authors: Sylvan Brocard <sbrocard@upmem.com>
+:License: MIT
+"""
 
 # Disclaimer: Part of this code is adapted from scikit-learn
 # with the following license:

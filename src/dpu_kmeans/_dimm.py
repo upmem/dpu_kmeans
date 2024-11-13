@@ -1,9 +1,11 @@
-# -*- coding: utf-8 -*-
-"""DIMM memory manager module
-This module is intended to work like a singleton class, hence the use of global variables."""
+"""DIMM memory manager module.
 
-# Author: Sylvan Brocard <sbrocard@upmem.com>
-# License: MIT
+This module is intended to work like a singleton class,
+hence the use of global variables.
+
+:Author: Sylvan Brocard <sbrocard@upmem.com>
+:License: MIT
+"""
 
 # pylint: disable=global-statement
 
