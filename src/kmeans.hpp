@@ -53,6 +53,36 @@ class Container {
                                    from the DPUs. */
 
   /**
+   * @brief Broadcast current number of clusters to the DPUs
+   *
+   * @param p Algorithm parameters.
+   * @param nclusters Number of clusters.
+   */
+  void broadcast_number_of_clusters() const;
+
+  /**
+   * @brief Fills the DPUs with their assigned points.
+   *
+   * @param py_features Array: [npoints][nfeatures]
+   */
+  void populate_dpus(const py::array_t<int_feature> &py_features);
+
+  /**
+   * @brief Computes the appropriate task size for DPU tasklets.
+   *
+   * @param p Algorithm parameters.
+   * @return The task size in bytes.
+   */
+  [[nodiscard]] constexpr auto get_task_size() const -> int;
+
+  /**
+   * @brief Broadcasts iteration parameters to the DPUs.
+   *
+   * @param p Algorithm parameters.
+   */
+  void broadcast_parameters();
+
+  /**
    * @brief Preprocesses and transfers quantized data to the DPUs.
    */
   void transfer_data(const py::array_t<int_feature> &data_int);
@@ -61,7 +91,7 @@ class Container {
   Container() = default;
 
   /**
-   * @brief Allocates all DPUs.
+   * @brief Allocates DPUs.
    */
   void allocate();
 

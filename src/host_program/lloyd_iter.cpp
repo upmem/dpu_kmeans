@@ -5,19 +5,17 @@
  *
  */
 
-#include "lloyd_iter.hpp"
-
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 
 #include <chrono>
 #include <numeric>
 
+#include "../kmeans.hpp"
+
 #ifdef PERF_COUNTER
 #include <array>
 #endif
-
-#include "../kmeans.hpp"
 
 extern "C" {
 #include <dpu.h>
@@ -25,49 +23,38 @@ extern "C" {
 #include "../common.h"
 }
 
-/**
- * @brief Performs one iteration of the Lloyd algorithm on DPUs and gets the
- * results.
- *
- * @param p Algorithm parameters.
- * @param old_centers [in] Discretized current centroids coordinates.
- * @param centers_psum [out] Sum of points coordinates per cluster per dpu.
- * @param centers_pcount [out] Count of elements in each cluster per dpu.
- */
-void lloyd_iter(kmeans_params &p, const py::array_t<int_feature> &old_centers,
-                py::array_t<int64_t> &centers_psum,
-                py::array_t<int> &centers_pcount) {
+void Container::lloyd_iter(const py::array_t<int_feature> &old_centers,
+                           py::array_t<int64_t> &centers_psum,
+                           py::array_t<int> &centers_pcount) {
   dpu_set_t dpu{};       /* Iteration variable for the DPUs. */
   uint32_t each_dpu = 0; /* Iteration variable for the DPUs. */
 
 #ifdef PERF_COUNTER
   std::array<uint64_t, HOST_COUNTERS> counters_mean = {};
-  std::vector<std::array<uint64_t, HOST_COUNTERS>> counters(p.ndpu);
+  std::vector<std::array<uint64_t, HOST_COUNTERS>> counters(p_.ndpu);
 #endif
 
-  DPU_ASSERT(dpu_broadcast_to(
-      p.allset, "c_clusters", 0, old_centers.data(0, 0),
-      static_cast<size_t>(p.nclusters) * p.nfeatures * sizeof(int_feature),
-      DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(p_.allset, "c_clusters", 0, old_centers.data(),
+                              old_centers.nbytes(), DPU_XFER_DEFAULT));
 
   const auto tic = std::chrono::steady_clock::now();
   //============RUNNING ONE LLOYD ITERATION ON THE DPU==============
-  DPU_ASSERT(dpu_launch(p.allset, DPU_SYNCHRONOUS));
+  DPU_ASSERT(dpu_launch(p_.allset, DPU_SYNCHRONOUS));
   //================================================================
   const auto toc = std::chrono::steady_clock::now();
-  p.time_seconds += std::chrono::duration<double>{toc - tic}.count();
+  p_.time_seconds += std::chrono::duration<double>{toc - tic}.count();
 
   /* Performance tracking */
 #ifdef PERF_COUNTER
-  DPU_FOREACH(p.allset, dpu, each_dpu) {
+  DPU_FOREACH(p_.allset, dpu, each_dpu) {
     DPU_ASSERT(dpu_prepare_xfer(dpu, counters[each_dpu].data()));
   }
-  DPU_ASSERT(dpu_push_xfer(p.allset, DPU_XFER_FROM_DPU, "host_counters", 0,
+  DPU_ASSERT(dpu_push_xfer(p_.allset, DPU_XFER_FROM_DPU, "host_counters", 0,
                            sizeof(counters[0]), DPU_XFER_DEFAULT));
 
   for (int icounter = 0; icounter < HOST_COUNTERS; icounter++) {
     int nonzero_dpus = 0;
-    for (int idpu = 0; idpu < p.ndpu; idpu++)
+    for (int idpu = 0; idpu < p_.ndpu; idpu++)
       if (counters[idpu][MAIN_LOOP_CTR] != 0) {
         counters_mean[icounter] += counters[idpu][icounter];
         nonzero_dpus++;
@@ -108,80 +95,65 @@ void lloyd_iter(kmeans_params &p, const py::array_t<int_feature> &old_centers,
 #endif
 
   /* copy back membership count per dpu (device to host) */
-  DPU_FOREACH(p.allset, dpu, each_dpu) {
+  DPU_FOREACH(p_.allset, dpu, each_dpu) {
     DPU_ASSERT(
         // TODO: direct access
         dpu_prepare_xfer(dpu, centers_pcount.mutable_data(each_dpu)));
   }
-  DPU_ASSERT(dpu_push_xfer(p.allset, DPU_XFER_FROM_DPU, "centers_count_mram", 0,
-                           centers_pcount.itemsize() * centers_pcount.shape(1),
-                           DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_push_xfer(
+      p_.allset, DPU_XFER_FROM_DPU, "centers_count_mram", 0,
+      centers_pcount.itemsize() * centers_pcount.shape(1), DPU_XFER_DEFAULT));
 
   /* copy back centroids partial sums (device to host) */
-  DPU_FOREACH(p.allset, dpu, each_dpu) {
+  DPU_FOREACH(p_.allset, dpu, each_dpu) {
     DPU_ASSERT(dpu_prepare_xfer(dpu, centers_psum.mutable_data(each_dpu)));
   }
-  DPU_ASSERT(dpu_push_xfer(p.allset, DPU_XFER_FROM_DPU, "centers_sum_mram", 0,
-                           static_cast<long>(p.nfeatures) * p.nclusters *
-                               sizeof(centers_psum.get_type()),
-                           DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_push_xfer(
+      p_.allset, DPU_XFER_FROM_DPU, "centers_sum_mram", 0,
+      centers_psum.itemsize() * centers_psum.shape(1) * centers_psum.shape(2),
+      DPU_XFER_DEFAULT));
 
   /* averaging the new centers and summing the centers count
    * has been moved to the python code */
 }
 
-/**
- * @brief Performs one E step of the Lloyd algorithm on DPUs and gets the
- * inertia only.
- *
- * @param p Algorithm parameters.
- * @param old_centers [in] Discretized current centroids coordinates.
- * @param inertia_psum [out] Buffer to read inertia per DPU.
- */
-auto lloyd_iter_with_inertia(
-    kmeans_params &p, /**< Algorithm parameters. */
-    const py::array_t<int_feature>
-        &old_centers, /**< [in] Discretized current centroids coordinates. */
-    std::vector<int64_t> &inertia_psum /**< Buffer to read inertia per DPU. */
-    ) -> int64_t {
-  dpu_set_t dpu{};       /* Iteration variable for the DPUs. */
-  uint32_t each_dpu = 0; /* Iteration variable for the DPUs. */
-
+auto Container::compute_inertia(const py::array_t<int_feature> &old_centers)
+    -> int64_t {
   int compute_inertia = 1;
-
-  DPU_ASSERT(dpu_broadcast_to(p.allset, "c_clusters", 0, old_centers.ptr(),
+  DPU_ASSERT(dpu_broadcast_to(p_.allset, "c_clusters", 0, old_centers.data(),
                               old_centers.nbytes(), DPU_XFER_DEFAULT));
 
-  DPU_ASSERT(dpu_broadcast_to(p.allset, "compute_inertia", 0, &compute_inertia,
+  DPU_ASSERT(dpu_broadcast_to(p_.allset, "compute_inertia", 0, &compute_inertia,
                               sizeof(int), DPU_XFER_DEFAULT));
 
   auto tic = std::chrono::steady_clock::now();
   //============RUNNING ONE LLOYD ITERATION ON THE DPU==============
-  DPU_ASSERT(dpu_launch(p.allset, DPU_SYNCHRONOUS));
+  DPU_ASSERT(dpu_launch(p_.allset, DPU_SYNCHRONOUS));
   //================================================================
   auto toc = std::chrono::steady_clock::now();
-  p.time_seconds += std::chrono::duration<double>{toc - tic}.count();
+  p_.time_seconds += std::chrono::duration<double>{toc - tic}.count();
 
   tic = std::chrono::steady_clock::now();
   /* copy back inertia (device to host) */
-  DPU_FOREACH(p.allset, dpu, each_dpu) {
-    DPU_ASSERT(dpu_prepare_xfer(dpu, &(inertia_psum[each_dpu])));
+  dpu_set_t dpu{};
+  uint32_t each_dpu = 0;
+  DPU_FOREACH(p_.allset, dpu, each_dpu) {
+    DPU_ASSERT(dpu_prepare_xfer(dpu, &(inertia_per_dpu_[each_dpu])));
   }
-  DPU_ASSERT(dpu_push_xfer(p.allset, DPU_XFER_FROM_DPU, "inertia", 0,
-                           sizeof(inertia_psum[0]), DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_push_xfer(p_.allset, DPU_XFER_FROM_DPU, "inertia", 0,
+                           sizeof(inertia_per_dpu_[0]), DPU_XFER_DEFAULT));
 
   /* sum partial inertia */
   int64_t inertia =
-      std::accumulate(inertia_psum.cbegin(), inertia_psum.cend(), 0LL);
+      std::accumulate(inertia_per_dpu_.cbegin(), inertia_per_dpu_.cend(), 0LL);
 
   compute_inertia = 0;
-
-  DPU_ASSERT(dpu_broadcast_to(p.allset, "compute_inertia", 0, &compute_inertia,
+  DPU_ASSERT(dpu_broadcast_to(p_.allset, "compute_inertia", 0, &compute_inertia,
                               sizeof(int), DPU_XFER_DEFAULT));
 
   toc = std::chrono::steady_clock::now();
 
-  p.pim_cpu_time = std::chrono::duration<double>{toc - tic}.count();
+  p_.pim_cpu_time = std::chrono::duration<double>{toc - tic}.count();
 
   return inertia;
 }
