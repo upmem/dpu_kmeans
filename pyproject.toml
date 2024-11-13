@@ -37,6 +37,7 @@ dependencies = [
 
 [project.urls]
 Repository = "https://github.com/upmem/dpu_kmeans"
+Documentation = "https://sdk.upmem.com/dpu_kmeans/"
 
 [project.optional-dependencies]
 test = ["pytest", "pybind11-stubgen"]
