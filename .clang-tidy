@@ -57,6 +57,10 @@ CheckOptions:
   - key: readability-identifier-naming.IgnoreMainLikeFunctions
     value: 1
   - key: readability-identifier-naming.MethodCase
-    value: camelBack
+    value: lower_case
   - key: readability-identifier-naming.StructCase
     value: lower_case
+  - key: readability-identifier-length.IgnoredVariableNames
+    value: 'i|j|m|p'
+  - key: readability-identifier-length.IgnoredParameterNames
+    value: 'i|j|m|p'

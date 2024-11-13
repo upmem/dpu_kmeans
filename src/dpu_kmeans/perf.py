@@ -1,7 +1,8 @@
-# -*- coding: utf-8 -*-
+"""Helper module to store performance timers.
 
-# Authors: Sylvan Brocard <sbrocard@upmem.com>
-# License: MIT
+:Authors: Sylvan Brocard <sbrocard@upmem.com>
+:License: MIT
+"""
 
 host_reduction_timer = 0
 host_quantize_timer = 0

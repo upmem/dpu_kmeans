@@ -27,12 +27,9 @@ if(EXISTS "/sys/class/dpu_rank/dpu_rank0/dpu_chip_id")
   endif()
 endif()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcpu=${CHIP_VERSION}")
+add_compile_options(-mcpu=${CHIP_VERSION} -Wall -Wextra $<$<CONFIG:DEBUG>:-Og>)
+add_link_options(-mcpu=${CHIP_VERSION})
 
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -Og")
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
-
-add_executable(trivial_checksum_example trivial_checksum_example.c)
 add_executable(kmeans_dpu_kernel kmeans_dpu_kernel.c)
 
 target_compile_definitions(kmeans_dpu_kernel PUBLIC NR_TASKLETS=${NR_TASKLETS})
@@ -50,7 +47,6 @@ else()
   message(FATAL_ERROR "IPO / LTO not supported: <${error}>")
 endif()
 
-install(TARGETS trivial_checksum_example DESTINATION ${PROJECT_NAME})
 install(TARGETS kmeans_dpu_kernel DESTINATION ${PROJECT_NAME})
 
 # copying the compilation database for language servers

@@ -295,7 +295,7 @@ def log_dpu(
 
     # logging real number of DPUs
     if dimm_param["n_dpu"] == 0:
-        df.loc[dimm_index, ("inputs", "dimm", "n_dpu")] = _dimm.ctr.get_nr_dpus()
+        df.loc[dimm_index, ("inputs", "dimm", "n_dpu")] = _dimm.ctr.nr_dpus
 
 
 def run_benchmark(verbose: bool = False) -> None:

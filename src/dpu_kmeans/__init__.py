@@ -1,15 +1,12 @@
-# -*- coding: utf-8 -*-
+"""DPU KMeans package.
 
-# Authors: Sylvan Brocard <sbrocard@upmem.com>
-# License: MIT
+This package provides a KMeans algorithm implemented on a DPU.
 
-from ._checksum import test_checksum
-from ._core import __version__, add, subtract
+:Authors: Sylvan Brocard <sbrocard@upmem.com>
+:License: MIT
+"""
+
+from ._core import __version__
 from ._kmeans import KMeans
 
-
-def add2(x: int, y: int) -> int:
-    return add(x, y)
-
-
-__all__ = ["KMeans"]
+__all__ = ["__version__", "KMeans"]

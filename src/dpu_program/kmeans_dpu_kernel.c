@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../kmeans.h"
+#include "../common.h"
 
 /*================== VARIABLES ==========================*/
 /*------------------ LOCAL ------------------------------*/
@@ -98,10 +98,6 @@ __mram_noinit int_feature t_features[MAX_FEATURE_DPU];
  * Output arrays
  */
 /**@{*/
-#ifdef FLT_REDUCE
-/** array holding the memberships */
-__mram_noinit uint8_t t_membership[((MAX_FEATURE_DPU / 3) / 8) * 8];
-#endif
 // __mram_noinit int32_t c_clusters_mram[ASSUMED_NR_CLUSTERS *
 // ASSUMED_NR_FEATURES]; (off because of MRAM transfer bug)
 __dma_aligned int centers_count[ASSUMED_NR_CLUSTERS];
@@ -120,9 +116,6 @@ BARRIER_INIT(sync_barrier, NR_TASKLETS);
 MUTEX_INIT(task_mutex);
 MUTEX_INIT(write_mutex);
 MUTEX_INIT(write_count_mutex);
-#ifdef FLT_REDUCE
-MUTEX_INIT(membership_mutex);
-#endif
 
 /*================== PERFORMANCE TRACKING ================*/
 #ifdef PERF_COUNTER
@@ -166,7 +159,7 @@ bool taskDispatch(int *current_itask_in_points, int *current_itask_in_features,
       perfcounter_get() - tasklet_counters[DISPATCH_TIC];
 #endif
 
-  return *current_itask_in_points < npoints;
+  return (unsigned)*current_itask_in_points < npoints;
 }
 
 /**
@@ -253,29 +246,12 @@ void initialize(uint8_t tasklet_id) {
  * @param w_features Feature vector for the current task.
  */
 #ifndef PERF_COUNTER
-void task_reduce(uint8_t tasklet_id, uint8_t icluster, int point_global_index,
-                 uint16_t point_base_index, const int_feature *w_features) {
+void task_reduce(uint8_t icluster, uint16_t point_base_index,
+                 const int_feature *w_features) {
 #else
-void task_reduce(uint8_t tasklet_id, uint8_t icluster, int point_global_index,
-                 uint16_t point_base_index, int_feature *w_features,
-                 perfcounter_t *tasklet_counters) {
+void task_reduce(uint8_t icluster, uint16_t point_base_index,
+                 int_feature *w_features, perfcounter_t *tasklet_counters) {
   tasklet_counters[LOOP_TIC] = perfcounter_get();
-#endif
-
-// mandatory mutex here because implicit MRAM accesses are not thread safe for
-// variables smaller than 8 bytes
-// TODO : needs a better solution
-#ifdef FLT_REDUCE
-#ifdef PERF_COUNTER
-  tasklet_counters[MUTEX_TIC] = perfcounter_get();
-#endif
-  mutex_lock(membership_mutex);
-  t_membership[point_global_index] = icluster;
-  mutex_unlock(membership_mutex);
-#ifdef PERF_COUNTER
-  tasklet_counters[MUTEX_CTR] +=
-      perfcounter_get() - tasklet_counters[MUTEX_TIC];
-#endif
 #endif
 
   // centers_count_tasklets[tasklet_id][icluster]++;
@@ -290,7 +266,6 @@ void task_reduce(uint8_t tasklet_id, uint8_t icluster, int point_global_index,
 #endif
   mutex_lock(write_mutex);
 #pragma unroll(ASSUMED_NR_FEATURES)
-#pragma must_iterate(1, ASSUMED_NR_FEATURES, 1)
   for (uint8_t idim = 0; idim < nfeatures; idim++) {
     // centers_sum_tasklets[tasklet_id][cluster_base_indices[icluster] + idim]
     // += w_features[point_base_index + idim];
@@ -437,14 +412,12 @@ int main() {
 #ifdef PERF_COUNTER
       tasklet_counters[ARITH_TIC] = perfcounter_get();
 #endif
-/* find the cluster center id with min distance to pt */
-#pragma must_iterate(1, ASSUMED_NR_CLUSTERS, 1)
+      /* find the cluster center id with min distance to pt */
       for (uint8_t icluster = 0; icluster < nclusters; icluster++) {
         uint64_t dist = 0; /* Euclidean distance squared */
         uint16_t cluster_base_index = cluster_base_indices[icluster];
 
 #pragma unroll(ASSUMED_NR_FEATURES)
-#pragma must_iterate(1, ASSUMED_NR_FEATURES, 1)
         for (uint8_t idim = 0; idim < nfeatures; idim++) {
           volatile int_feature diff = (w_features[point_base_index + idim] -
                                        c_clusters[cluster_base_index + idim]);
@@ -468,13 +441,11 @@ int main() {
 
 #ifndef PERF_COUNTER
       if (!compute_inertia)
-        task_reduce(tasklet_id, index, current_itask_in_points + ipoint,
-                    point_base_index, w_features);
+        task_reduce(index, point_base_index, w_features);
       else
         inertia_tasklets[tasklet_id] += min_dist;
 #else
-      task_reduce(tasklet_id, index, current_itask_in_points + ipoint,
-                  point_base_index, w_features, tasklet_counters);
+      task_reduce(index, point_base_index, w_features, tasklet_counters);
 #endif
     }
 

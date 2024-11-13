@@ -42,20 +42,26 @@ find_package(pybind11 CONFIG REQUIRED)
 
 include(CheckIPOSupported)
 include(${UPMEM_HOME}/share/upmem/cmake/include/host/DpuHost.cmake)
+include(cmake/CPM.cmake)
 
-find_package(OpenMP REQUIRED)
+cpmaddpackage(
+  NAME
+  fmt
+  GITHUB_REPOSITORY
+  fmtlib/fmt
+  GIT_TAG
+  11.0.2
+  OPTIONS
+  "CMAKE_POSITION_INDEPENDENT_CODE True")
 
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Ofast")
-
-pybind11_add_module(
-  _core MODULE src/main.cpp src/host_program/trivial_checksum_example_host.c
-  src/host_program/lloyd_iter.c src/host_program/dimm_manager.c)
-target_link_libraries(_core PRIVATE ${DPU_HOST_LIBRARIES} OpenMP::OpenMP_CXX
-                                    OpenMP::OpenMP_C)
-target_include_directories(_core PUBLIC ${DPU_HOST_INCLUDE_DIRECTORIES})
+pybind11_add_module(_core MODULE src/main.cpp src/host_program/dimm_manager.cpp
+                    src/host_program/lloyd_iter.cpp)
+target_link_libraries(_core PRIVATE ${DPU_HOST_LIBRARIES} fmt stdc++fs)
+target_include_directories(_core SYSTEM PUBLIC ${DPU_HOST_INCLUDE_DIRECTORIES})
 target_link_directories(_core PUBLIC ${DPU_HOST_LINK_DIRECTORIES})
 
-target_compile_features(_core PUBLIC c_std_99)
+target_compile_features(_core PUBLIC c_std_99 cxx_std_17)
+target_compile_options(_core PRIVATE -Wall -Wextra $<$<CONFIG:RELEASE>:-Ofast>)
 
 target_compile_definitions(
   _core

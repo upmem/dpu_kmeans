@@ -44,6 +44,7 @@ repos:
     - id: clang-format
       args: ["-i"]
     - id: cppcheck
+      files: \.cpp$
 
 # Changes tabs to spaces
 - repo: https://github.com/Lucas-C/pre-commit-hooks

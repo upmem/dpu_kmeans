@@ -1,15 +1,16 @@
-# -*- coding: utf-8 -*-
-"""DIMM memory manager module
-This module is intended to work like a singleton class, hence the use of global variables."""
+"""DIMM memory manager module.
 
-# Author: Sylvan Brocard <sbrocard@upmem.com>
-# License: MIT
+This module is intended to work like a singleton class,
+hence the use of global variables.
+
+:Author: Sylvan Brocard <sbrocard@upmem.com>
+:License: MIT
+"""
 
 # pylint: disable=global-statement
 
 import atexit
 import sys
-import time
 
 import numpy as np
 import xxhash
@@ -18,7 +19,7 @@ try:
     from importlib.resources import as_file, files
 except ImportError:
     # Try backported to PY<39 `importlib_resources`.
-    from importlib_resources import files, as_file
+    from importlib_resources import as_file, files
 
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.utils.validation import check_is_fitted
@@ -34,7 +35,7 @@ _data_size = None  # size of the currently loaded data
 _kernels_lib = {"kmeans": files("dpu_kmeans").joinpath("dpu_program/kmeans_dpu_kernel")}
 
 ctr = Container()
-ctr.set_nr_dpus(0)
+ctr.nr_dpus = 0
 
 _requested_dpus = 0
 
@@ -52,8 +53,7 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
         self.input_dtype = None
 
     def fit(self, X, y=None):
-        """
-        Fit the estimator.
+        """Fit the estimator.
 
         Parameters
         ----------
@@ -62,10 +62,12 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
         y : None
             Ignored. This parameter exists only for compatibility with
             :class:`~sklearn.pipeline.Pipeline`.
+
         Returns
         -------
         self : object
             Returns the instance itself.
+
         """
         X = self._validate_data(X, dtype="numeric")
         self.input_dtype = X.dtype
@@ -79,17 +81,18 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
         return self
 
     def transform(self, X):
-        """
-        Discretize the data.
+        """Discretize the data.
 
         Parameters
         ----------
         X : array-like of shape (n_samples, n_features)
             Data to be quantized.
+
         Returns
         -------
         Xt : ndarray, dtype={np.float32, np.float64}
             Quantized data.
+
         """
         check_is_fitted(self)
 
@@ -98,8 +101,7 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
         return Xt
 
     def inverse_transform(self, Xt):
-        """
-        Transform discretized data back to original feature space.
+        """Transform discretized data back to original feature space.
 
         Note that this function does not regenerate the original data
         due to discretization rounding.
@@ -113,6 +115,7 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
         -------
         Xinv : ndarray, dtype={np.float32, np.float64}
             Data in the original feature space.
+
         """
         check_is_fitted(self)
 
@@ -124,20 +127,25 @@ ld = LinearDiscretizer()  # linear discretization transformer
 
 
 def set_n_dpu(n_dpu: int):
-    """Sets the number of DPUs to ask for during the allocation."""
+    """Set the number of DPUs to ask for during the allocation."""
     global _allocated
     global _requested_dpus
     if _allocated and _requested_dpus != n_dpu:
         free_dpus()
     if not _allocated:
         _requested_dpus = n_dpu
-        ctr.set_nr_dpus(n_dpu)
+        ctr.nr_dpus = n_dpu
         ctr.allocate()
         _allocated = True
 
 
+def get_n_dpu():
+    """Return the number of allocated DPUs."""
+    return ctr.nr_dpus
+
+
 def load_kernel(kernel: str, verbose: int = False):
-    """Loads a given kernel into the allocated DPUs."""
+    """Load a given kernel into the allocated DPUs."""
     global _kernel
     global _allocated
     global _data_id
@@ -152,14 +160,14 @@ def load_kernel(kernel: str, verbose: int = False):
         _kernel = kernel
         ref = _kernels_lib[kernel]
         with as_file(ref) as dpu_binary:
-            ctr.load_kernel(str(dpu_binary))
+            ctr.load_kernel(dpu_binary)
         _data_id = None
         _data_checksum = None
         _data_size = None
 
 
 def load_data(X, verbose: int = False):
-    """Loads a dataset into the allocated DPUs."""
+    """Load a dataset into the allocated DPUs."""
     global _data_checksum
     global _data_size
 
@@ -171,17 +179,12 @@ def load_data(X, verbose: int = False):
     if _data_checksum != X_checksum:
         if verbose:
             print("loading new data")
-        if _data_checksum:
-            if verbose:
-                print(f"freeing previous data : {_data_checksum}")
-            ctr.free_data()
         _data_checksum = X_checksum
         Xt = ld.fit_transform(X)
         ctr.load_array_data(
             Xt,
             Xt.shape[0],
             Xt.shape[1],
-            verbose,
         )
         _data_size = sys.getsizeof(Xt)
     elif verbose:
@@ -189,25 +192,25 @@ def load_data(X, verbose: int = False):
 
 
 def reset_timer(verbose=False):
-    """Resets the DPU execution timer."""
+    """Reset the DPU execution timer."""
     if verbose:
         print("resetting inner timer")
     ctr.reset_timer()
 
 
 def get_dpu_run_time():
-    """Returns the DPU execution timer."""
-    return ctr.get_dpu_run_time()
+    """Return the DPU execution timer."""
+    return ctr.dpu_run_time
 
 
 def get_cpu_pim_time():
-    """Returns the time to load the data to the DPU memory."""
-    return ctr.get_cpu_pim_time()
+    """Return the time to load the data to the DPU memory."""
+    return ctr.cpu_pim_time
 
 
 def get_pim_cpu_time():
-    """Returns the time to get the inertia from the DPU memory."""
-    return ctr.get_pim_cpu_time()
+    """Return the time to get the inertia from the DPU memory."""
+    return ctr.pim_cpu_time
 
 
 def free_dpus(verbose: int = False):
@@ -226,6 +229,3 @@ def free_dpus(verbose: int = False):
         _data_id = None
         _data_checksum = None
         _data_size = None
-
-
-atexit.register(free_dpus)

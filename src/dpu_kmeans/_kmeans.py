@@ -1,8 +1,8 @@
-# -*- coding: utf-8 -*-
-"""K-means clustering on DPU"""
+"""K-means clustering on DPU.
 
-# Authors: Sylvan Brocard <sbrocard@upmem.com>
-# License: MIT
+:Authors: Sylvan Brocard <sbrocard@upmem.com>
+:License: MIT
+"""
 
 # Disclaimer: Part of this code is adapted from scikit-learn
 # with the following license:
@@ -42,11 +42,18 @@ from sklearn.utils.validation import _check_sample_weight
 from . import _dimm
 
 
+def _align_8_bytes(n: int, dtype: np.dtype) -> int:
+    """Align n to 8 bytes for the DPU."""
+    return (n * dtype.itemsize + 7) // 8 * 8 // dtype.itemsize
+
+
 def _lloyd_iter_dpu(
     centers_old_int,
     centers_new_int,
     centers_sum_int,
+    centers_sum_int_per_dpu,
     points_in_clusters,
+    points_in_clusters_per_dpu,
     X,
     sample_weight,
     x_squared_norms,
@@ -75,15 +82,19 @@ def _lloyd_iter_dpu(
     -------
     center_shift_tot : float
         Distance between old and new centers.
+
     """
     dpu_iter = _dimm.ctr.lloyd_iter
     scale_factor = _dimm.ld.scale_factor
 
     dpu_iter(
         centers_old_int,
-        centers_sum_int,
-        points_in_clusters,
+        centers_sum_int_per_dpu,
+        points_in_clusters_per_dpu,
     )
+
+    n_clusters = points_in_clusters.shape[0]
+    points_in_clusters[:] = points_in_clusters_per_dpu.sum(axis=0)[:n_clusters]
 
     reallocate_timer = 0
     if any(points_in_clusters == 0):
@@ -130,6 +141,7 @@ def _lloyd_iter_dpu(
         toc = time.perf_counter()
         reallocate_timer = toc - tic
 
+    centers_sum_int = centers_sum_int_per_dpu.sum(axis=0)
     np.floor_divide(
         centers_sum_int,
         points_in_clusters[:, None],
@@ -154,7 +166,7 @@ def _kmeans_single_lloyd_dpu(
     tol=1e-4,
     n_threads=1,
 ):
-    """A single run of k-means lloyd on DPU, assumes preparation completed prior.
+    """Perform a single run of k-means lloyd on DPU, assumes preparation completed prior.
 
     Parameters
     ----------
@@ -203,6 +215,7 @@ def _kmeans_single_lloyd_dpu(
 
     n_iter : int
         Number of iterations run.
+
     """
     compute_inertia = _dimm.ctr.compute_inertia
     scale_factor = _dimm.ld.scale_factor
@@ -218,7 +231,15 @@ def _kmeans_single_lloyd_dpu(
     # centers_new = np.empty_like(centers, dtype=np.float32)
     centers_new_int = np.empty_like(centers, dtype=dtype)
     centers_sum_int = np.empty_like(centers, dtype=np.int64)
+    centers_sum_int_per_dpu = np.empty(
+        (_dimm.get_n_dpu(), centers.shape[0], centers.shape[1]),
+        dtype=np.int64,
+    )
     points_in_clusters = np.empty(n_clusters, dtype=np.int32)
+    points_in_clusters_per_dpu = np.empty(
+        (_dimm.get_n_dpu(), _align_8_bytes(n_clusters, np.dtype(np.int32))),
+        dtype=np.int32,
+    )
 
     # points_in_clusters_per_dpu = np.empty((n_dpu, n_clusters_round), dtype=np.int32)
     # partial_sums = np.empty((n_clusters, n_dpu, n_features), dtype=np.int64)
@@ -239,7 +260,9 @@ def _kmeans_single_lloyd_dpu(
                 centers_int,
                 centers_new_int,
                 centers_sum_int,
+                centers_sum_int_per_dpu,
                 points_in_clusters,
+                points_in_clusters_per_dpu,
                 X,
                 sample_weight,
                 x_squared_norms,
@@ -278,12 +301,11 @@ def _kmeans_single_lloyd_dpu(
     toc = time.perf_counter()
     inertia_timer = toc - tic
 
-    _dimm.ctr.deallocate_host_memory()
     return inertia, centers, i + 1, inertia_timer, reallocate_timer
 
 
 class KMeans(KMeansCPU):
-    """KMeans estimator object
+    """KMeans estimator object.
 
     Parameters
     ----------
@@ -439,7 +461,7 @@ class KMeans(KMeansCPU):
         kmeans_single = _kmeans_single_lloyd_dpu
         self._check_mkl_vcomp(X, X.shape[0])
 
-        best_inertia, best_labels = None, None
+        best_inertia, best_labels, best_centers = None, None, None
 
         toc = time.perf_counter()
         self.preprocessing_timer_ = toc - tic
