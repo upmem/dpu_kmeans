@@ -103,14 +103,14 @@ def test_large_dimensionality():
     n_features = 128
 
     # Generating data
-    data = make_blobs(int(1e4), n_features, centers=n_clusters, random_state=42)[
+    data = make_blobs(189744, n_features, centers=n_clusters, random_state=42)[
         0
     ].astype(np.float32)
 
     init = data[:n_clusters]
 
     # Clustering with DPUs
-    _dimm.set_n_dpu(4)
+    _dimm.set_n_dpu(128)
     dpu_kmeans = DPUKMeans(n_clusters, init=init, n_init=1, verbose=False)
     dpu_kmeans.fit(data)
 
