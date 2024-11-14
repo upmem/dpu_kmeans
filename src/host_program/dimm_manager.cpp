@@ -13,6 +13,7 @@
 #include <limits>
 #include <numeric>
 #include <stdexcept>
+#include <string_view>
 #include <vector>
 
 #include "kmeans.hpp"
@@ -22,11 +23,6 @@ extern "C" {
 #include <dpu_types.h>
 }
 
-/**
- * @brief Allocates all DPUs
- *
- * @param p Algorithm parameters.
- */
 void Container::allocate() {
   if (p_.ndpu == 0U) {
     DPU_ASSERT(dpu_alloc(DPU_ALLOCATE_ALL, nullptr, &p_.allset));
@@ -38,11 +34,6 @@ void Container::allocate() {
   inertia_per_dpu_.resize(p_.ndpu);
 }
 
-/**
- * @brief Frees the DPUs.
- *
- * @param p Algorithm parameters.
- */
 void Container::free_dpus() {
   if (p_.allocated) {
     DPU_ASSERT(dpu_free(p_.allset));
@@ -50,17 +41,37 @@ void Container::free_dpus() {
   }
 }
 
-/**
- * @brief Loads a binary in the DPUs.
- *
- * @param p Algorithm parameters.
- * @param DPU_BINARY path to the binary
- */
 void Container::load_kernel(const std::filesystem::path &binary_path) {
   DPU_ASSERT(dpu_load(p_.allset, binary_path.c_str(), nullptr));
 }
 
+/**
+ * @brief Utility function to check the cast of a value.
+ *
+ * @tparam T type to cast to
+ * @tparam U type of the value to cast
+ * @param name name of the variable to be cast
+ * @param value value to cast
+ * @return T the casted value
+ */
+template <typename T, typename U>
+static constexpr auto checked_cast(std::string_view name, U value) -> T {
+  if (value > std::numeric_limits<T>::max()) {
+    throw std::overflow_error(fmt::format("{} is too large: {} (max {})", name,
+                                          value,
+                                          std::numeric_limits<T>::max()));
+  }
+  return static_cast<T>(value);
+}
+
+/**
+ * @brief utility macro to create a name-value pair for checked_cast
+ *
+ */
+#define VN(var) #var, var
+
 void Container::broadcast_number_of_clusters() const {
+  checked_cast<uint8_t>(VN(p_.nclusters));
   DPU_ASSERT(dpu_broadcast_to(p_.allset, "nclusters_host", 0, &p_.nclusters,
                               sizeof(p_.nclusters), DPU_XFER_DEFAULT));
 }
@@ -86,11 +97,7 @@ void Container::populate_dpus(const py::array_t<int_feature> &py_features) {
     next = std::max(0L, -padding_points);
 
     int64_t nreal_points_dpu = next - current;
-    if (nreal_points_dpu > std::numeric_limits<int>::max()) {
-      throw std::overflow_error(
-          fmt::format("Too many points for one DPU : {}", nreal_points_dpu));
-    }
-    nreal_points_[each_dpu] = static_cast<int>(nreal_points_dpu);
+    nreal_points_[each_dpu] = checked_cast<int>(VN(nreal_points_dpu));
   }
   auto features_count_per_dpu = p_.npointperdpu * p_.nfeatures;
   if (features_count_per_dpu > MAX_FEATURE_DPU) {
@@ -176,20 +183,18 @@ void Container::broadcast_parameters() {
       task_size_in_bytes / static_cast<int>(sizeof(int_feature));
   int task_size_in_points = task_size_in_features / p_.nfeatures;
 
-  /* send computation parameters to the DPUs */
-  DPU_ASSERT(dpu_broadcast_to(p_.allset, "nfeatures_host", 0, &p_.nfeatures,
-                              sizeof(p_.nfeatures), DPU_XFER_DEFAULT));
+  /* validate variables width for the DPUs */
+  task_parameters params_host{checked_cast<uint8_t>(VN(p_.nfeatures)),
+                              checked_cast<uint8_t>(VN(task_size_in_points)),
+                              checked_cast<uint16_t>(VN(task_size_in_features)),
+                              checked_cast<uint16_t>(VN(task_size_in_bytes))};
 
-  DPU_ASSERT(dpu_broadcast_to(p_.allset, "task_size_in_points_host", 0,
-                              &task_size_in_points, sizeof(task_size_in_points),
-                              DPU_XFER_DEFAULT));
-  DPU_ASSERT(dpu_broadcast_to(p_.allset, "task_size_in_bytes_host", 0,
-                              &task_size_in_bytes, sizeof(task_size_in_bytes),
-                              DPU_XFER_DEFAULT));
-  DPU_ASSERT(dpu_broadcast_to(p_.allset, "task_size_in_features_host", 0,
-                              &task_size_in_features,
-                              sizeof(task_size_in_features), DPU_XFER_DEFAULT));
+  /* send computation parameters to the DPUs */
+  DPU_ASSERT(dpu_broadcast_to(p_.allset, "p_h", 0, &params_host,
+                              sizeof(task_parameters), DPU_XFER_DEFAULT));
 }
+
+#undef VN
 
 void Container::transfer_data(const py::array_t<int_feature> &data_int) {
   populate_dpus(data_int);
@@ -200,7 +205,8 @@ void Container::load_array_data(const py::array_t<int_feature> &data_int,
                                 int64_t npoints, int nfeatures) {
   p_.npoints = npoints;
   p_.nfeatures = nfeatures;
-  p_.npadded = ((p_.npoints + 8 * p_.ndpu - 1) / (8 * p_.ndpu)) * 8 * p_.ndpu;
+  auto alignment = 8 * p_.ndpu;
+  p_.npadded = ((p_.npoints + alignment - 1) / alignment) * alignment;
   p_.npointperdpu = p_.npadded / p_.ndpu;
 
   transfer_data(data_int);

@@ -75,3 +75,10 @@ typedef int32_t int_feature;
   (MRAM_SIZE / FEATURE_TYPE * 8 /                                         \
    2) /**< How many features we fit into one DPU's MRAM. Can be increased \
          further. */
+
+struct __attribute__((aligned(8))) task_parameters {
+  uint8_t nfeatures;
+  uint8_t task_size_in_points;
+  uint16_t task_size_in_features;
+  uint16_t task_size_in_bytes;
+};
