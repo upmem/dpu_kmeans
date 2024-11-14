@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../common.h"
+#include "common.h"
 
 /*================== VARIABLES ==========================*/
 /*------------------ LOCAL ------------------------------*/
@@ -42,7 +42,7 @@ uint16_t task_size_in_features;
  */
 /**@{*/
 __host int nfeatures_host;
-__host unsigned int nclusters_host;
+__host int nclusters_host;
 __host unsigned int npoints;
 __host unsigned int task_size_in_points_host;
 __host unsigned int task_size_in_bytes_host;
@@ -265,7 +265,7 @@ void task_reduce(uint8_t icluster, uint16_t point_base_index,
   tasklet_counters[ARITH_TIC] = perfcounter_get();
 #endif
   mutex_lock(write_mutex);
-#pragma unroll(ASSUMED_NR_FEATURES)
+#pragma clang loop unroll(enable)
   for (uint8_t idim = 0; idim < nfeatures; idim++) {
     // centers_sum_tasklets[tasklet_id][cluster_base_indices[icluster] + idim]
     // += w_features[point_base_index + idim];
@@ -317,7 +317,6 @@ void final_reduce(uint8_t tasklet_id) {
 
   if (tasklet_id == 0) {
     if (!compute_inertia) {
-      // TODO: this can probably go, just transfer from WRAM
       // writing the partial sums and counts to MRAM
       uint16_t mram_transfer_size = nclusters * sizeof(*centers_count);
       // rounding up to multiple of 8
@@ -328,11 +327,13 @@ void final_reduce(uint8_t tasklet_id) {
       // rounding up to multiple of 8
       mram_transfer_size = (mram_transfer_size + 7) & -8;
       mram_write(centers_sum, centers_sum_mram, mram_transfer_size);
-    } else
+    } else {
       // summing inertia
       inertia = 0;
-    for (int i_tasklet = 0; i_tasklet < NR_TASKLETS; i_tasklet++)
+    }
+    for (int i_tasklet = 0; i_tasklet < NR_TASKLETS; i_tasklet++) {
       inertia += inertia_tasklets[i_tasklet];
+    }
   }
 }
 
@@ -417,10 +418,10 @@ int main() {
         uint64_t dist = 0; /* Euclidean distance squared */
         uint16_t cluster_base_index = cluster_base_indices[icluster];
 
-#pragma unroll(ASSUMED_NR_FEATURES)
+#pragma clang loop unroll(enable)
         for (uint8_t idim = 0; idim < nfeatures; idim++) {
-          volatile int_feature diff = (w_features[point_base_index + idim] -
-                                       c_clusters[cluster_base_index + idim]);
+          volatile int_feature diff = w_features[point_base_index + idim] -
+                                      c_clusters[cluster_base_index + idim];
 #if FEATURE_TYPE == 32
           dist += (int64_t)diff * diff; /* sum of squares */
 #else
@@ -440,10 +441,11 @@ int main() {
 #endif
 
 #ifndef PERF_COUNTER
-      if (!compute_inertia)
+      if (!compute_inertia) {
         task_reduce(index, point_base_index, w_features);
-      else
+      } else {
         inertia_tasklets[tasklet_id] += min_dist;
+      }
 #else
       task_reduce(index, point_base_index, w_features, tasklet_counters);
 #endif

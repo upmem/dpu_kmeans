@@ -9,12 +9,13 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <limits>
 #include <numeric>
 #include <stdexcept>
 #include <vector>
 
-#include "../kmeans.hpp"
+#include "kmeans.hpp"
 
 extern "C" {
 #include <dpu.h>
@@ -60,9 +61,8 @@ void Container::load_kernel(const std::filesystem::path &binary_path) {
 }
 
 void Container::broadcast_number_of_clusters() const {
-  unsigned int nclusters_short = p_.nclusters;
-  DPU_ASSERT(dpu_broadcast_to(p_.allset, "nclusters_host", 0, &nclusters_short,
-                              sizeof(nclusters_short), DPU_XFER_DEFAULT));
+  DPU_ASSERT(dpu_broadcast_to(p_.allset, "nclusters_host", 0, &p_.nclusters,
+                              sizeof(p_.nclusters), DPU_XFER_DEFAULT));
 }
 
 void Container::populate_dpus(const py::array_t<int_feature> &py_features) {
@@ -87,14 +87,20 @@ void Container::populate_dpus(const py::array_t<int_feature> &py_features) {
 
     int64_t nreal_points_dpu = next - current;
     if (nreal_points_dpu > std::numeric_limits<int>::max()) {
-      throw std::length_error(
+      throw std::overflow_error(
           fmt::format("Too many points for one DPU : {}", nreal_points_dpu));
     }
     nreal_points_[each_dpu] = static_cast<int>(nreal_points_dpu);
   }
-  DPU_ASSERT(dpu_push_xfer(p_.allset, DPU_XFER_TO_DPU, "t_features", 0,
-                           p_.npointperdpu * p_.nfeatures * sizeof(int_feature),
-                           DPU_XFER_DEFAULT));
+  auto features_count_per_dpu = p_.npointperdpu * p_.nfeatures;
+  if (features_count_per_dpu > MAX_FEATURE_DPU) {
+    throw std::length_error(fmt::format("Too many features for one DPU : {}",
+                                        features_count_per_dpu));
+  }
+  DPU_ASSERT(dpu_push_xfer(
+      p_.allset, DPU_XFER_TO_DPU, "t_features", 0,
+      static_cast<size_t>(features_count_per_dpu) * sizeof(int_feature),
+      DPU_XFER_DEFAULT));
 
   DPU_FOREACH(p_.allset, dpu, each_dpu) {
     DPU_ASSERT(dpu_prepare_xfer(dpu, &nreal_points_[each_dpu]));
@@ -133,8 +139,8 @@ void Container::load_nclusters(int nclusters) {
   /* task size in points should fit in an int */
   int64_t task_size_in_points_64 = (p_.npointperdpu + ntasks - 1) / ntasks;
   if (task_size_in_points_64 > std::numeric_limits<int>::max()) {
-    throw std::length_error(fmt::format("task size in points is too large: {}",
-                                        task_size_in_points_64));
+    throw std::overflow_error(fmt::format(
+        "task size in points is too large: {}", task_size_in_points_64));
   }
   /* task size has to be at least 1 and at most max_task_size */
   int task_size_in_points =

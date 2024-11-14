@@ -4,14 +4,15 @@
  * @brief Performs one iteration of the Lloyd K-Means algorithm.
  *
  */
-
+#include <fmt/core.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 
 #include <chrono>
+#include <cstddef>
 #include <numeric>
 
-#include "../kmeans.hpp"
+#include "kmeans.hpp"
 
 #ifdef PERF_COUNTER
 #include <array>
@@ -20,7 +21,7 @@
 extern "C" {
 #include <dpu.h>
 
-#include "../common.h"
+#include "common.h"
 }
 
 void Container::lloyd_iter(const py::array_t<int_feature> &old_centers,
@@ -35,7 +36,8 @@ void Container::lloyd_iter(const py::array_t<int_feature> &old_centers,
 #endif
 
   DPU_ASSERT(dpu_broadcast_to(p_.allset, "c_clusters", 0, old_centers.data(),
-                              old_centers.nbytes(), DPU_XFER_DEFAULT));
+                              static_cast<size_t>(old_centers.nbytes()),
+                              DPU_XFER_DEFAULT));
 
   const auto tic = std::chrono::steady_clock::now();
   //============RUNNING ONE LLOYD ITERATION ON THE DPU==============
@@ -100,17 +102,30 @@ void Container::lloyd_iter(const py::array_t<int_feature> &old_centers,
         // TODO: direct access
         dpu_prepare_xfer(dpu, centers_pcount.mutable_data(each_dpu)));
   }
+  auto nr_clusters = centers_pcount.shape(1);
+  if (nr_clusters > ASSUMED_NR_CLUSTERS) {
+    throw std::length_error(
+        fmt::format("Too many clusters for one DPU : {}", nr_clusters));
+  }
   DPU_ASSERT(dpu_push_xfer(
       p_.allset, DPU_XFER_FROM_DPU, "centers_count_mram", 0,
-      centers_pcount.itemsize() * centers_pcount.shape(1), DPU_XFER_DEFAULT));
+      static_cast<size_t>(centers_pcount.itemsize() * nr_clusters),
+      DPU_XFER_DEFAULT));
 
   /* copy back centroids partial sums (device to host) */
   DPU_FOREACH(p_.allset, dpu, each_dpu) {
     DPU_ASSERT(dpu_prepare_xfer(dpu, centers_psum.mutable_data(each_dpu)));
   }
+  auto nr_clusters_x_nr_features =
+      centers_psum.shape(1) * centers_psum.shape(2);
+  if (nr_clusters_x_nr_features > ASSUMED_NR_CLUSTERS * ASSUMED_NR_FEATURES) {
+    throw std::length_error(
+        fmt::format("Too many clusters x features for one DPU : {}",
+                    nr_clusters_x_nr_features));
+  }
   DPU_ASSERT(dpu_push_xfer(
       p_.allset, DPU_XFER_FROM_DPU, "centers_sum_mram", 0,
-      centers_psum.itemsize() * centers_psum.shape(1) * centers_psum.shape(2),
+      static_cast<size_t>(centers_psum.itemsize() * nr_clusters_x_nr_features),
       DPU_XFER_DEFAULT));
 
   /* averaging the new centers and summing the centers count
@@ -121,7 +136,8 @@ auto Container::compute_inertia(const py::array_t<int_feature> &old_centers)
     -> int64_t {
   int compute_inertia = 1;
   DPU_ASSERT(dpu_broadcast_to(p_.allset, "c_clusters", 0, old_centers.data(),
-                              old_centers.nbytes(), DPU_XFER_DEFAULT));
+                              static_cast<size_t>(old_centers.nbytes()),
+                              DPU_XFER_DEFAULT));
 
   DPU_ASSERT(dpu_broadcast_to(p_.allset, "compute_inertia", 0, &compute_inertia,
                               sizeof(int), DPU_XFER_DEFAULT));
