@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15...3.27)
 
-project(dpu_program)
+project(dpu_program LANGUAGES C)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -14,6 +14,7 @@ if(NOT DEFINED UPMEM_HOME)
 endif()
 
 include(CheckIPOSupported)
+include(../../cmake/CompilerWarnings.cmake)
 
 if(NOT CMAKE_BUILD_TYPE)
   message(FATAL_ERROR "CMAKE_BUILD_TYPE must be set")
@@ -27,13 +28,24 @@ if(EXISTS "/sys/class/dpu_rank/dpu_rank0/dpu_chip_id")
   endif()
 endif()
 
-add_compile_options(-mcpu=${CHIP_VERSION} -Wall -Wextra $<$<CONFIG:DEBUG>:-Og>)
-add_link_options(-mcpu=${CHIP_VERSION})
-
 add_executable(kmeans_dpu_kernel kmeans_dpu_kernel.c)
+target_sources(
+  kmeans_dpu_kernel
+  PRIVATE FILE_SET
+          common_headers
+          TYPE
+          HEADERS
+          BASE_DIRS
+          ../
+          FILES
+          ../common.h)
 
+target_compile_options(kmeans_dpu_kernel PRIVATE -mcpu=${CHIP_VERSION}
+                                                 $<$<CONFIG:DEBUG>:-Og>)
 target_compile_definitions(kmeans_dpu_kernel PUBLIC NR_TASKLETS=${NR_TASKLETS})
-target_link_options(kmeans_dpu_kernel PUBLIC -DNR_TASKLETS=${NR_TASKLETS})
+target_link_options(kmeans_dpu_kernel PUBLIC -mcpu=${CHIP_VERSION}
+                    -DNR_TASKLETS=${NR_TASKLETS})
+dpu_kmeans_set_project_warnings(kmeans_dpu_kernel "" "")
 
 check_ipo_supported(
   RESULT ipo_supported

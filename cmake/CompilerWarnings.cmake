@@ -45,7 +45,8 @@ function(dpu_kmeans_set_project_warnings project_name CLANG_WARNINGS
     )
   endif()
 
-  if(CMAKE_CXX_COMPILER_ID MATCHES ".*Clang")
+  if(CMAKE_CXX_COMPILER_ID MATCHES ".*Clang" OR CMAKE_C_COMPILER_ID MATCHES
+                                                ".*Clang")
     set(PROJECT_WARNINGS_CXX ${CLANG_WARNINGS})
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(PROJECT_WARNINGS_CXX ${GCC_WARNINGS})

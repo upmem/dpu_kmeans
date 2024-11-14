@@ -85,8 +85,8 @@ target_include_directories(_core SYSTEM PUBLIC ${DPU_HOST_INCLUDE_DIRECTORIES})
 target_link_directories(_core PUBLIC ${DPU_HOST_LINK_DIRECTORIES})
 
 target_compile_features(_core PUBLIC cxx_std_17)
-target_compile_options(_core PRIVATE $<$<CONFIG:RELEASE>:-Ofast>)
-target_compile_options(_core PUBLIC $<$<CONFIG:DEBUG>:-Og>)
+target_compile_options(_core PRIVATE $<$<CONFIG:RELEASE>:-Ofast>
+                                     $<$<CONFIG:DEBUG>:-Og>)
 dpu_kmeans_set_project_warnings(_core "" "")
 
 target_compile_definitions(
