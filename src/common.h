@@ -28,7 +28,11 @@
 #define ASSUMED_NR_CLUSTERS 32  /**< Maximum number of clusters */
 #define ASSUMED_NR_FEATURES 128 /**< Maximum number of features */
 #define WRAM_FEATURES_SIZE \
-  512 /**< max size of the WRAM array holding points features in bytes */
+  512U /**< max size of the WRAM array holding points features in bytes */
+#define WRAM_FEATURES_NR \
+  (WRAM_FEATURES_SIZE / sizeof(int_feature)) /**< max number of features */
+#define MAX_TASK_SIZE_IN_POINTS 256 /**< Maximum number of points per task */
+#define MAX_DMA_SIZE 2048           /**< Maximum size of a DMA transfer */
 /**@}*/
 
 // Performance tracking

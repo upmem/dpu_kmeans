@@ -19,6 +19,13 @@
 
 #include "common.h"
 
+#define MIN(a, b)           \
+  ({                        \
+    __typeof__(a) _a = (a); \
+    __typeof__(b) _b = (b); \
+    _a < _b ? _a : _b;      \
+  })
+
 /*================== VARIABLES ==========================*/
 /*------------------ LOCAL ------------------------------*/
 /** @name Globals
@@ -128,8 +135,8 @@ MUTEX_INIT(perf_mutex);
  * @return false : All jobs are over.
  */
 #ifndef PERF_COUNTER
-bool taskDispatch(int *current_itask_in_points,
-                  int *current_itask_in_features) {
+static inline bool taskDispatch(int *current_itask_in_points,
+                                int *current_itask_in_features) {
 #else
 bool taskDispatch(int *current_itask_in_points, int *current_itask_in_features,
                   perfcounter_t *tasklet_counters) {
@@ -160,7 +167,7 @@ bool taskDispatch(int *current_itask_in_points, int *current_itask_in_features,
  *
  * @param tasklet_id Id of the tasklet calling this function.
  */
-void initialize(uint8_t tasklet_id) {
+static inline void initialize(uint8_t tasklet_id) {
   if (tasklet_id == 0) {
 #ifdef PERF_COUNTER
     perfcounter_config((PERF_COUNTER) ? COUNT_INSTRUCTIONS : COUNT_CYCLES,
@@ -225,6 +232,85 @@ void initialize(uint8_t tasklet_id) {
 }
 
 /**
+ * @brief Finds the cluster with the smallest distance to a point.
+ * Used when a point fits in w_features.
+ *
+ * @param ipoint Point index relative to the current task.
+ * @param min_dist [out] Distance to the closest cluster.
+ * @param w_features Features vector for the current task.
+ * @return uint8_t Index of the cluster with the smallest distance to the point.
+ */
+static inline uint8_t find_cluster_small_dim(
+    uint8_t ipoint, uint64_t *min_dist,
+    __dma_aligned const int_feature *w_features) {
+  uint8_t index = UINT8_MAX;
+  *min_dist = UINT64_MAX;
+  uint16_t point_base_index = point_base_indices[ipoint];
+
+#ifdef PERF_COUNTER
+  tasklet_counters[ARITH_TIC] = perfcounter_get();
+#endif
+  /* find the cluster center id with min distance to pt */
+  for (uint8_t icluster = 0; icluster < nclusters; icluster++) {
+    uint64_t dist = 0; /* Euclidean distance squared */
+    uint16_t cluster_base_index = cluster_base_indices[icluster];
+
+#pragma clang loop unroll(enable)
+    for (uint8_t idim = 0; idim < p_h.nfeatures; idim++) {
+      volatile int_feature diff =
+          (int_feature)(w_features[point_base_index + idim] -
+                        c_clusters[cluster_base_index + idim]);
+#if FEATURE_TYPE == 32
+      dist += (uint64_t)((int64_t)diff * diff); /* sum of squares */
+#else
+      dist += (uint32_t)(diff * diff);            /* sum of squares */
+#endif
+    }
+    /* see if distance is smaller than previous ones:
+    if so, change minimum distance and save index of cluster center */
+    if (dist < *min_dist) {
+      *min_dist = dist;
+      index = icluster;
+    }
+  }
+#ifdef PERF_COUNTER
+  tasklet_counters[CRITLOOP_ARITH_CTR] +=
+      perfcounter_get() - tasklet_counters[ARITH_TIC];
+#endif
+
+  return index;
+}
+
+/**
+ * @brief Sums the distances of each cluster to a partially loaded point.
+ * Used when a single point does not fit in w_features.
+ *
+ * @param n_loaded_features Number of features loaded in w_features.
+ * @param dists Array of distances to each cluster.
+ * @param w_features Features vector for the current task.
+ */
+static inline void sum_clusters_large_dim(
+    uint8_t n_loaded_features, uint64_t dists[static ASSUMED_NR_CLUSTERS],
+    __dma_aligned const int_feature
+        w_features[static WRAM_FEATURES_SIZE / sizeof(int_feature)]) {
+  for (uint8_t icluster = 0; icluster < nclusters; icluster++) {
+    uint16_t cluster_base_index = cluster_base_indices[icluster];
+
+#pragma clang loop unroll(enable)
+    for (uint8_t idim = 0; idim < n_loaded_features; idim++) {
+      volatile int_feature diff =
+          (int_feature)(w_features[idim] -
+                        c_clusters[cluster_base_index + idim]);
+#if FEATURE_TYPE == 32
+      dist[icluster] += (uint64_t)((int64_t)diff * diff); /* sum of squares */
+#else
+      dists[icluster] += (uint32_t)(diff * diff); /* sum of squares */
+#endif
+    }
+  }
+}
+
+/**
  * @brief Writes the result of each point to MRAM at the end of each point.
  *
  * @param tasklet_id Current tasklet id.
@@ -234,11 +320,13 @@ void initialize(uint8_t tasklet_id) {
  * @param w_features Feature vector for the current task.
  */
 #ifndef PERF_COUNTER
-void task_reduce(uint8_t icluster, uint16_t point_base_index,
-                 const int_feature *w_features) {
+static inline void task_reduce_small_dim(uint8_t icluster,
+                                         uint16_t point_base_index,
+                                         const int_feature *w_features) {
 #else
-void task_reduce(uint8_t icluster, uint16_t point_base_index,
-                 int_feature *w_features, perfcounter_t *tasklet_counters) {
+void task_reduce_small_dim(uint8_t icluster, uint16_t point_base_index,
+                           int_feature *w_features,
+                           perfcounter_t *tasklet_counters) {
   tasklet_counters[LOOP_TIC] = perfcounter_get();
 #endif
 
@@ -272,13 +360,147 @@ void task_reduce(uint8_t icluster, uint16_t point_base_index,
 #endif
 }
 
+#ifndef PERF_COUNTER
+static inline void task_reduce_large_dim(uint8_t icluster,
+                                         int_feature *w_features) {
+#else
+void task_reduce_large_dim(uint8_t icluster, int_feature *w_features,
+                           perfcounter_t *tasklet_counters) {
+  tasklet_counters[LOOP_TIC] = perfcounter_get();
+#endif
+
+  mutex_lock(write_count_mutex);
+  centers_count[icluster]++;
+  mutex_unlock(write_count_mutex);
+
+  uint16_t cluster_base_index = cluster_base_indices[icluster];
+
+  for (int i = 0; i < p_h.task_size_in_features; i += WRAM_FEATURES_NR) {
+    uint8_t n_loaded_features = (uint8_t)(p_h.task_size_in_features - i);
+    uint32_t remaining_bytes = n_loaded_features * sizeof(int_feature);
+    mram_read(&t_features[itask_in_features + i], w_features,
+              MIN(WRAM_FEATURES_SIZE, remaining_bytes));
+
+#ifdef PERF_COUNTER
+    tasklet_counters[ARITH_TIC] = perfcounter_get();
+#endif
+    mutex_lock(write_mutex);
+    for (uint8_t idim = 0; idim < n_loaded_features; idim++) {
+      centers_sum[cluster_base_index + idim] += w_features[idim];
+    }
+    mutex_unlock(write_mutex);
+#ifdef PERF_COUNTER
+    tasklet_counters[REDUCE_ARITH_CTR] +=
+        perfcounter_get() - tasklet_counters[ARITH_TIC];
+#endif
+  }
+
+#ifdef PERF_COUNTER
+  tasklet_counters[REDUCE_LOOP_CTR] +=
+      perfcounter_get() - tasklet_counters[LOOP_TIC];
+#endif
+}
+
+/**
+ * @brief Finds the cluster with the smallest distance to a point.
+ * Used when a point fits in w_features.
+ *
+ * @param tasklet_id Current tasklet id.
+ * @param current_itask_in_points Current task index in points.
+ * @param current_itask_in_features Current task index in features.
+ * @param w_features Features vector for the current task.
+ */
+static inline void find_clusters_small_dim(
+    uint8_t tasklet_id, int current_itask_in_points,
+    int current_itask_in_features, __dma_aligned int_feature *w_features) {
+  mram_read(&t_features[current_itask_in_features], w_features,
+            p_h.task_size_in_bytes);
+
+  uint8_t max_ipoint =
+      (p_h.task_size_in_points < npoints - current_itask_in_points)
+          ? p_h.task_size_in_points
+          : (uint8_t)(npoints - current_itask_in_points);
+  for (uint8_t ipoint = 0; ipoint < max_ipoint; ipoint++) {
+    uint64_t min_dist;
+    uint8_t index = find_cluster_small_dim(ipoint, &min_dist, w_features);
+    uint16_t point_base_index = point_base_indices[ipoint];
+
+#ifndef PERF_COUNTER
+    if (!compute_inertia) {
+      task_reduce_small_dim(index, point_base_index, w_features);
+    } else {
+      inertia_tasklets[tasklet_id] += min_dist;
+    }
+#else
+    task_reduce_small_dim(index, point_base_index, w_features,
+                          tasklet_counters);
+#endif
+  }
+
+#ifdef PERF_COUNTER
+  tasklet_counters[MAIN_LOOP_CTR] +=
+      perfcounter_get() - tasklet_counters[MAIN_TIC];
+#endif
+}
+
+/**
+ * @brief Finds the cluster with the smallest distance to a point.
+ * Used when a single point does not fit in w_features.
+ *
+ * @param tasklet_id Current tasklet id.
+ * @param current_itask_in_points Current task index in points.
+ * @param current_itask_in_features Current task index in features.
+ * @param w_features Features vector for the current task.
+ */
+static inline void find_clusters_large_dim(
+    uint8_t tasklet_id, int current_itask_in_features,
+    __dma_aligned int_feature
+        w_features[static WRAM_FEATURES_SIZE / sizeof(int_feature)]) {
+  /* Euclidean distances squared for each cluster. */
+  uint64_t dists[ASSUMED_NR_CLUSTERS] = {0};
+
+  for (int i = 0; i < p_h.task_size_in_features; i += WRAM_FEATURES_NR) {
+    uint8_t n_loaded_features = (uint8_t)(p_h.task_size_in_features - i);
+    uint32_t remaining_bytes = n_loaded_features * sizeof(int_feature);
+    mram_read(&t_features[current_itask_in_features + i], w_features,
+              MIN(WRAM_FEATURES_SIZE, remaining_bytes));
+
+    sum_clusters_large_dim(n_loaded_features, dists, w_features);
+  }
+
+  /* find the cluster center id with min distance to pt */
+  uint8_t index = UINT8_MAX;
+  uint64_t min_dist = UINT64_MAX;
+  for (uint8_t icluster = 0; icluster < nclusters; icluster++) {
+    if (dists[icluster] < min_dist) {
+      min_dist = dists[icluster];
+      index = icluster;
+    }
+  }
+
+#ifndef PERF_COUNTER
+  if (!compute_inertia) {
+    task_reduce_large_dim(index, w_features);
+  } else {
+    inertia_tasklets[tasklet_id] += min_dist;
+  }
+#else
+  task_reduce_small_dim(index, point_base_index, w_features, tasklet_counters);
+#endif
+
+#ifdef PERF_COUNTER
+  tasklet_counters[MAIN_LOOP_CTR] +=
+      perfcounter_get() - tasklet_counters[MAIN_TIC];
+#endif
+}
+
 /**
  * @brief Final reduction: all tasklets work together to compute the partial
  * sums in WRAM.
  *
  * @param tasklet_id Current tasklet id.
  */
-void final_reduce(uint8_t tasklet_id) {
+static inline void final_reduce(uint8_t tasklet_id) {
   // barrier_wait(&sync_barrier);
 
   // uint16_t cluster_base_index = tasklet_id * p_h.nfeatures;
@@ -296,7 +518,8 @@ void final_reduce(uint8_t tasklet_id) {
   //         #pragma must_iterate(1, ASSUMED_NR_FEATURES, 1)
   //         for (uint8_t ifeature = 0; ifeature < p_h.nfeatures; ifeature++)
   //             centers_sum[cluster_base_index + ifeature] +=
-  //             centers_sum_tasklets[itasklet][cluster_base_index + ifeature];
+  //             centers_sum_tasklets[itasklet][cluster_base_index +
+  //             ifeature];
   //     }
   //     cluster_base_index += p_h.nfeatures * NR_TASKLETS;
   // }
@@ -364,9 +587,10 @@ int main() {
   int current_itask_in_points;
   int current_itask_in_features;
 
+  /* dma transfers can go up to 2048 bytes
+   * but we also need to not explode the stack */
   __dma_aligned int_feature
-      w_features[WRAM_FEATURES_SIZE /
-                 sizeof(int_feature)]; /* limited to 2048 bytes */
+      w_features[WRAM_FEATURES_SIZE / sizeof(int_feature)];
 
 #ifdef PERF_COUNTER
   perfcounter_t tasklet_counters[LOCAL_COUNTERS] = {0};
@@ -386,64 +610,13 @@ int main() {
     tasklet_counters[MAIN_TIC] = perfcounter_get();
 #endif
 
-    mram_read(&t_features[current_itask_in_features], w_features,
-              p_h.task_size_in_bytes);
-
-    uint8_t max_ipoint =
-        (p_h.task_size_in_points < npoints - current_itask_in_points)
-            ? p_h.task_size_in_points
-            : (uint8_t)(npoints - current_itask_in_points);
-    for (uint8_t ipoint = 0; ipoint < max_ipoint; ipoint++) {
-      uint64_t min_dist = UINT64_MAX;
-      uint8_t index = UINT8_MAX;
-      uint16_t point_base_index = point_base_indices[ipoint];
-
-#ifdef PERF_COUNTER
-      tasklet_counters[ARITH_TIC] = perfcounter_get();
-#endif
-      /* find the cluster center id with min distance to pt */
-      for (uint8_t icluster = 0; icluster < nclusters; icluster++) {
-        uint64_t dist = 0; /* Euclidean distance squared */
-        uint16_t cluster_base_index = cluster_base_indices[icluster];
-
-#pragma clang loop unroll(enable)
-        for (uint8_t idim = 0; idim < p_h.nfeatures; idim++) {
-          volatile int_feature diff =
-              (int_feature)(w_features[point_base_index + idim] -
-                            c_clusters[cluster_base_index + idim]);
-#if FEATURE_TYPE == 32
-          dist += (int64_t)diff * diff; /* sum of squares */
-#else
-          dist += (uint32_t)(diff * diff); /* sum of squares */
-#endif
-        }
-        /* see if distance is smaller than previous ones:
-        if so, change minimum distance and save index of cluster center */
-        if (dist < min_dist) {
-          min_dist = dist;
-          index = icluster;
-        }
-      }
-#ifdef PERF_COUNTER
-      tasklet_counters[CRITLOOP_ARITH_CTR] +=
-          perfcounter_get() - tasklet_counters[ARITH_TIC];
-#endif
-
-#ifndef PERF_COUNTER
-      if (!compute_inertia) {
-        task_reduce(index, point_base_index, w_features);
-      } else {
-        inertia_tasklets[tasklet_id] += min_dist;
-      }
-#else
-      task_reduce(index, point_base_index, w_features, tasklet_counters);
-#endif
+    if (p_h.task_size_in_bytes <= WRAM_FEATURES_SIZE) {
+      find_clusters_small_dim(tasklet_id, current_itask_in_points,
+                              current_itask_in_features, w_features);
+    } else {
+      find_clusters_large_dim(tasklet_id, current_itask_in_features,
+                              w_features);
     }
-
-#ifdef PERF_COUNTER
-    tasklet_counters[MAIN_LOOP_CTR] +=
-        perfcounter_get() - tasklet_counters[MAIN_TIC];
-#endif
   }
 
 #ifdef PERF_COUNTER

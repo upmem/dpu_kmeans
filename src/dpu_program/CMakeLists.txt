@@ -41,7 +41,7 @@ target_sources(
           ../common.h)
 
 target_compile_options(kmeans_dpu_kernel PRIVATE -mcpu=${CHIP_VERSION}
-                                                 $<$<CONFIG:DEBUG>:-Og>)
+                                                 $<$<CONFIG:DEBUG>:-O0 -g3>)
 target_compile_definitions(kmeans_dpu_kernel PUBLIC NR_TASKLETS=${NR_TASKLETS})
 target_link_options(kmeans_dpu_kernel PUBLIC -mcpu=${CHIP_VERSION}
                     -DNR_TASKLETS=${NR_TASKLETS})

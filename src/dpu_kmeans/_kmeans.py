@@ -100,7 +100,7 @@ def _lloyd_iter_dpu(
     if any(points_in_clusters == 0):
         # If any cluster has no points, we need to set the centers to the
         # furthest points in the cluster from the previous iteration.
-        # print("Warning: some clusters have no points, relocating empty clusters")
+        print("Warning: some clusters have no points, relocating empty clusters")
         tic = time.perf_counter()
 
         centers_old = _dimm.ld.inverse_transform(centers_old_int)
@@ -132,7 +132,12 @@ def _lloyd_iter_dpu(
         # weight_in_clusters = points_in_clusters.astype(float)
         weight_in_clusters[:] = points_in_clusters
         _relocate_empty_clusters_dense(
-            X, sample_weight, centers_old, centers_sum_new, weight_in_clusters, labels
+            X,
+            sample_weight,
+            centers_old,
+            centers_sum_new,
+            weight_in_clusters,
+            labels,
         )
         points_in_clusters[:] = weight_in_clusters
 
@@ -149,6 +154,7 @@ def _lloyd_iter_dpu(
         where=points_in_clusters[:, None] != 0,
     )
 
+    # TODO: lift _tolerance from sklearn
     center_shift_tot = (
         np.linalg.norm(centers_new_int - centers_old_int, ord="fro") ** 2
         / scale_factor**2
@@ -223,6 +229,7 @@ def _kmeans_single_lloyd_dpu(
     dtype = _dimm.ld.dtype
 
     # transfer the number of clusters to the DPUs
+    print(f"ndpu: {_dimm.ctr.nr_dpus}")
     _dimm.ctr.load_n_clusters(n_clusters)
 
     # Buffers to avoid new allocations at each iteration.
@@ -232,12 +239,12 @@ def _kmeans_single_lloyd_dpu(
     centers_new_int = np.empty_like(centers, dtype=dtype)
     centers_sum_int = np.empty_like(centers, dtype=np.int64)
     centers_sum_int_per_dpu = np.empty(
-        (_dimm.get_n_dpu(), centers.shape[0], centers.shape[1]),
+        (_dimm.ctr.nr_dpus, centers.shape[0], centers.shape[1]),
         dtype=np.int64,
     )
     points_in_clusters = np.empty(n_clusters, dtype=np.int32)
     points_in_clusters_per_dpu = np.empty(
-        (_dimm.get_n_dpu(), _align_8_bytes(n_clusters, np.dtype(np.int32))),
+        (_dimm.ctr.nr_dpus, _align_8_bytes(n_clusters, np.dtype(np.int32))),
         dtype=np.int32,
     )
 
@@ -447,8 +454,7 @@ class KMeans(KMeansCPU):
         x_squared_norms = row_norms(X, squared=True)
 
         # allocate DPUs if not yet done
-        if self.n_dpu:
-            _dimm.set_n_dpu(self.n_dpu)
+        _dimm.ctr.allocate(self.n_dpu)
 
         if self.reload_data:
             # load kmeans kernel if not yet done
@@ -456,7 +462,7 @@ class KMeans(KMeansCPU):
 
             # transfer the data points to the DPUs
             _dimm.load_data(X, verbose=self.verbose)
-            self.cpu_pim_time_ = _dimm.get_cpu_pim_time()
+            self.cpu_pim_time_ = _dimm.ctr.cpu_pim_time
 
         kmeans_single = _kmeans_single_lloyd_dpu
         self._check_mkl_vcomp(X, X.shape[0])
@@ -476,7 +482,7 @@ class KMeans(KMeansCPU):
                 print("Initialization complete")
 
             # reset perf timer
-            _dimm.reset_timer(verbose=self.verbose)
+            _dimm.ctr.reset_timer()
 
             # run a k-means once
             tic = time.perf_counter()
@@ -492,8 +498,8 @@ class KMeans(KMeansCPU):
             )
             toc = time.perf_counter()
             main_loop_timer = toc - tic
-            dpu_run_time = _dimm.get_dpu_run_time()
-            pim_cpu_time = _dimm.get_pim_cpu_time()
+            dpu_run_time = _dimm.ctr.dpu_run_time
+            pim_cpu_time = _dimm.ctr.pim_cpu_time
             train_time += main_loop_timer
 
             # determine if these results are the best so far

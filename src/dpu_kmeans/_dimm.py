@@ -9,7 +9,6 @@ hence the use of global variables.
 
 # pylint: disable=global-statement
 
-import atexit
 import sys
 
 import numpy as np
@@ -26,18 +25,11 @@ from sklearn.utils.validation import check_is_fitted
 
 from ._core import FEATURE_TYPE, Container
 
-_allocated = False  # whether the DPUs have been allocated
-_kernel = None  # name of the currently loaded binary
-_data_id = None  # ID of the currently loaded data
-_data_checksum = None  # the checksum of the currently loaded data
 _data_size = None  # size of the currently loaded data
 
 _kernels_lib = {"kmeans": files("dpu_kmeans").joinpath("dpu_program/kmeans_dpu_kernel")}
 
 ctr = Container()
-ctr.nr_dpus = 0
-
-_requested_dpus = 0
 
 
 class LinearDiscretizer(TransformerMixin, BaseEstimator):
@@ -126,49 +118,19 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
 ld = LinearDiscretizer()  # linear discretization transformer
 
 
-def set_n_dpu(n_dpu: int):
-    """Set the number of DPUs to ask for during the allocation."""
-    global _allocated
-    global _requested_dpus
-    if _allocated and _requested_dpus != n_dpu:
-        free_dpus()
-    if not _allocated:
-        _requested_dpus = n_dpu
-        ctr.nr_dpus = n_dpu
-        ctr.allocate()
-        _allocated = True
-
-
-def get_n_dpu():
-    """Return the number of allocated DPUs."""
-    return ctr.nr_dpus
-
-
 def load_kernel(kernel: str, verbose: int = False):
     """Load a given kernel into the allocated DPUs."""
-    global _kernel
-    global _allocated
-    global _data_id
-    global _data_checksum
     global _data_size
-    if not _allocated:
-        ctr.allocate()
-        _allocated = True
-    if not _kernel == kernel:
+    if ctr.binary_path != kernel:
         if verbose:
             print(f"loading new kernel : {kernel}")
-        _kernel = kernel
-        ref = _kernels_lib[kernel]
-        with as_file(ref) as dpu_binary:
+        with as_file(_kernels_lib[kernel]) as dpu_binary:
             ctr.load_kernel(dpu_binary)
-        _data_id = None
-        _data_checksum = None
         _data_size = None
 
 
 def load_data(X, verbose: int = False):
     """Load a dataset into the allocated DPUs."""
-    global _data_checksum
     global _data_size
 
     # compute the checksum of X
@@ -176,56 +138,11 @@ def load_data(X, verbose: int = False):
     h.update(X)
     X_checksum = h.digest()
 
-    if _data_checksum != X_checksum:
+    if ctr.hash != X_checksum:
         if verbose:
             print("loading new data")
-        _data_checksum = X_checksum
         Xt = ld.fit_transform(X)
-        ctr.load_array_data(
-            Xt,
-            Xt.shape[0],
-            Xt.shape[1],
-        )
+        ctr.load_array_data(Xt, X_checksum)
         _data_size = sys.getsizeof(Xt)
     elif verbose:
         print("reusing previously loaded data")
-
-
-def reset_timer(verbose=False):
-    """Reset the DPU execution timer."""
-    if verbose:
-        print("resetting inner timer")
-    ctr.reset_timer()
-
-
-def get_dpu_run_time():
-    """Return the DPU execution timer."""
-    return ctr.dpu_run_time
-
-
-def get_cpu_pim_time():
-    """Return the time to load the data to the DPU memory."""
-    return ctr.cpu_pim_time
-
-
-def get_pim_cpu_time():
-    """Return the time to get the inertia from the DPU memory."""
-    return ctr.pim_cpu_time
-
-
-def free_dpus(verbose: int = False):
-    """Frees all allocated DPUs."""
-    global _allocated
-    global _kernel
-    global _data_id
-    global _data_checksum
-    global _data_size
-    if _allocated:
-        if verbose:
-            print("freeing dpus")
-        ctr.free_dpus()
-        _allocated = False
-        _kernel = None
-        _data_id = None
-        _data_checksum = None
-        _data_size = None

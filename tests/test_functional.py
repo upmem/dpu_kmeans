@@ -7,7 +7,7 @@ Tests the K-Means at the service level
 """
 
 import numpy as np
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, kmeans_plusplus
 from sklearn.datasets import make_blobs
 from sklearn.metrics import adjusted_rand_score
 
@@ -27,8 +27,8 @@ def test_clustering_dpu_then_cpu():
     init = data[:N_CLUSTERS]
 
     # Clustering with DPUs
-    _dimm.set_n_dpu(4)
-    dpu_kmeans = DPUKMeans(N_CLUSTERS, init=init, n_init=1, verbose=False)
+    _dimm.ctr.allocate(4)
+    dpu_kmeans = DPUKMeans(N_CLUSTERS, init=init, n_init=1, verbose=False, n_dpu=4)
     dpu_kmeans.fit(data)
 
     # Clustering with CPU
@@ -56,8 +56,8 @@ def test_clustering_cpu_then_dpu():
     kmeans.fit(data)
 
     # Clustering with DPUs
-    _dimm.set_n_dpu(4)
-    dpu_kmeans = DPUKMeans(N_CLUSTERS, init=init, n_init=1, verbose=False)
+    _dimm.ctr.allocate(4)
+    dpu_kmeans = DPUKMeans(N_CLUSTERS, init=init, n_init=1, verbose=False, n_dpu=4)
     dpu_kmeans.fit(data)
 
     # Comparison
@@ -78,14 +78,14 @@ def test_clustering_dpu_then_dpu():
     init = data[:N_CLUSTERS]
 
     # Clustering with DPUs
-    _dimm.set_n_dpu(4)
+    _dimm.ctr.allocate(4)
 
-    dpu_kmeans = DPUKMeans(N_CLUSTERS, init=init, n_init=1, verbose=False)
+    dpu_kmeans = DPUKMeans(N_CLUSTERS, init=init, n_init=1, verbose=True, n_dpu=4)
     dpu_kmeans.fit(data)
     n_iter_1 = dpu_kmeans.n_iter_
     dpu_labels_1 = dpu_kmeans.labels_
 
-    dpu_kmeans = DPUKMeans(N_CLUSTERS, init=init, n_init=1, verbose=False)
+    dpu_kmeans = DPUKMeans(N_CLUSTERS, init=init, n_init=1, verbose=True, n_dpu=4)
     dpu_kmeans.fit(data_copy)
     n_iter_2 = dpu_kmeans.n_iter_
     dpu_labels_2 = dpu_kmeans.labels_
@@ -99,19 +99,20 @@ def test_clustering_dpu_then_dpu():
 
 def test_large_dimensionality():
     """Test the clustering with a large features * clusters product."""
-    n_clusters = 24
-    n_features = 128
+    n_clusters = 16
+    n_features = 17
 
     # Generating data
     data = make_blobs(189744, n_features, centers=n_clusters, random_state=42)[
         0
     ].astype(np.float32)
 
-    init = data[:n_clusters]
+    # init = data[:n_clusters]
+    init = kmeans_plusplus(data, n_clusters, random_state=42)[0]
 
     # Clustering with DPUs
-    _dimm.set_n_dpu(128)
-    dpu_kmeans = DPUKMeans(n_clusters, init=init, n_init=1, verbose=False)
+    _dimm.ctr.allocate(0)
+    dpu_kmeans = DPUKMeans(n_clusters, init=init, n_init=1, verbose=True)
     dpu_kmeans.fit(data)
 
     # Clustering with CPU

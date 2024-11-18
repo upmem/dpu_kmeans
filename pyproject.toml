@@ -53,7 +53,7 @@ sdist.exclude = ["benchmarks", ".dvc", ".dvcignore", ".github", ".devcontainer"]
 sdist.include = ["src/dpu_kmeans/dpu_program", "src/dpu_kmeans/_core.*.so"]
 
 [tool.scikit-build.cmake]
-build-type = "Release"
+build-type = "Debug"
 
 [tool.scikit-build.cmake.define]
 NR_TASKLETS = "16"

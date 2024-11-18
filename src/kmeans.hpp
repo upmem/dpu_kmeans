@@ -9,9 +9,12 @@
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/pytypes.h>
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
+#include <variant>
 #include <vector>
 
 extern "C" {
@@ -34,12 +37,12 @@ struct kmeans_params {
   int nclusters;        /**< Number of clusters */
   int isOutput;         /**< Whether to print debug information */
   uint32_t ndpu;        /**< Number of allocated dpu */
-  dpu_set_t allset;     /**< Struct of the allocated dpu set */
-  bool allocated;       /**< Whether the DPUs are allocated */
   double time_seconds;  /**< Perf counter */
   double cpu_pim_time;  /**< Time to populate the DPUs */
   double pim_cpu_time;  /**< Time to transfer inertia from the CPU */
 };
+
+namespace fs = std::filesystem;
 
 /**
  * @brief Container class for interfacing with python
@@ -49,10 +52,14 @@ struct kmeans_params {
  */
 class Container {
  private:
-  kmeans_params p_{}; /**< Struct containing various algorithm parameters. */
-  std::vector<int64_t> inertia_per_dpu_; /**< Iteration buffer to read inertia
-                                   from the DPUs. */
-  std::vector<int> nreal_points_; /* number of real data points on each dpu */
+  kmeans_params p_{};                    /**< Algorithm parameters. */
+  std::optional<dpu_set_t> allset_{};    /**< Set of DPUs. */
+  uint32_t requested_dpus_{0};           /**< Number of requested DPUs. */
+  std::vector<int64_t> inertia_per_dpu_; /**< Internal iteration buffer. */
+  std::vector<int> nreal_points_;        /**< Real data points per dpu. */
+  std::optional<std::string> hash_;      /**< Hash of the data. */
+  std::optional<fs::path> binary_path_;  /**< Path to the binary. */
+  std::optional<size_t> data_size_;      /**< Size of the data. */
 
   /**
    * @brief Broadcast current number of clusters to the DPUs
@@ -100,13 +107,25 @@ class Container {
   auto operator=(Container &&) -> Container & = default;
 
   /**
-   * @brief Allocates DPUs.
+   * @brief Allocates DPUs if necessary
+   *
+   * @param ndpu Number of DPUs to allocate. 0 means all available DPUs.
    */
-  void allocate();
+  void allocate(uint32_t ndpu);
 
   [[nodiscard]] auto get_ndpu() const -> size_t { return p_.ndpu; }
 
-  void set_ndpu(uint32_t ndpu) { p_.ndpu = ndpu; }
+  [[nodiscard]] auto allocated() const -> bool { return allset_.has_value(); }
+
+  [[nodiscard]] auto hash() const -> std::optional<py::bytes> { return hash_; }
+
+  [[nodiscard]] auto binary_path() const -> std::optional<fs::path> {
+    return binary_path_;
+  }
+
+  [[nodiscard]] auto data_size() const -> std::optional<size_t> {
+    return data_size_;
+  }
 
   void reset_timer() { p_.time_seconds = 0.0; }
 
@@ -136,7 +155,7 @@ class Container {
    * @param threshold Parameter to declare convergence.
    */
   void load_array_data(const py::array_t<int_feature> &data_int,
-                       int64_t npoints, int nfeatures);
+                       const std::string &hash);
 
   /**
    * @brief Informs the DPUs of the number of clusters for that iteration.

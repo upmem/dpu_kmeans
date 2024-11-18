@@ -27,6 +27,8 @@ function(dpu_kmeans_set_project_warnings project_name CLANG_WARNINGS
                    # (ie printf)
         -Wimplicit-fallthrough # warn on statements that fallthrough without an
                                # explicit annotation
+        -Wno-gnu-statement-expression # disable warning: use of GNU statement
+                                      # expression extension
     )
   endif()
 
