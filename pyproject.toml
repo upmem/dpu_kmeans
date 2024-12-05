@@ -58,3 +58,9 @@ build-type = "Release"
 [tool.scikit-build.cmake.define]
 NR_TASKLETS = "16"
 UPMEM_HOME = {env = "UPMEM_HOME", default = "/usr"}
+
+[tool.ruff.lint]
+ignore = ["COM812"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["S101", "INP001"]

@@ -2,7 +2,10 @@ cmake_minimum_required(VERSION 3.15...3.27)
 set(CMAKE_C_COMPILER "gcc")
 set(CMAKE_CXX_COMPILER "g++")
 
-project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION})
+project(
+  ${SKBUILD_PROJECT_NAME}
+  VERSION ${SKBUILD_PROJECT_VERSION}
+  LANGUAGES CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -33,7 +36,7 @@ ExternalProject_Add(
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
     # temporary workaround until SDK distributes fixed toolchain file
     -DCMAKE_TOOLCHAIN_FILE=${CMAKE_CURRENT_SOURCE_DIR}/src/dpu_program/dpu.cmake
-)
+  BUILD_ALWAYS TRUE)
 
 # =================== BUILDING THE HOST BINARY ======================
 
@@ -43,6 +46,7 @@ find_package(pybind11 CONFIG REQUIRED)
 include(CheckIPOSupported)
 include(${UPMEM_HOME}/share/upmem/cmake/include/host/DpuHost.cmake)
 include(cmake/CPM.cmake)
+include(cmake/CompilerWarnings.cmake)
 
 cpmaddpackage(
   NAME
@@ -56,12 +60,34 @@ cpmaddpackage(
 
 pybind11_add_module(_core MODULE src/main.cpp src/host_program/dimm_manager.cpp
                     src/host_program/lloyd_iter.cpp)
+target_sources(
+  _core
+  PRIVATE FILE_SET
+          common_headers
+          TYPE
+          HEADERS
+          BASE_DIRS
+          src
+          FILES
+          src/common.h)
+target_sources(
+  _core
+  PRIVATE FILE_SET
+          host_headers
+          TYPE
+          HEADERS
+          BASE_DIRS
+          src
+          FILES
+          src/kmeans.hpp)
 target_link_libraries(_core PRIVATE ${DPU_HOST_LIBRARIES} fmt stdc++fs)
 target_include_directories(_core SYSTEM PUBLIC ${DPU_HOST_INCLUDE_DIRECTORIES})
 target_link_directories(_core PUBLIC ${DPU_HOST_LINK_DIRECTORIES})
 
-target_compile_features(_core PUBLIC c_std_99 cxx_std_17)
-target_compile_options(_core PRIVATE -Wall -Wextra $<$<CONFIG:RELEASE>:-Ofast>)
+target_compile_features(_core PUBLIC cxx_std_17)
+target_compile_options(_core PRIVATE $<$<CONFIG:RELEASE>:-Ofast>
+                                     $<$<CONFIG:DEBUG>:-Og>)
+dpu_kmeans_set_project_warnings(_core "" "")
 
 target_compile_definitions(
   _core

@@ -7,6 +7,7 @@
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 #include <pybind11/stl/filesystem.h>
 
 #include "kmeans.hpp"
@@ -44,7 +45,11 @@ PYBIND11_MODULE(_core, m) {
     )pbdoc")
       .def(py::init<>())
       .def("allocate", &Container::allocate)
-      .def_property("nr_dpus", &Container::get_ndpu, &Container::set_ndpu)
+      .def_property_readonly("nr_dpus", &Container::get_ndpu)
+      .def_property_readonly("allocated", &Container::allocated)
+      .def_property_readonly("hash", &Container::hash)
+      .def_property_readonly("binary_path", &Container::binary_path)
+      .def_property_readonly("data_size", &Container::data_size)
       .def("load_kernel", &Container::load_kernel)
       .def("load_array_data", &Container::load_array_data)
       .def("load_n_clusters", &Container::load_nclusters)

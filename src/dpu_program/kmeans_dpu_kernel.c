@@ -17,7 +17,12 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../common.h"
+#include "common.h"
+
+/*================== DEFINES ============================*/
+#define MAX_MRAM_TRANSFER_SIZE 2048 /**< Maximum size of a MRAM transfer */
+#define MAX_MRAM_INT64_TRANSFER \
+  256 /**< Maximum size of a MRAM transfer for int64_t */
 
 /*================== VARIABLES ==========================*/
 /*------------------ LOCAL ------------------------------*/
@@ -25,15 +30,11 @@
  * Global variables shared between tasklets
  */
 /**@{*/
-unsigned int itask_in_features;
-unsigned int itask_in_points;
+int itask_in_features;
+int itask_in_points;
 // unsigned int cluster_transfer_size;
-uint8_t nfeatures;
 uint8_t nclusters;
 uint16_t ncluster_features;
-uint8_t task_size_in_points;
-uint16_t task_size_in_bytes;
-uint16_t task_size_in_features;
 /**@}*/
 
 /*------------------ INPUT ------------------------------*/
@@ -41,13 +42,10 @@ uint16_t task_size_in_features;
  * Variables for host application communication
  */
 /**@{*/
-__host int nfeatures_host;
-__host unsigned int nclusters_host;
-__host unsigned int npoints;
-__host unsigned int task_size_in_points_host;
-__host unsigned int task_size_in_bytes_host;
-__host unsigned int task_size_in_features_host;
-__host unsigned int compute_inertia = 0;
+__host struct task_parameters p_h;
+__host int nclusters_host;
+__host int npoints;
+__host int compute_inertia = 0;
 // __host unsigned int membership_size_in_bytes;
 /**@}*/
 
@@ -112,7 +110,7 @@ __mram_noinit int64_t
 /**@}*/
 
 /*================== SYNCHRONIZATION =====================*/
-BARRIER_INIT(sync_barrier, NR_TASKLETS);
+BARRIER_INIT(sync_barrier, NR_TASKLETS)
 MUTEX_INIT(task_mutex);
 MUTEX_INIT(write_mutex);
 MUTEX_INIT(write_count_mutex);
@@ -149,8 +147,8 @@ bool taskDispatch(int *current_itask_in_points, int *current_itask_in_features,
   *current_itask_in_features = itask_in_features;
 
   // update the index
-  itask_in_points += task_size_in_points;
-  itask_in_features += task_size_in_features;
+  itask_in_points += p_h.task_size_in_points;
+  itask_in_features += p_h.task_size_in_features;
 
   mutex_unlock(task_mutex);
 
@@ -159,7 +157,7 @@ bool taskDispatch(int *current_itask_in_points, int *current_itask_in_features,
       perfcounter_get() - tasklet_counters[DISPATCH_TIC];
 #endif
 
-  return (unsigned)*current_itask_in_points < npoints;
+  return *current_itask_in_points < npoints;
 }
 
 /**
@@ -178,17 +176,11 @@ void initialize(uint8_t tasklet_id) {
     active_tasklets = 0;
 #endif
 
-    // downcasting some host variables
-    nfeatures = nfeatures_host;
-    nclusters = nclusters_host;
-    ncluster_features = nclusters * nfeatures;
-    task_size_in_points = task_size_in_points_host;
-    task_size_in_bytes = task_size_in_bytes_host;
-    task_size_in_bytes = (task_size_in_bytes + 7) & -8;
-    task_size_in_features = task_size_in_features_host;
+    nclusters = (uint8_t)nclusters_host;
+    ncluster_features = nclusters * p_h.nfeatures;
 
     // defining how much data we read/write from MRAM for each centroid
-    // cluster_transfer_size = nfeatures * sizeof(**centers_sum_tasklets);
+    // cluster_transfer_size = p_h.nfeatures * sizeof(**centers_sum_tasklets);
     // rounding cluster_transfer_size up to a multiple of 8
     // cluster_transfer_size = (cluster_transfer_size + 7) & -8;
 
@@ -208,30 +200,31 @@ void initialize(uint8_t tasklet_id) {
     }
 
     // reinitializing inertia table
-    else
+    else {
       memset(inertia_tasklets, 0, sizeof(*inertia_tasklets) * NR_TASKLETS);
+    }
   }
 
   barrier_wait(&sync_barrier);
 
   // pre-computing index lookup tables
-  uint16_t cluster_base_index = tasklet_id * nfeatures;
+  uint16_t cluster_base_index = tasklet_id * p_h.nfeatures;
   for (uint8_t icluster = tasklet_id; icluster < nclusters;
        icluster += NR_TASKLETS) {
     cluster_base_indices[icluster] = cluster_base_index;
-    cluster_base_index += NR_TASKLETS * nfeatures;
+    cluster_base_index += NR_TASKLETS * p_h.nfeatures;
   }
 
-  uint16_t point_base_index = tasklet_id * nfeatures;
-  for (uint8_t ipoint = tasklet_id; ipoint < task_size_in_points;
+  uint16_t point_base_index = tasklet_id * p_h.nfeatures;
+  for (uint8_t ipoint = tasklet_id; ipoint < p_h.task_size_in_points;
        ipoint += NR_TASKLETS) {
     point_base_indices[ipoint] = point_base_index;
-    point_base_index += NR_TASKLETS * nfeatures;
+    point_base_index += NR_TASKLETS * p_h.nfeatures;
   }
 
   // reinitializing center counters and sums per tasklet
   // memset(centers_count_tasklets[tasklet_id], 0,
-  // sizeof(**centers_count_tasklets) * nclusters);
+  // sizeof(**centers_count_tasklets) * p_h.nclusters);
   // memset(centers_sum_tasklets[tasklet_id], 0, sizeof(**centers_sum_tasklets)
   // * ncluster_features);
 }
@@ -265,8 +258,8 @@ void task_reduce(uint8_t icluster, uint16_t point_base_index,
   tasklet_counters[ARITH_TIC] = perfcounter_get();
 #endif
   mutex_lock(write_mutex);
-#pragma unroll(ASSUMED_NR_FEATURES)
-  for (uint8_t idim = 0; idim < nfeatures; idim++) {
+#pragma clang loop unroll(enable)
+  for (uint8_t idim = 0; idim < p_h.nfeatures; idim++) {
     // centers_sum_tasklets[tasklet_id][cluster_base_indices[icluster] + idim]
     // += w_features[point_base_index + idim];
     centers_sum[cluster_base_index + idim] +=
@@ -293,9 +286,9 @@ void task_reduce(uint8_t icluster, uint16_t point_base_index,
 void final_reduce(uint8_t tasklet_id) {
   // barrier_wait(&sync_barrier);
 
-  // uint16_t cluster_base_index = tasklet_id * nfeatures;
+  // uint16_t cluster_base_index = tasklet_id * p_h.nfeatures;
   // #pragma must_iterate(1, ASSUMED_NR_CLUSTERS, 1)
-  // for (uint8_t icluster = tasklet_id; icluster < nclusters; icluster +=
+  // for (uint8_t icluster = tasklet_id; icluster < p_h.nclusters; icluster +=
   // NR_TASKLETS)
   // {
   //     #pragma must_iterate(1, NR_TASKLETS, 1)
@@ -306,33 +299,49 @@ void final_reduce(uint8_t tasklet_id) {
 
   //         #pragma unroll(ASSUMED_NR_FEATURES)
   //         #pragma must_iterate(1, ASSUMED_NR_FEATURES, 1)
-  //         for (uint8_t ifeature = 0; ifeature < nfeatures; ifeature++)
+  //         for (uint8_t ifeature = 0; ifeature < p_h.nfeatures; ifeature++)
   //             centers_sum[cluster_base_index + ifeature] +=
   //             centers_sum_tasklets[itasklet][cluster_base_index + ifeature];
   //     }
-  //     cluster_base_index += nfeatures * NR_TASKLETS;
+  //     cluster_base_index += p_h.nfeatures * NR_TASKLETS;
   // }
 
   barrier_wait(&sync_barrier);
 
-  if (tasklet_id == 0) {
-    if (!compute_inertia) {
-      // TODO: this can probably go, just transfer from WRAM
-      // writing the partial sums and counts to MRAM
-      uint16_t mram_transfer_size = nclusters * sizeof(*centers_count);
-      // rounding up to multiple of 8
-      mram_transfer_size = (mram_transfer_size + 7) & -8;
-      mram_write(centers_count, centers_count_mram, mram_transfer_size);
+  if (!compute_inertia) {
+    unsigned mram_transfer_size = ncluster_features * sizeof(*centers_sum);
+    // rounding up to multiple of 8
+    mram_transfer_size = (mram_transfer_size + 7) & (unsigned)-8;
+    // TODO: fix this, this can be over 2048
+    const unsigned my_mram_offset_int64 = tasklet_id * MAX_MRAM_INT64_TRANSFER;
+    const unsigned my_mram_offset = my_mram_offset_int64 * sizeof(int64_t);
+    const unsigned my_mram_transfer_size =
+        my_mram_offset + MAX_MRAM_TRANSFER_SIZE <= mram_transfer_size
+            ? MAX_MRAM_TRANSFER_SIZE
+        : my_mram_offset <= mram_transfer_size
+            ? mram_transfer_size - my_mram_offset
+            : 0;
+    if (my_mram_transfer_size > 0) {
+      mram_write(centers_sum + my_mram_offset_int64,
+                 centers_sum_mram + my_mram_offset_int64,
+                 my_mram_transfer_size);
+    }
 
-      mram_transfer_size = ncluster_features * sizeof(*centers_sum);
+    if (mutex_trylock(write_mutex)) {
+      // writing the partial sums and counts to MRAM
+      uint16_t counts_size = nclusters * sizeof(*centers_count);
       // rounding up to multiple of 8
-      mram_transfer_size = (mram_transfer_size + 7) & -8;
-      mram_write(centers_sum, centers_sum_mram, mram_transfer_size);
-    } else
+      counts_size = (counts_size + 7) & -8;
+      mram_write(centers_count, centers_count_mram, counts_size);
+    }
+  } else {
+    if (tasklet_id == 0) {
       // summing inertia
       inertia = 0;
-    for (int i_tasklet = 0; i_tasklet < NR_TASKLETS; i_tasklet++)
-      inertia += inertia_tasklets[i_tasklet];
+      for (int i_tasklet = 0; i_tasklet < NR_TASKLETS; i_tasklet++) {
+        inertia += inertia_tasklets[i_tasklet];
+      }
+    }
   }
 }
 
@@ -370,7 +379,7 @@ void counters_tally(uint8_t tasklet_id, perfcounter_t *tasklet_counters) {
  * @return 0 on success
  */
 int main() {
-  uint8_t tasklet_id = me();
+  uint8_t tasklet_id = (uint8_t)me();
 
   int current_itask_in_points;
   int current_itask_in_features;
@@ -398,15 +407,15 @@ int main() {
 #endif
 
     mram_read(&t_features[current_itask_in_features], w_features,
-              task_size_in_bytes);
+              p_h.task_size_in_bytes);
 
     uint8_t max_ipoint =
-        (task_size_in_points < npoints - current_itask_in_points)
-            ? task_size_in_points
-            : npoints - current_itask_in_points;
+        (p_h.task_size_in_points < npoints - current_itask_in_points)
+            ? p_h.task_size_in_points
+            : (uint8_t)(npoints - current_itask_in_points);
     for (uint8_t ipoint = 0; ipoint < max_ipoint; ipoint++) {
       uint64_t min_dist = UINT64_MAX;
-      uint8_t index = -1;
+      uint8_t index = UINT8_MAX;
       uint16_t point_base_index = point_base_indices[ipoint];
 
 #ifdef PERF_COUNTER
@@ -417,14 +426,15 @@ int main() {
         uint64_t dist = 0; /* Euclidean distance squared */
         uint16_t cluster_base_index = cluster_base_indices[icluster];
 
-#pragma unroll(ASSUMED_NR_FEATURES)
-        for (uint8_t idim = 0; idim < nfeatures; idim++) {
-          volatile int_feature diff = (w_features[point_base_index + idim] -
-                                       c_clusters[cluster_base_index + idim]);
+#pragma clang loop unroll(enable)
+        for (uint8_t idim = 0; idim < p_h.nfeatures; idim++) {
+          volatile int_feature diff =
+              (int_feature)(w_features[point_base_index + idim] -
+                            c_clusters[cluster_base_index + idim]);
 #if FEATURE_TYPE == 32
           dist += (int64_t)diff * diff; /* sum of squares */
 #else
-          dist += diff * diff; /* sum of squares */
+          dist += (uint32_t)(diff * diff); /* sum of squares */
 #endif
         }
         /* see if distance is smaller than previous ones:
@@ -440,10 +450,11 @@ int main() {
 #endif
 
 #ifndef PERF_COUNTER
-      if (!compute_inertia)
+      if (!compute_inertia) {
         task_reduce(index, point_base_index, w_features);
-      else
+      } else {
         inertia_tasklets[tasklet_id] += min_dist;
+      }
 #else
       task_reduce(index, point_base_index, w_features, tasklet_counters);
 #endif
@@ -476,9 +487,9 @@ int main() {
   //   printf("nreal_points: %d\n", npoints);
 
   //   // printf("maxes: ");
-  //   // for(int ifeature = 0; ifeature < nfeatures; ifeature++){
+  //   // for(int ifeature = 0; ifeature < p_h.nfeatures; ifeature++){
   //   //     int64_t max_mean = 0;
-  //   //     for(int icluster = 0; icluster<nclusters; icluster++){
+  //   //     for(int icluster = 0; icluster < p_h.nclusters; icluster++){
   //   //         if(centers_count[icluster] > 0
   //   &&centers_sum[cluster_base_indices[icluster]+ifeature]
   //   /centers_count[icluster] > max_mean)
@@ -495,7 +506,7 @@ int main() {
   //   // }
   //   // printf("\n");
 
-  //   for(int ifeature = 0; ifeature< nfeatures; ifeature++)
+  //   for(int ifeature = 0; ifeature< p_h.nfeatures; ifeature++)
   //   {
   //     printf("count cluster %d : %d\n", ifeature, centers_count[ifeature]);
   //   }

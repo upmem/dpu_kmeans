@@ -1,0 +1,8 @@
+Checks: >
+  *,
+  -llvmlibc*,
+  -fuchsia*,
+  -altera*,
+  -android*,
+  -cpp*,
+  -hicpp*,
