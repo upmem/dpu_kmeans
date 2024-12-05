@@ -36,7 +36,7 @@ ExternalProject_Add(
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
     # temporary workaround until SDK distributes fixed toolchain file
     -DCMAKE_TOOLCHAIN_FILE=${CMAKE_CURRENT_SOURCE_DIR}/src/dpu_program/dpu.cmake
-)
+  BUILD_ALWAYS TRUE)
 
 # =================== BUILDING THE HOST BINARY ======================
 
