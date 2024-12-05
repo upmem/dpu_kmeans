@@ -19,6 +19,11 @@
 
 #include "common.h"
 
+/*================== DEFINES ============================*/
+#define MAX_MRAM_TRANSFER_SIZE 2048 /**< Maximum size of a MRAM transfer */
+#define MAX_MRAM_INT64_TRANSFER \
+  256 /**< Maximum size of a MRAM transfer for int64_t */
+
 /*================== VARIABLES ==========================*/
 /*------------------ LOCAL ------------------------------*/
 /** @name Globals
@@ -303,24 +308,39 @@ void final_reduce(uint8_t tasklet_id) {
 
   barrier_wait(&sync_barrier);
 
-  if (tasklet_id == 0) {
-    if (!compute_inertia) {
+  if (!compute_inertia) {
+    unsigned mram_transfer_size = ncluster_features * sizeof(*centers_sum);
+    // rounding up to multiple of 8
+    mram_transfer_size = (mram_transfer_size + 7) & (unsigned)-8;
+    // TODO: fix this, this can be over 2048
+    unsigned my_mram_offset_int64 = tasklet_id * MAX_MRAM_INT64_TRANSFER;
+    unsigned my_mram_offset = my_mram_offset_int64 * sizeof(int64_t);
+    unsigned my_mram_transfer_size =
+        my_mram_offset + MAX_MRAM_TRANSFER_SIZE <= mram_transfer_size
+            ? MAX_MRAM_TRANSFER_SIZE
+        : my_mram_offset <= mram_transfer_size
+            ? mram_transfer_size - my_mram_offset
+            : 0;
+    if (my_mram_transfer_size > 0) {
+      mram_write(centers_sum + my_mram_offset_int64,
+                 centers_sum_mram + my_mram_offset_int64,
+                 my_mram_transfer_size);
+    }
+
+    if (mutex_trylock(write_mutex)) {
       // writing the partial sums and counts to MRAM
       uint16_t mram_transfer_size = nclusters * sizeof(*centers_count);
       // rounding up to multiple of 8
       mram_transfer_size = (mram_transfer_size + 7) & -8;
       mram_write(centers_count, centers_count_mram, mram_transfer_size);
-
-      mram_transfer_size = ncluster_features * sizeof(*centers_sum);
-      // rounding up to multiple of 8
-      mram_transfer_size = (mram_transfer_size + 7) & -8;
-      mram_write(centers_sum, centers_sum_mram, mram_transfer_size);
-    } else {
+    }
+  } else {
+    if (tasklet_id == 0) {
       // summing inertia
       inertia = 0;
-    }
-    for (int i_tasklet = 0; i_tasklet < NR_TASKLETS; i_tasklet++) {
-      inertia += inertia_tasklets[i_tasklet];
+      for (int i_tasklet = 0; i_tasklet < NR_TASKLETS; i_tasklet++) {
+        inertia += inertia_tasklets[i_tasklet];
+      }
     }
   }
 }
