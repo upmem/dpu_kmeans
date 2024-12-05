@@ -14,6 +14,7 @@
 from __future__ import annotations
 import numpy
 import os
+import typing
 __all__ = ['Container', 'FEATURE_TYPE']
 class Container:
     """
@@ -21,13 +22,12 @@ class Container:
             Container object to interface with the DPUs
         
     """
-    nr_dpus: int
     @staticmethod
     def _pybind11_conduit_v1_(*args, **kwargs):
         ...
     def __init__(self) -> None:
         ...
-    def allocate(self) -> None:
+    def allocate(self, arg0: int) -> None:
         ...
     def compute_inertia(self, arg0: numpy.ndarray[numpy.int16]) -> int:
         ...
@@ -35,7 +35,7 @@ class Container:
         ...
     def lloyd_iter(self, arg0: numpy.ndarray[numpy.int16], arg1: numpy.ndarray[numpy.int64], arg2: numpy.ndarray[numpy.int32]) -> None:
         ...
-    def load_array_data(self, arg0: numpy.ndarray[numpy.int16], arg1: int, arg2: int) -> None:
+    def load_array_data(self, arg0: numpy.ndarray[numpy.int16], arg1: str) -> None:
         ...
     def load_kernel(self, arg0: os.PathLike) -> None:
         ...
@@ -44,10 +44,25 @@ class Container:
     def reset_timer(self) -> None:
         ...
     @property
+    def allocated(self) -> bool:
+        ...
+    @property
+    def binary_path(self) -> os.PathLike | None:
+        ...
+    @property
     def cpu_pim_time(self) -> float:
         ...
     @property
+    def data_size(self) -> int | None:
+        ...
+    @property
     def dpu_run_time(self) -> float:
+        ...
+    @property
+    def hash(self) -> bytes | None:
+        ...
+    @property
+    def nr_dpus(self) -> int:
         ...
     @property
     def pim_cpu_time(self) -> float:
