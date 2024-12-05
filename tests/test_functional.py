@@ -12,27 +12,26 @@ from sklearn.datasets import make_blobs
 from sklearn.metrics import adjusted_rand_score
 
 from dpu_kmeans import KMeans as DPUKMeans
-from dpu_kmeans import _dimm
-
-N_CLUSTERS = 15
 
 
 def test_clustering_dpu_then_cpu():
     """Make clustering on DPUs and then on CPU, and compare the results."""
+    n_clusters = 15
+
     # Generating data
-    data = make_blobs(int(1e4), 8, centers=N_CLUSTERS, random_state=42)[0].astype(
+    data = make_blobs(int(1e4), 8, centers=n_clusters, random_state=42)[0].astype(
         np.float32,
     )
 
-    init = data[:N_CLUSTERS]
+    rng = np.random.default_rng(42)
+    init = rng.choice(data, n_clusters, replace=False)
 
     # Clustering with DPUs
-    _dimm.set_n_dpu(4)
-    dpu_kmeans = DPUKMeans(N_CLUSTERS, init=init, n_init=1, verbose=False)
+    dpu_kmeans = DPUKMeans(n_clusters, init=init, n_init=1, verbose=False, n_dpu=4)
     dpu_kmeans.fit(data)
 
     # Clustering with CPU
-    kmeans = KMeans(N_CLUSTERS, init=init, n_init=1, algorithm="full")
+    kmeans = KMeans(n_clusters, init=init, n_init=1, algorithm="full")
     kmeans.fit(data)
 
     # Comparison
@@ -44,20 +43,22 @@ def test_clustering_dpu_then_cpu():
 
 def test_clustering_cpu_then_dpu():
     """Make clustering on CPUs and then on DPU, and compare the results."""
+    n_clusters = 15
+
     # Generating data
-    data = make_blobs(int(1e4), 8, centers=N_CLUSTERS, random_state=42)[0].astype(
+    data = make_blobs(int(1e4), 8, centers=n_clusters, random_state=42)[0].astype(
         np.float32,
     )
 
-    init = data[:N_CLUSTERS]
+    rng = np.random.default_rng(42)
+    init = rng.choice(data, n_clusters, replace=False)
 
     # Clustering with CPU
-    kmeans = KMeans(N_CLUSTERS, init=init, n_init=1, algorithm="full")
+    kmeans = KMeans(n_clusters, init=init, n_init=1, algorithm="full")
     kmeans.fit(data)
 
     # Clustering with DPUs
-    _dimm.set_n_dpu(4)
-    dpu_kmeans = DPUKMeans(N_CLUSTERS, init=init, n_init=1, verbose=False)
+    dpu_kmeans = DPUKMeans(n_clusters, init=init, n_init=1, verbose=False, n_dpu=4)
     dpu_kmeans.fit(data)
 
     # Comparison
@@ -69,23 +70,24 @@ def test_clustering_cpu_then_dpu():
 
 def test_clustering_dpu_then_dpu():
     """Make clustering on DPU twice, and compare the results."""
+    n_clusters = 15
+
     # Generating data
-    data = make_blobs(int(1e4), 8, centers=N_CLUSTERS, random_state=42)[0].astype(
+    data = make_blobs(int(1e4), 8, centers=n_clusters, random_state=42)[0].astype(
         np.float32,
     )
     data_copy = data.copy()
 
-    init = data[:N_CLUSTERS]
+    rng = np.random.default_rng(42)
+    init = rng.choice(data, n_clusters, replace=False)
 
     # Clustering with DPUs
-    _dimm.set_n_dpu(4)
-
-    dpu_kmeans = DPUKMeans(N_CLUSTERS, init=init, n_init=1, verbose=False)
+    dpu_kmeans = DPUKMeans(n_clusters, init=init, n_init=1, verbose=False, n_dpu=4)
     dpu_kmeans.fit(data)
     n_iter_1 = dpu_kmeans.n_iter_
     dpu_labels_1 = dpu_kmeans.labels_
 
-    dpu_kmeans = DPUKMeans(N_CLUSTERS, init=init, n_init=1, verbose=False)
+    dpu_kmeans = DPUKMeans(n_clusters, init=init, n_init=1, verbose=False, n_dpu=4)
     dpu_kmeans.fit(data_copy)
     n_iter_2 = dpu_kmeans.n_iter_
     dpu_labels_2 = dpu_kmeans.labels_
@@ -107,11 +109,11 @@ def test_large_dimensionality():
         0
     ].astype(np.float32)
 
-    init = data[:n_clusters]
+    rng = np.random.default_rng(42)
+    init = rng.choice(data, n_clusters, replace=False)
 
     # Clustering with DPUs
-    _dimm.set_n_dpu(128)
-    dpu_kmeans = DPUKMeans(n_clusters, init=init, n_init=1, verbose=False)
+    dpu_kmeans = DPUKMeans(n_clusters, init=init, n_init=1, verbose=False, n_dpu=64)
     dpu_kmeans.fit(data)
 
     # Clustering with CPU
