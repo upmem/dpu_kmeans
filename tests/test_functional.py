@@ -7,7 +7,7 @@ Tests the K-Means at the service level
 """
 
 import numpy as np
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, kmeans_plusplus
 from sklearn.datasets import make_blobs
 from sklearn.metrics import adjusted_rand_score
 
@@ -105,15 +105,17 @@ def test_large_dimensionality():
     n_features = 128
 
     # Generating data
-    data = make_blobs(189744, n_features, centers=n_clusters, random_state=42)[
+    data = make_blobs(int(1e4), n_features, centers=n_clusters, random_state=42)[
         0
     ].astype(np.float32)
 
-    rng = np.random.default_rng(42)
-    init = rng.choice(data, n_clusters, replace=False)
+    # use KMeans++ initialization here for the sake of having a shorter test
+    # otherwise we get a lot of clusters relocations with a low number of points
+    # in high dimensionality
+    init = kmeans_plusplus(data, n_clusters, random_state=42)[0]
 
     # Clustering with DPUs
-    dpu_kmeans = DPUKMeans(n_clusters, init=init, n_init=1, verbose=False, n_dpu=64)
+    dpu_kmeans = DPUKMeans(n_clusters, init=init, n_init=1, verbose=False, n_dpu=4)
     dpu_kmeans.fit(data)
 
     # Clustering with CPU
