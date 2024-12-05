@@ -313,9 +313,9 @@ void final_reduce(uint8_t tasklet_id) {
     // rounding up to multiple of 8
     mram_transfer_size = (mram_transfer_size + 7) & (unsigned)-8;
     // TODO: fix this, this can be over 2048
-    unsigned my_mram_offset_int64 = tasklet_id * MAX_MRAM_INT64_TRANSFER;
-    unsigned my_mram_offset = my_mram_offset_int64 * sizeof(int64_t);
-    unsigned my_mram_transfer_size =
+    const unsigned my_mram_offset_int64 = tasklet_id * MAX_MRAM_INT64_TRANSFER;
+    const unsigned my_mram_offset = my_mram_offset_int64 * sizeof(int64_t);
+    const unsigned my_mram_transfer_size =
         my_mram_offset + MAX_MRAM_TRANSFER_SIZE <= mram_transfer_size
             ? MAX_MRAM_TRANSFER_SIZE
         : my_mram_offset <= mram_transfer_size
@@ -329,10 +329,10 @@ void final_reduce(uint8_t tasklet_id) {
 
     if (mutex_trylock(write_mutex)) {
       // writing the partial sums and counts to MRAM
-      uint16_t mram_transfer_size = nclusters * sizeof(*centers_count);
+      uint16_t counts_size = nclusters * sizeof(*centers_count);
       // rounding up to multiple of 8
-      mram_transfer_size = (mram_transfer_size + 7) & -8;
-      mram_write(centers_count, centers_count_mram, mram_transfer_size);
+      counts_size = (counts_size + 7) & -8;
+      mram_write(centers_count, centers_count_mram, counts_size);
     }
   } else {
     if (tasklet_id == 0) {
