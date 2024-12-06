@@ -108,7 +108,7 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
         check_is_fitted(self)
 
         # adding 0.5 to compensate for rounding previously
-        return ((Xt + 0.5) / self.scale_factor).astype(self.input_dtype)
+        return ((Xt + np.sign(Xt) * 0.5) / self.scale_factor).astype(self.input_dtype)
 
 
 ld = LinearDiscretizer()  # linear discretization transformer
