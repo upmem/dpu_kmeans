@@ -141,31 +141,12 @@ void Container::lloyd_iter(const py::array_t<int_feature> &old_centers,
    * has been moved to the python code */
 }
 
-auto Container::compute_inertia(const py::array_t<int_feature> &old_centers)
-    -> int64_t {
+auto Container::get_inertia() -> int64_t {
   if (!allset_) {
     throw std::runtime_error("No DPUs allocated");
   }
-  int compute_inertia = 1;
-  DPU_CHECK(dpu_broadcast_to(
-                allset_.value(), "c_clusters", 0, old_centers.data(),
-                static_cast<size_t>(old_centers.nbytes()), DPU_XFER_DEFAULT),
-            throw std::runtime_error("Failed to broadcast old centers"));
-
-  DPU_CHECK(dpu_broadcast_to(allset_.value(), "compute_inertia", 0,
-                             &compute_inertia, sizeof(int), DPU_XFER_DEFAULT),
-            throw std::runtime_error("Failed to broadcast compute inertia"));
-
   auto tic = std::chrono::steady_clock::now();
-  //============RUNNING ONE LLOYD ITERATION ON THE DPU==============
-  DPU_CHECK(dpu_launch(allset_.value(), DPU_SYNCHRONOUS),
-            throw std::runtime_error("Failed to launch DPUs"));
-  //================================================================
-  auto toc = std::chrono::steady_clock::now();
-  p_.time_seconds += std::chrono::duration<double>{toc - tic}.count();
-
-  tic = std::chrono::steady_clock::now();
-  /* copy back inertia (device to host) */
+  /* Copy back inertia (device to host) */
   dpu_set_t dpu{};
   uint32_t each_dpu = 0;
   DPU_FOREACH(allset_.value(), dpu, each_dpu) {
@@ -176,18 +157,9 @@ auto Container::compute_inertia(const py::array_t<int_feature> &old_centers)
                           sizeof(inertia_per_dpu_[0]), DPU_XFER_DEFAULT),
             throw std::runtime_error("Failed to push transfer"));
 
-  /* sum partial inertia */
-  int64_t inertia =
-      std::accumulate(inertia_per_dpu_.cbegin(), inertia_per_dpu_.cend(), 0LL);
+  auto toc = std::chrono::steady_clock::now();
+  p_.cpu_pim_time += std::chrono::duration<double>{toc - tic}.count();
 
-  compute_inertia = 0;
-  DPU_CHECK(dpu_broadcast_to(allset_.value(), "compute_inertia", 0,
-                             &compute_inertia, sizeof(int), DPU_XFER_DEFAULT),
-            throw std::runtime_error("Failed to broadcast compute inertia"));
-
-  toc = std::chrono::steady_clock::now();
-
-  p_.pim_cpu_time = std::chrono::duration<double>{toc - tic}.count();
-
-  return inertia;
+  return std::accumulate(inertia_per_dpu_.cbegin(), inertia_per_dpu_.cend(),
+                         0LL);
 }

@@ -253,7 +253,6 @@ def _kmeans_single_lloyd_dpu(
         Number of iterations run.
 
     """
-    compute_inertia = _dimm.ctr.compute_inertia
     scale_factor = _dimm.ld.scale_factor
     n_clusters = centers_init.shape[0]
     dtype = _dimm.ld.dtype
@@ -304,7 +303,7 @@ def _kmeans_single_lloyd_dpu(
             )
 
             if verbose:
-                inertia = compute_inertia(centers_int) / scale_factor**2
+                inertia = _dimm.ctr.inertia / scale_factor**2
                 print(f"Iteration {i}, inertia {inertia}.")
 
             centers_int, centers_new_int = centers_new_int, centers_int
@@ -322,7 +321,7 @@ def _kmeans_single_lloyd_dpu(
     centers[:] = _dimm.ld.inverse_transform(centers_int)
 
     tic = time.perf_counter()
-    inertia = compute_inertia(centers_int) / scale_factor**2
+    inertia = _dimm.ctr.inertia / scale_factor**2
     toc = time.perf_counter()
     inertia_timer = toc - tic
 

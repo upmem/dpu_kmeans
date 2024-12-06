@@ -181,11 +181,9 @@ class Container {
                   py::array_t<int> &centers_pcount);
 
   /**
-   * @brief Runs one E step of the K-Means algorithm and gets inertia.
+   * @brief Get the inertia computed in the E step of the previous iteration.
    *
-   * @param old_centers [in] Discretized coordinates of the current
-   * centroids.
    * @return int64_t The inertia.
    */
-  auto compute_inertia(const py::array_t<int_feature> &old_centers) -> int64_t;
+  auto get_inertia() -> int64_t;
 };

@@ -40,7 +40,6 @@ uint16_t ncluster_features;
 __host struct task_parameters p_h;
 __host int nclusters_host;
 __host int npoints;
-__host int compute_inertia = 0;
 // __host unsigned int membership_size_in_bytes;
 /**@}*/
 
@@ -189,15 +188,11 @@ void initialize(uint8_t tasklet_id) {
     // c_clusters, ncluster_features * sizeof(int32_t));
 
     // reinitializing center counters and sums
-    if (!compute_inertia) {
-      memset(centers_count, 0, sizeof(*centers_count) * nclusters);
-      memset(centers_sum, 0, sizeof(*centers_sum) * ncluster_features);
-    }
+    memset(centers_count, 0, sizeof(*centers_count) * nclusters);
+    memset(centers_sum, 0, sizeof(*centers_sum) * ncluster_features);
 
     // reinitializing inertia table
-    else {
-      memset(inertia_tasklets, 0, sizeof(*inertia_tasklets) * NR_TASKLETS);
-    }
+    memset(inertia_tasklets, 0, sizeof(*inertia_tasklets) * NR_TASKLETS);
   }
 
   barrier_wait(&sync_barrier);
@@ -303,37 +298,35 @@ void final_reduce(uint8_t tasklet_id) {
 
   barrier_wait(&sync_barrier);
 
-  if (!compute_inertia) {
-    unsigned sums_size = ncluster_features * sizeof(*centers_sum);
+  unsigned sums_size = ncluster_features * sizeof(*centers_sum);
+  // rounding up to multiple of 8
+  sums_size = (sums_size + DMA_ALIGN - 1) & -DMA_ALIGN;
+
+  const unsigned my_sum_offset = tasklet_id * MAX_MRAM_TRANSFER_SIZE;
+  const unsigned my_sum_transfer_size =
+      my_sum_offset + MAX_MRAM_TRANSFER_SIZE <= sums_size
+          ? MAX_MRAM_TRANSFER_SIZE
+      : my_sum_offset <= sums_size ? sums_size - my_sum_offset
+                                   : 0;
+  if (my_sum_transfer_size > 0) {
+    mram_write((char *)centers_sum + my_sum_offset,
+               (__mram_ptr char *)centers_sum_mram + my_sum_offset,
+               my_sum_transfer_size);
+  }
+
+  if (mutex_trylock(write_mutex)) {
+    // writing the partial sums and counts to MRAM
+    unsigned counts_size = nclusters * sizeof(*centers_count);
     // rounding up to multiple of 8
-    sums_size = (sums_size + DMA_ALIGN - 1) & -DMA_ALIGN;
+    counts_size = (counts_size + DMA_ALIGN - 1) & -DMA_ALIGN;
+    mram_write(centers_count, centers_count_mram, counts_size);
+  }
 
-    const unsigned my_sum_offset = tasklet_id * MAX_MRAM_TRANSFER_SIZE;
-    const unsigned my_sum_transfer_size =
-        my_sum_offset + MAX_MRAM_TRANSFER_SIZE <= sums_size
-            ? MAX_MRAM_TRANSFER_SIZE
-        : my_sum_offset <= sums_size ? sums_size - my_sum_offset
-                                     : 0;
-    if (my_sum_transfer_size > 0) {
-      mram_write((char *)centers_sum + my_sum_offset,
-                 (__mram_ptr char *)centers_sum_mram + my_sum_offset,
-                 my_sum_transfer_size);
-    }
-
-    if (mutex_trylock(write_mutex)) {
-      // writing the partial sums and counts to MRAM
-      unsigned counts_size = nclusters * sizeof(*centers_count);
-      // rounding up to multiple of 8
-      counts_size = (counts_size + DMA_ALIGN - 1) & -DMA_ALIGN;
-      mram_write(centers_count, centers_count_mram, counts_size);
-    }
-  } else {
-    if (tasklet_id == 0) {
-      // summing inertia
-      inertia = 0;
-      for (int i_tasklet = 0; i_tasklet < NR_TASKLETS; i_tasklet++) {
-        inertia += inertia_tasklets[i_tasklet];
-      }
+  if (mutex_trylock(write_count_mutex)) {
+    // summing inertia
+    inertia = 0;
+    for (int i_tasklet = 0; i_tasklet < NR_TASKLETS; i_tasklet++) {
+      inertia += inertia_tasklets[i_tasklet];
     }
   }
 }
@@ -443,13 +436,11 @@ int main() {
 #endif
 
 #ifndef PERF_COUNTER
-      if (!compute_inertia) {
-        task_reduce(index, point_base_index, w_features);
-      } else {
-        inertia_tasklets[tasklet_id] += min_dist;
-      }
+      task_reduce(index, point_base_index, w_features);
+      inertia_tasklets[tasklet_id] += min_dist;
 #else
       task_reduce(index, point_base_index, w_features, tasklet_counters);
+      inertia_tasklets[tasklet_id] += min_dist;
 #endif
     }
 
