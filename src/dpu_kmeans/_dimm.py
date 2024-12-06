@@ -78,7 +78,7 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
 
         Returns
         -------
-        Xt : ndarray, dtype={np.float32, np.float64}
+        Xt : ndarray, dtype={np.int8, np.int16, np.int32}
             Quantized data.
 
         """
