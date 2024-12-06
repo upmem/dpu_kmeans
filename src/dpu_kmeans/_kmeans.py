@@ -58,6 +58,7 @@ def _lloyd_iter_dpu(
     sample_weight,
     x_squared_norms,
     n_threads,
+    verbose,
 ):
     """Single iteration of K-means lloyd algorithm with dense input on DPU.
 
@@ -96,11 +97,17 @@ def _lloyd_iter_dpu(
     n_clusters = points_in_clusters.shape[0]
     points_in_clusters[:] = points_in_clusters_per_dpu.sum(axis=0)[:n_clusters]
 
+    centers_sum_int = centers_sum_int_per_dpu.sum(axis=0)
+
     reallocate_timer = 0
     if any(points_in_clusters == 0):
         # If any cluster has no points, we need to set the centers to the
         # furthest points in the cluster from the previous iteration.
-        print("Warning: some clusters have no points, relocating empty clusters")
+        if verbose:
+            print(
+                "Warning: some clusters have no points, relocating empty clusters.",
+                "Relocation is not implemented on DPU and will be done on CPU.",
+            )
         tic = time.perf_counter()
 
         centers_old = _dimm.ld.inverse_transform(centers_old_int)
@@ -121,7 +128,7 @@ def _lloyd_iter_dpu(
             sample_weight,
             x_squared_norms,
             centers_old,
-            centers_old,
+            centers_sum_new,
             weight_in_clusters,
             labels,
             center_shift,
@@ -146,7 +153,6 @@ def _lloyd_iter_dpu(
         toc = time.perf_counter()
         reallocate_timer = toc - tic
 
-    centers_sum_int = centers_sum_int_per_dpu.sum(axis=0)
     np.floor_divide(
         centers_sum_int,
         points_in_clusters[:, None],
@@ -272,6 +278,7 @@ def _kmeans_single_lloyd_dpu(
                 sample_weight,
                 x_squared_norms,
                 n_threads,
+                verbose,
             )
 
             # if verbose:

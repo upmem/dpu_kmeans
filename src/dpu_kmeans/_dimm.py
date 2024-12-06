@@ -78,7 +78,7 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
 
         Returns
         -------
-        Xt : ndarray, dtype={np.float32, np.float64}
+        Xt : ndarray, dtype={np.int8, np.int16, np.int32}
             Quantized data.
 
         """
@@ -108,7 +108,7 @@ class LinearDiscretizer(TransformerMixin, BaseEstimator):
         check_is_fitted(self)
 
         # adding 0.5 to compensate for rounding previously
-        return ((Xt + 0.5) / self.scale_factor).astype(self.input_dtype)
+        return ((Xt + np.sign(Xt) * 0.5) / self.scale_factor).astype(self.input_dtype)
 
 
 ld = LinearDiscretizer()  # linear discretization transformer

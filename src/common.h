@@ -29,6 +29,8 @@
 #define ASSUMED_NR_FEATURES 128 /**< Maximum number of features */
 #define WRAM_FEATURES_SIZE \
   512 /**< max size of the WRAM array holding points features in bytes */
+#define DMA_ALIGN 8U                /**< DMA alignment */
+#define MAX_MRAM_TRANSFER_SIZE 2048 /**< Maximum size of a MRAM transfer */
 /**@}*/
 
 // Performance tracking

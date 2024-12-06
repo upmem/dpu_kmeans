@@ -19,11 +19,6 @@
 
 #include "common.h"
 
-/*================== DEFINES ============================*/
-#define MAX_MRAM_TRANSFER_SIZE 2048 /**< Maximum size of a MRAM transfer */
-#define MAX_MRAM_INT64_TRANSFER \
-  256 /**< Maximum size of a MRAM transfer for int64_t */
-
 /*================== VARIABLES ==========================*/
 /*------------------ LOCAL ------------------------------*/
 /** @name Globals
@@ -309,29 +304,27 @@ void final_reduce(uint8_t tasklet_id) {
   barrier_wait(&sync_barrier);
 
   if (!compute_inertia) {
-    unsigned mram_transfer_size = ncluster_features * sizeof(*centers_sum);
+    unsigned sums_size = ncluster_features * sizeof(*centers_sum);
     // rounding up to multiple of 8
-    mram_transfer_size = (mram_transfer_size + 7) & (unsigned)-8;
-    // TODO: fix this, this can be over 2048
-    const unsigned my_mram_offset_int64 = tasklet_id * MAX_MRAM_INT64_TRANSFER;
-    const unsigned my_mram_offset = my_mram_offset_int64 * sizeof(int64_t);
-    const unsigned my_mram_transfer_size =
-        my_mram_offset + MAX_MRAM_TRANSFER_SIZE <= mram_transfer_size
+    sums_size = (sums_size + DMA_ALIGN - 1) & -DMA_ALIGN;
+
+    const unsigned my_sum_offset = tasklet_id * MAX_MRAM_TRANSFER_SIZE;
+    const unsigned my_sum_transfer_size =
+        my_sum_offset + MAX_MRAM_TRANSFER_SIZE <= sums_size
             ? MAX_MRAM_TRANSFER_SIZE
-        : my_mram_offset <= mram_transfer_size
-            ? mram_transfer_size - my_mram_offset
-            : 0;
-    if (my_mram_transfer_size > 0) {
-      mram_write(centers_sum + my_mram_offset_int64,
-                 centers_sum_mram + my_mram_offset_int64,
-                 my_mram_transfer_size);
+        : my_sum_offset <= sums_size ? sums_size - my_sum_offset
+                                     : 0;
+    if (my_sum_transfer_size > 0) {
+      mram_write((char *)centers_sum + my_sum_offset,
+                 (__mram_ptr char *)centers_sum_mram + my_sum_offset,
+                 my_sum_transfer_size);
     }
 
     if (mutex_trylock(write_mutex)) {
       // writing the partial sums and counts to MRAM
-      uint16_t counts_size = nclusters * sizeof(*centers_count);
+      unsigned counts_size = nclusters * sizeof(*centers_count);
       // rounding up to multiple of 8
-      counts_size = (counts_size + 7) & -8;
+      counts_size = (counts_size + DMA_ALIGN - 1) & -DMA_ALIGN;
       mram_write(centers_count, centers_count_mram, counts_size);
     }
   } else {
