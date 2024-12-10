@@ -271,7 +271,7 @@ def log_dpu(
     df.loc[dimm_index, ("results", "dpu", "pim_cpu_times")] = DPU_kmeans.pim_cpu_time_
     df.loc[dimm_index, ("results", "dpu", "inertia_times")] = DPU_kmeans.inertia_timer_
     df.loc[dimm_index, ("results", "dpu", "reallocate_times")] = (
-        DPU_kmeans.reallocate_timer_
+        DPU_kmeans.relocate_timer_
     )
     df.loc[dimm_index, ("results", "dpu", "single_kmeans_times")] = (
         DPU_kmeans.main_loop_timer_

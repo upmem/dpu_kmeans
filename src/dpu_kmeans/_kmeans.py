@@ -190,7 +190,7 @@ def _lloyd_iter_dpu(
         np.linalg.norm(centers_new_int - centers_old_int, ord="fro") ** 2
         / scale_factor**2
     )
-    return center_shift_tot, reallocate_timer
+    return center_shift_tot, relocate_timer
 
 
 def _kmeans_single_lloyd_dpu(
@@ -520,7 +520,7 @@ class KMeans(KMeansCPU):
 
             # run a k-means once
             tic = time.perf_counter()
-            inertia, centers, n_iter_, inertia_timer, reallocate_timer = kmeans_single(
+            inertia, centers, n_iter_, inertia_timer, relocate_timer = kmeans_single(
                 X,
                 sample_weight,
                 centers_init,
@@ -550,7 +550,7 @@ class KMeans(KMeansCPU):
                 best_main_loop_timer = main_loop_timer
                 best_dpu_run_time = dpu_run_time
                 best_inertia_timer = inertia_timer
-                best_reallocate_timer = reallocate_timer
+                best_relocate_timer = relocate_timer
                 best_pim_cpu_time = pim_cpu_time
 
         # compute final labels CPU side
@@ -580,7 +580,7 @@ class KMeans(KMeansCPU):
         self.dpu_run_time_ = best_dpu_run_time
         self.main_loop_timer_ = best_main_loop_timer
         self.inertia_timer_ = best_inertia_timer
-        self.reallocate_timer_ = best_reallocate_timer
+        self.relocate_timer_ = best_relocate_timer
         self.pim_cpu_time_ = best_pim_cpu_time
         self.train_time_ = train_time
         return self

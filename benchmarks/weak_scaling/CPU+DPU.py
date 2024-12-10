@@ -106,7 +106,7 @@ for i_n_dpu, n_dpu in enumerate(pbar := tqdm(n_dpu_set, file=sys.stdout)):
     DPU_cpu_pim_timer = DPU_kmeans.cpu_pim_time_
     DPU_pim_cpu_timer = DPU_kmeans.pim_cpu_time_
     DPU_inertia_timer = DPU_kmeans.inertia_timer_
-    DPU_reallocate_timer = DPU_kmeans.reallocate_timer_
+    DPU_reallocate_timer = DPU_kmeans.relocate_timer_
     DPU_train_timer = DPU_kmeans.train_time_
 
     DPU_timer = toc - tic
