@@ -108,6 +108,9 @@ def _lloyd_iter_dpu(
     center_shift_tot : float
         Distance between old and new centers.
 
+    relocate_timer : float
+        Time spent relocating empty clusters.
+
     """
     dpu_iter = _dimm.ctr.lloyd_iter
     scale_factor = _dimm.ld.scale_factor
@@ -123,7 +126,7 @@ def _lloyd_iter_dpu(
 
     centers_sum_int[:] = centers_sum_int_per_dpu.sum(axis=0)
 
-    reallocate_timer = 0
+    relocate_timer = 0
     if any(points_in_clusters == 0):
         # If any cluster has no points, we need to set the centers to the
         # furthest points in the cluster from the previous iteration.
@@ -174,7 +177,7 @@ def _lloyd_iter_dpu(
         centers_sum_int[:] = centers_sum_new * scale_factor
 
         toc = time.perf_counter()
-        reallocate_timer = toc - tic
+        relocate_timer = toc - tic
 
     np.floor_divide(
         centers_sum_int,
@@ -238,19 +241,21 @@ def _kmeans_single_lloyd_dpu(
 
     Returns
     -------
-    centroid : ndarray of shape (n_clusters, n_features)
-        Centroids found at the last iteration of k-means.
-
-    label : ndarray of shape (n_samples,)
-        label[i] is the code or index of the centroid the
-        i'th observation is closest to.
-
     inertia : float
         The final value of the inertia criterion (sum of squared distances to
         the closest centroid for all observations in the training set).
 
+    centroid : ndarray of shape (n_clusters, n_features)
+        Centroids found at the last iteration of k-means.
+
     n_iter : int
         Number of iterations run.
+
+    inertia_timer : float
+        Time spent computing inertia.
+
+    relocate_timer : float
+        Time spent relocating empty clusters.
 
     """
     scale_factor = _dimm.ld.scale_factor
@@ -288,7 +293,7 @@ def _kmeans_single_lloyd_dpu(
     # nested parallelism (i.e. BLAS) to avoid oversubsciption.
     with threadpool_limits(limits=1, user_api="blas"):
         for i in range(max_iter):
-            center_shift_tot, reallocate_timer = lloyd_iter(
+            center_shift_tot, relocate_timer = lloyd_iter(
                 centers_int,
                 centers_new_int,
                 centers_sum_int,
@@ -325,7 +330,7 @@ def _kmeans_single_lloyd_dpu(
     toc = time.perf_counter()
     inertia_timer = toc - tic
 
-    return inertia, centers, i + 1, inertia_timer, reallocate_timer
+    return inertia, centers, i, inertia_timer, relocate_timer
 
 
 class KMeans(KMeansCPU):
