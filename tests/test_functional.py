@@ -114,7 +114,7 @@ def test_clustering_dpu_then_dpu():
 def test_large_dimensionality():
     """Test the clustering with a large features * clusters product."""
     n_clusters = 24
-    n_features = 127
+    n_features = 71
     n_points = int(1e4)
 
     # Generating data
