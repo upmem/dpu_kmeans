@@ -137,11 +137,11 @@ def _lloyd_iter_dpu(
             )
         tic = time.perf_counter()
 
-        centers_old = _dimm.ld.inverse_transform(centers_old_int)
-        centers_sum_new = _dimm.ld.inverse_transform(centers_sum_int)
-
         n_samples = X.shape[0]
-        n_clusters = centers_old_int.shape[0]
+        n_clusters = points_in_clusters.shape[0]
+
+        centers_old = _dimm.ld.inverse_transform(centers_old_int[:n_clusters])
+        centers_sum_new = _dimm.ld.inverse_transform(centers_sum_int)
 
         labels = np.full(n_samples, -1, dtype=np.int32)
         weight_in_clusters = np.zeros(n_clusters, dtype=X.dtype)
@@ -182,15 +182,18 @@ def _lloyd_iter_dpu(
     np.floor_divide(
         centers_sum_int,
         points_in_clusters[:, None],
-        out=centers_new_int,
+        out=centers_new_int[:n_clusters],
         where=points_in_clusters[:, None] != 0,
     )
 
     center_shift_tot = (
-        np.linalg.norm(centers_new_int - centers_old_int, ord="fro") ** 2
+        np.linalg.norm(
+            centers_new_int[:n_clusters] - centers_old_int[:n_clusters], ord="fro"
+        )
+        ** 2
         / scale_factor**2
     )
-    return center_shift_tot, reallocate_timer
+    return center_shift_tot, relocate_timer
 
 
 def _kmeans_single_lloyd_dpu(
@@ -267,8 +270,20 @@ def _kmeans_single_lloyd_dpu(
 
     # Buffers to avoid new allocations at each iteration.
     centers = centers_init
-    centers_int = np.empty_like(centers, dtype=dtype)
-    centers_new_int = np.empty_like(centers, dtype=dtype)
+
+    # Calculate the padding needed to make the array size a multiple of 8 bytes
+    current_size = centers.size * centers.itemsize
+    current_mismatch = current_size % 8
+    needed_extra_points = (8 - current_mismatch) // centers.itemsize
+
+    # centers_int = np.empty_like(centers, dtype=dtype)
+    centers_int = np.empty(
+        (centers.shape[0] + needed_extra_points, centers.shape[1]), dtype=dtype
+    )
+    # centers_new_int = np.empty_like(centers_int, dtype=dtype)
+    centers_new_int = np.empty(
+        (centers_int.shape[0] + needed_extra_points, centers_int.shape[1]), dtype=dtype
+    )
     centers_sum_int = np.empty_like(centers, dtype=np.int64)
     centers_sum_int_per_dpu = np.empty(
         (_dimm.ctr.nr_dpus, centers.shape[0], centers.shape[1]),
@@ -287,7 +302,7 @@ def _kmeans_single_lloyd_dpu(
     lloyd_iter = _lloyd_iter_dpu
 
     # quantize the centroids
-    centers_int[:] = _dimm.ld.transform(centers)
+    centers_int[:n_clusters] = _dimm.ld.transform(centers)
 
     # Threadpoolctl context to limit the number of threads in second level of
     # nested parallelism (i.e. BLAS) to avoid oversubsciption.
@@ -323,7 +338,7 @@ def _kmeans_single_lloyd_dpu(
                 break
 
     # convert the centroids back to float
-    centers[:] = _dimm.ld.inverse_transform(centers_int)
+    centers[:] = _dimm.ld.inverse_transform(centers_int[:n_clusters])
 
     tic = time.perf_counter()
     inertia = _dimm.ctr.inertia / scale_factor**2

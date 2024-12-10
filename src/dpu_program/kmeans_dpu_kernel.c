@@ -81,6 +81,8 @@ __dma_aligned uint64_t inertia_tasklets[NR_TASKLETS];
 /**@{*/
 /** centroids coordinates */
 __host int_feature c_clusters[ASSUMED_NR_CLUSTERS * ASSUMED_NR_FEATURES];
+__mram_noinit int_feature
+    c_clusters_mram[ASSUMED_NR_CLUSTERS * ASSUMED_NR_FEATURES];
 /** array holding the data points (input) */
 __mram_noinit int_feature t_features[MAX_FEATURE_DPU];
 /**@}*/

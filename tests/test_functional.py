@@ -17,7 +17,7 @@ from dpu_kmeans import KMeans as DPUKMeans
 def test_clustering_dpu_then_cpu():
     """Make clustering on DPUs and then on CPU, and compare the results."""
     n_clusters = 15
-    n_features = 8
+    n_features = 7
     n_points = int(1e4)
 
     # Generating data
