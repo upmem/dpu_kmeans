@@ -69,4 +69,4 @@ class Container:
     def pim_cpu_time(self) -> float:
         ...
 FEATURE_TYPE: int = 16
-__version__: str = '0.2.4'
+__version__: str = '0.2.5'
