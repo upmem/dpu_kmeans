@@ -14,6 +14,7 @@
 #include <mram.h>
 #include <mutex.h>
 #include <perfcounter.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -392,6 +393,16 @@ int main() {
     tasklet_counters[MAIN_TIC] = perfcounter_get();
 #endif
 
+    // // rounding up to multiple of 8
+    // const unsigned read_size = (p_h.task_size_in_bytes + DMA_ALIGN - 1) &
+    // -DMA_ALIGN; if((uintptr_t)&t_features[current_itask_in_features] %
+    // DMA_ALIGN != 0) {
+    //   halt(1);
+    // }
+    const int align_offset = (int)((unsigned)current_itask_in_features &
+                                   ((DMA_ALIGN / sizeof(int_feature)) - 1));
+    __mram_ptr int_feature *mram_ptr =
+        &t_features[current_itask_in_features - align_offset];
     mram_read(&t_features[current_itask_in_features], w_features,
               p_h.task_size_in_bytes);
 

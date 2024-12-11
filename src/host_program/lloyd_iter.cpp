@@ -8,9 +8,11 @@
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <numeric>
+#include <utility>
 
 #include "kmeans.hpp"
 
@@ -24,6 +26,51 @@ extern "C" {
 #include "common.h"
 }
 
+namespace {
+/**
+ * @brief Global array to temporarily store the old centers with padding.
+ * Used when the cluster centers buffer isn't 4 aligned.
+ */
+std::array<int_feature, ASSUMED_NR_CLUSTERS * ASSUMED_NR_FEATURES>
+    old_centers_padded;
+
+/**
+ * @brief Rounds a number to the next multiple of 4.
+ *
+ * @param x Number to round.
+ * @return size_t Rounded number.
+ */
+constexpr auto round_to_4(size_t x) -> size_t { return (x + 3U) & ~3U; }
+
+/**
+ * @brief Aligns the cluster centers array length to 4 bytes if needed.
+ * If the incoming array isn't 4 aligned, it will be copied to a global array.
+ *
+ * @param old_centers Cluster centers array.
+ * @return constexpr auto Pair of the source pointer and the transfer size.
+ */
+inline auto align_c_clusters(const py::array_t<int_feature> &old_centers) {
+  auto xfer_size = static_cast<size_t>(old_centers.nbytes());
+  const auto *src_ptr = old_centers.data();
+
+  if (reinterpret_cast<uintptr_t>(src_ptr) % 4 != 0) {
+    throw std::runtime_error("old_centers array is not 4 aligned");
+  }
+
+  /* If the length of the clusters array isn't 4 aligned, we need
+   * to copy it to a new array that will accept padding */
+  constexpr int kWramAligment = 4;
+  if (xfer_size % kWramAligment != 0) {
+    std::copy_n(old_centers.data(), old_centers.size(),
+                old_centers_padded.begin());
+    xfer_size = round_to_4(xfer_size);
+    src_ptr = old_centers_padded.data();
+  }
+
+  return std::pair{src_ptr, xfer_size};
+}
+}  // namespace
+
 void Container::lloyd_iter(const py::array_t<int_feature> &old_centers,
                            py::array_t<int64_t> &centers_psum,
                            py::array_t<int> &centers_pcount) {
@@ -35,15 +82,16 @@ void Container::lloyd_iter(const py::array_t<int_feature> &old_centers,
   std::vector<std::array<uint64_t, HOST_COUNTERS>> counters(p_.ndpu);
 #endif
 
-  DPU_CHECK(dpu_broadcast_to(
-                allset_.value(), "c_clusters", 0, old_centers.data(),
-                static_cast<size_t>(old_centers.nbytes()), DPU_XFER_DEFAULT),
+  const auto [src_ptr, xfer_size] = align_c_clusters(old_centers);
+
+  DPU_CHECK(dpu_broadcast_to(allset_.value(), "c_clusters", 0, src_ptr,
+                             xfer_size, DPU_XFER_DEFAULT),
             throw std::runtime_error("Failed to broadcast old centers"));
 
   const auto tic = std::chrono::steady_clock::now();
   //============RUNNING ONE LLOYD ITERATION ON THE DPU==============
   DPU_CHECK(dpu_launch(allset_.value(), DPU_SYNCHRONOUS),
-            throw std::runtime_error("Failed to launch DPUs"));
+            throw std::runtime_error("Failed to run DPUs"));
   //================================================================
   const auto toc = std::chrono::steady_clock::now();
   p_.time_seconds += std::chrono::duration<double>{toc - tic}.count();
